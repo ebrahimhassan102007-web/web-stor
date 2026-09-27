@@ -6,14 +6,20 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:server": "tsx scripts/db-server.ts",
+    "db:push": "drizzle-kit push",
+    "db:seed": "tsx scripts/seed.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "dotenv": "^18.0.4",
     "drizzle-orm": "^0.45.3",
     "next": "16.3.6",
     "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "server-only": "^0.0.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {
