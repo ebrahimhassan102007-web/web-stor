@@ -67,7 +67,11 @@ export async function POST(req: NextRequest) {
     const cartId = await getExistingCartId();
     if (!cartId) return jsonError("Your cart is empty.", 400);
 
-    const result = await db.transaction(async (tx) => {
+    type CheckoutResult =
+      | { error: string }
+      | { order: { orderNumber: string; totalCents: number } };
+
+    const result = await db.transaction(async (tx): Promise<CheckoutResult> => {
       // Load cart lines with authoritative prices, locking product rows.
       const lines = await tx
         .select({
@@ -83,15 +87,13 @@ export async function POST(req: NextRequest) {
         .for("update");
 
       if (lines.length === 0) {
-        return { error: "Your cart is empty." as const };
+        return { error: "Your cart is empty." };
       }
 
       for (const line of lines) {
         if (line.quantity > line.stock) {
           return {
-            error:
-              `Insufficient stock for "${line.name}". ` +
-              "Please adjust your cart." as const,
+            error: `Insufficient stock for "${line.name}". Please adjust your cart.`,
           };
         }
       }

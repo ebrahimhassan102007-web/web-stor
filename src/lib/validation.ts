@@ -30,7 +30,6 @@ const safeText = (min: number, max: number) =>
     .min(min)
     .max(max)
     // Printable characters only — blocks control chars / header injection.
-    // eslint-disable-next-line no-control-regex
     .regex(/^[^\u0000-\u001f\u007f]*$/, "Invalid characters");
 
 export const checkoutSchema = z.object({

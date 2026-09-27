@@ -1,69 +1,164 @@
-import Image from "next/image";
+import Link from "next/link";
+import { getCategoriesWithCounts, getFeaturedProducts } from "@/lib/catalog";
+import { ProductCard } from "@/components/product-card";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+const TRUST_BADGES = [
+  {
+    icon: "🔒",
+    title: "Encrypted Checkout",
+    text: "Every session runs over TLS with HttpOnly, signed cookies.",
+  },
+  {
+    icon: "🛡️",
+    title: "Hardened by Design",
+    text: "Strict input validation and parameterized queries everywhere.",
+  },
+  {
+    icon: "🚚",
+    title: "Free Shipping $100+",
+    text: "Fast, tracked delivery on every order over one hundred dollars.",
+  },
+  {
+    icon: "↩️",
+    title: "30-Day Returns",
+    text: "Changed your mind? Send it back within thirty days.",
+  },
+];
+
+export default async function HomePage() {
+  const [categories, featured] = await Promise.all([
+    getCategoriesWithCounts(),
+    getFeaturedProducts(8),
+  ]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <div className="mx-auto max-w-7xl px-4 sm:px-6">
+      {/* Hero */}
+      <section className="relative py-16 sm:py-24 text-center">
+        <div className="mx-auto max-w-3xl">
+          <span className="badge-green mb-6">
+            <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+            Zero-trust storefront · v1.0
+          </span>
+          <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl leading-[1.1]">
+            Gear for people who
+            <span className="block text-primary">trust no one.</span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mx-auto mt-6 max-w-xl text-base sm:text-lg text-muted leading-relaxed">
+            Premium electronics, security hardware and techwear — sold through
+            a checkout built like a vault. No trackers, no leaks, no nonsense.
           </p>
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link href="/products" className="btn-primary w-full sm:w-auto px-8 py-3 text-base">
+              Browse Products
+            </Link>
+            <Link
+              href="/products?category=security"
+              className="btn-ghost w-full sm:w-auto px-8 py-3 text-base"
+            >
+              🛡️ Security Gear
+            </Link>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      </section>
+
+      {/* Trust badges */}
+      <section aria-label="Why shop with us" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {TRUST_BADGES.map((b) => (
+          <div key={b.title} className="glass-card card-glow-green p-5">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl" aria-hidden>
+                {b.icon}
+              </span>
+              <h2 className="font-semibold">{b.title}</h2>
+            </div>
+            <p className="mt-2 text-sm text-muted leading-relaxed">{b.text}</p>
+          </div>
+        ))}
+      </section>
+
+      {/* Featured products */}
+      <section className="mt-20">
+        <div className="mb-8 flex items-end justify-between">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              Featured <span className="text-primary">Drops</span>
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              Hand-picked, top-rated, ready to ship.
+            </p>
+          </div>
+          <Link
+            href="/products"
+            className="hidden sm:block text-sm font-medium text-primary hover:underline underline-offset-4"
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+            View all →
+          </Link>
+        </div>
+        <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          {featured.map((p) => (
+            <ProductCard key={p.id} product={p} />
+          ))}
+        </div>
+      </section>
+
+      {/* Category grid */}
+      <section className="mt-20">
+        <h2 className="mb-8 text-2xl sm:text-3xl font-bold tracking-tight">
+          Shop by <span className="text-success">Category</span>
+        </h2>
+        <div className="grid gap-5 grid-cols-2 lg:grid-cols-3">
+          {categories.map((c) => (
+            <Link
+              key={c.id}
+              href={`/products?category=${encodeURIComponent(c.slug)}`}
+              className="glass-card card-glow-red group p-5 sm:p-6"
+            >
+              <span className="text-3xl" aria-hidden>
+                {c.icon}
+              </span>
+              <h3 className="mt-3 font-semibold group-hover:text-primary transition-colors">
+                {c.name}
+              </h3>
+              <p className="mt-1 hidden sm:block text-sm text-muted leading-relaxed">
+                {c.description}
+              </p>
+              <p className="mt-3 text-xs font-medium text-muted">
+                {c.productCount} products
+              </p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* Security banner */}
+      <section className="mt-20">
+        <div className="glass-card overflow-hidden">
+          <div className="relative px-6 py-10 sm:px-12 sm:py-14 text-center">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(40rem_16rem_at_50%_-20%,rgba(34,197,94,0.1),transparent_70%)]"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              Your data stays <span className="text-success">yours.</span>
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm sm:text-base text-muted leading-relaxed">
+              We validate every byte of input, sign every session, and never
+              run third-party trackers. The same discipline we demand from the
+              gear we sell.
+            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-2 font-mono text-xs">
+              <span className="badge-neutral">HttpOnly cookies</span>
+              <span className="badge-neutral">SameSite=Lax</span>
+              <span className="badge-neutral">HMAC-signed sessions</span>
+              <span className="badge-neutral">Zod-validated inputs</span>
+              <span className="badge-neutral">Parameterized SQL</span>
+            </div>
+          </div>
         </div>
-      </main>
+      </section>
     </div>
   );
 }
