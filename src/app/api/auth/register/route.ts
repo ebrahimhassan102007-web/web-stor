@@ -1,5 +1,4 @@
 import type { NextRequest } from "next/server";
-import { eq } from "drizzle-orm";
 import { db, users } from "@/lib/db";
 import { hashPassword } from "@/lib/security/password";
 import { createSession } from "@/lib/security/auth";

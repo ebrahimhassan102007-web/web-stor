@@ -53,9 +53,9 @@ export async function POST(req: NextRequest) {
         "scrypt$32768$8$1$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
     );
 
-    if (!user || !ok) {
+    if (!user || user.disabled || !ok) {
       securityLog.authFailure({ kind: "login", email, ip: clientKey(req) });
-      return jsonError("Invalid email or password.", 401);
+      return jsonError("بيانات الدخول غير صحيحة.", 401);
     }
 
     await createSession(user.id);

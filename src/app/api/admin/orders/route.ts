@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { desc, sql } from "drizzle-orm";
-import { db, orders } from "@/lib/db";
+import { db, orders, users } from "@/lib/db";
+import { eq } from "drizzle-orm";
 import { guardAdmin } from "@/lib/security/admin-guard";
 import { adminListQuerySchema } from "@/lib/validation";
 import { jsonOk, handleUnexpected } from "@/lib/http";
@@ -26,12 +27,15 @@ export async function GET(req: NextRequest) {
           id: orders.id,
           orderNumber: orders.orderNumber,
           status: orders.status,
-          customerName: orders.customerName,
-          email: orders.email,
+          paymentStatus: orders.paymentStatus,
+          fulfillmentStatus: orders.fulfillmentStatus,
+          customerName: users.name,
+          customerEmail: users.email,
           totalCents: orders.totalCents,
           createdAt: orders.createdAt,
         })
         .from(orders)
+        .innerJoin(users, eq(orders.userId, users.id))
         .orderBy(desc(orders.createdAt))
         .limit(PAGE_SIZE)
         .offset((page - 1) * PAGE_SIZE),

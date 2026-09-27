@@ -3,8 +3,8 @@ import { asc, eq, sql } from "drizzle-orm";
 import { db, categories, products } from "@/lib/db";
 import { guardAdmin } from "@/lib/security/admin-guard";
 import { adminCategorySchema } from "@/lib/validation";
+import { recordAudit } from "@/lib/audit";
 import { jsonOk, jsonError, readJsonBody, handleUnexpected } from "@/lib/http";
-import { securityLog } from "@/lib/log";
 
 export const dynamic = "force-dynamic";
 
@@ -18,15 +18,18 @@ export async function GET(req: NextRequest) {
       .select({
         id: categories.id,
         slug: categories.slug,
-        name: categories.name,
+        nameAr: categories.nameAr,
+        nameEn: categories.nameEn,
         description: categories.description,
         icon: categories.icon,
+        sortOrder: categories.sortOrder,
+        visible: categories.visible,
         productCount: sql<number>`count(${products.id})::int`,
       })
       .from(categories)
       .leftJoin(products, eq(products.categoryId, categories.id))
       .groupBy(categories.id)
-      .orderBy(asc(categories.id));
+      .orderBy(asc(categories.sortOrder), asc(categories.id));
 
     return jsonOk({ categories: rows });
   } catch (err) {
@@ -41,11 +44,11 @@ export async function POST(req: NextRequest) {
     if ("response" in guard) return guard.response;
 
     const raw = await readJsonBody(req);
-    if (raw === undefined) return jsonError("Invalid request body.", 400);
+    if (raw === undefined) return jsonError("طلب غير صالح.", 400);
 
     const parsed = adminCategorySchema.safeParse(raw);
     if (!parsed.success) {
-      return jsonError("Please review the fields.", 400, parsed.error.flatten().fieldErrors);
+      return jsonError("يرجى مراجعة الحقول.", 400, parsed.error.flatten().fieldErrors);
     }
 
     const inserted = await db
@@ -55,13 +58,15 @@ export async function POST(req: NextRequest) {
       .returning({ id: categories.id });
 
     if (inserted.length === 0) {
-      return jsonError("A category with this slug already exists.", 409);
+      return jsonError("يوجد قسم بنفس المعرّف (slug).", 409);
     }
 
-    securityLog.adminAction({
-      action: "category.create",
+    await recordAudit({
       adminId: guard.user.id,
-      categoryId: inserted[0].id,
+      action: "category.create",
+      targetType: "category",
+      targetId: inserted[0].id,
+      meta: { slug: parsed.data.slug },
     });
     return jsonOk({ id: inserted[0].id }, { status: 201 });
   } catch (err) {

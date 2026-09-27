@@ -2,9 +2,9 @@ import type { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, categories, products } from "@/lib/db";
 import { guardAdmin } from "@/lib/security/admin-guard";
-import { adminCategorySchema, cartItemIdSchema } from "@/lib/validation";
+import { adminCategoryUpdateSchema, cartItemIdSchema } from "@/lib/validation";
+import { recordAudit } from "@/lib/audit";
 import { jsonOk, jsonError, readJsonBody, handleUnexpected } from "@/lib/http";
-import { securityLog } from "@/lib/log";
 
 export const dynamic = "force-dynamic";
 
@@ -17,27 +17,27 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if ("response" in guard) return guard.response;
 
     const idParsed = cartItemIdSchema.safeParse((await ctx.params).id);
-    if (!idParsed.success) return jsonError("Invalid input.", 400);
+    if (!idParsed.success) return jsonError("بيانات غير صالحة.", 400);
 
     const raw = await readJsonBody(req);
-    if (raw === undefined) return jsonError("Invalid request body.", 400);
+    if (raw === undefined) return jsonError("طلب غير صالح.", 400);
 
-    const parsed = adminCategorySchema.partial().safeParse(raw);
-    if (!parsed.success || Object.keys(parsed.data).length === 0) {
-      return jsonError("Please review the fields.", 400);
-    }
+    const parsed = adminCategoryUpdateSchema.safeParse(raw);
+    if (!parsed.success) return jsonError("يرجى مراجعة الحقول.", 400);
 
     const updated = await db
       .update(categories)
       .set(parsed.data)
       .where(eq(categories.id, idParsed.data))
       .returning({ id: categories.id });
-    if (updated.length === 0) return jsonError("Category not found.", 404);
+    if (updated.length === 0) return jsonError("القسم غير موجود.", 404);
 
-    securityLog.adminAction({
-      action: "category.update",
+    await recordAudit({
       adminId: guard.user.id,
-      categoryId: idParsed.data,
+      action: "category.update",
+      targetType: "category",
+      targetId: idParsed.data,
+      meta: { fields: Object.keys(parsed.data).join(",") },
     });
     return jsonOk({ id: idParsed.data });
   } catch (err) {
@@ -52,7 +52,7 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
     if ("response" in guard) return guard.response;
 
     const idParsed = cartItemIdSchema.safeParse((await ctx.params).id);
-    if (!idParsed.success) return jsonError("Invalid input.", 400);
+    if (!idParsed.success) return jsonError("بيانات غير صالحة.", 400);
 
     const [inUse] = await db
       .select({ id: products.id })
@@ -60,19 +60,20 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
       .where(eq(products.categoryId, idParsed.data))
       .limit(1);
     if (inUse) {
-      return jsonError("Category still contains products. Move or delete them first.", 409);
+      return jsonError("القسم يحتوي على منتجات. انقلها أو احذفها أولاً.", 409);
     }
 
     const deleted = await db
       .delete(categories)
       .where(eq(categories.id, idParsed.data))
       .returning({ id: categories.id });
-    if (deleted.length === 0) return jsonError("Category not found.", 404);
+    if (deleted.length === 0) return jsonError("القسم غير موجود.", 404);
 
-    securityLog.adminAction({
-      action: "category.delete",
+    await recordAudit({
       adminId: guard.user.id,
-      categoryId: idParsed.data,
+      action: "category.delete",
+      targetType: "category",
+      targetId: idParsed.data,
     });
     return jsonOk({ id: idParsed.data, deleted: true });
   } catch (err) {

@@ -1,53 +1,66 @@
 import type { NextRequest } from "next/server";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db, cartItems, products } from "@/lib/db";
+import type { ProductType } from "@/lib/db/schema";
 import { getOrCreateCartId } from "@/lib/security/session";
 import { verifySameOrigin } from "@/lib/security/csrf";
 import { rateLimit, clientKey } from "@/lib/security/rate-limit";
-import { addToCartSchema } from "@/lib/validation";
+import { addToCartSchema, MAX_LINE_QTY } from "@/lib/validation";
+import { validateCustomerInputs } from "@/lib/product-fields";
 import { getCartSummary } from "@/lib/cart";
-import { jsonOk, jsonError, handleUnexpected } from "@/lib/http";
+import { jsonOk, jsonError, rateLimitedResponse, readJsonBody, handleUnexpected } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
-
-const MAX_QTY_PER_LINE = 99;
 
 /** POST /api/cart/items — add a product to the cart. */
 export async function POST(req: NextRequest) {
   try {
     if (!verifySameOrigin(req)) {
-      return jsonError("Request rejected.", 403);
+      return jsonError("تم رفض الطلب.", 403);
     }
     if (!rateLimit(`cart:${clientKey(req)}`, 60, 60_000)) {
-      return jsonError("Too many requests. Please slow down.", 429);
+      return rateLimitedResponse();
     }
 
-    let raw: unknown;
-    try {
-      raw = await req.json();
-    } catch {
-      return jsonError("Invalid request body.", 400);
-    }
+    const raw = await readJsonBody(req);
+    if (raw === undefined) return jsonError("طلب غير صالح.", 400);
 
     const parsed = addToCartSchema.safeParse(raw);
     if (!parsed.success) {
-      return jsonError("Invalid input.", 400, parsed.error.flatten().fieldErrors);
+      return jsonError("بيانات غير صالحة.", 400, parsed.error.flatten().fieldErrors);
     }
     const { productId, quantity } = parsed.data;
 
-    // Product must exist and have stock.
+    // Product must exist, be active and have stock.
     const [product] = await db
-      .select({ id: products.id, stock: products.stock })
+      .select({
+        id: products.id,
+        stock: products.stock,
+        active: products.active,
+        type: products.type,
+      })
       .from(products)
       .where(eq(products.id, productId))
       .limit(1);
 
-    if (!product) return jsonError("Product not found.", 404);
-    if (product.stock <= 0) return jsonError("This product is out of stock.", 409);
+    if (!product || !product.active) {
+      return jsonError("المنتج غير متوفر.", 404);
+    }
+    if (product.stock <= 0) {
+      return jsonError("هذا المنتج غير متوفر حالياً.", 409);
+    }
+
+    // Server-side validation of per-type customer inputs (player id, phone…).
+    const inputs = validateCustomerInputs(
+      product.type as ProductType,
+      parsed.data.customerInputs ?? {},
+    );
+    if (inputs === null) {
+      return jsonError("يرجى إدخال البيانات المطلوبة بشكل صحيح.", 400);
+    }
 
     const cartId = await getOrCreateCartId();
 
-    // Upsert the line, clamping to available stock and per-line max.
     const [existing] = await db
       .select({ id: cartItems.id, quantity: cartItems.quantity })
       .from(cartItems)
@@ -57,22 +70,19 @@ export async function POST(req: NextRequest) {
     const target = Math.min(
       (existing?.quantity ?? 0) + quantity,
       product.stock,
-      MAX_QTY_PER_LINE,
+      MAX_LINE_QTY,
     );
 
     if (existing) {
       await db
         .update(cartItems)
-        .set({ quantity: target })
+        .set({ quantity: target, customerInputs: inputs })
         .where(eq(cartItems.id, existing.id));
     } else {
       await db
         .insert(cartItems)
-        .values({ cartId, productId, quantity: target })
-        .onConflictDoUpdate({
-          target: [cartItems.cartId, cartItems.productId],
-          set: { quantity: sql`excluded.quantity` },
-        });
+        .values({ cartId, productId, quantity: target, customerInputs: inputs })
+        .onConflictDoNothing();
     }
 
     return jsonOk(await getCartSummary(cartId), { status: 201 });

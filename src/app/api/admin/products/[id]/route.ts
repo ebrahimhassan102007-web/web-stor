@@ -3,28 +3,29 @@ import { eq } from "drizzle-orm";
 import { db, products, orderItems, categories } from "@/lib/db";
 import { guardAdmin } from "@/lib/security/admin-guard";
 import { adminProductUpdateSchema, cartItemIdSchema } from "@/lib/validation";
+import { recordAudit } from "@/lib/audit";
 import { jsonOk, jsonError, readJsonBody, handleUnexpected } from "@/lib/http";
-import { securityLog } from "@/lib/log";
 
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-/** PATCH /api/admin/products/:id — partial update. */
+/** PATCH /api/admin/products/:id — explicit-field partial update. */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
     const guard = await guardAdmin(req);
     if ("response" in guard) return guard.response;
 
     const idParsed = cartItemIdSchema.safeParse((await ctx.params).id);
-    if (!idParsed.success) return jsonError("Invalid input.", 400);
+    if (!idParsed.success) return jsonError("بيانات غير صالحة.", 400);
 
     const raw = await readJsonBody(req);
-    if (raw === undefined) return jsonError("Invalid request body.", 400);
+    if (raw === undefined) return jsonError("طلب غير صالح.", 400);
 
+    // Zod strips unknown keys — mass assignment is impossible.
     const parsed = adminProductUpdateSchema.safeParse(raw);
     if (!parsed.success) {
-      return jsonError("Please review the fields.", 400, parsed.error.flatten().fieldErrors);
+      return jsonError("يرجى مراجعة الحقول.", 400, parsed.error.flatten().fieldErrors);
     }
 
     if (parsed.data.categoryId !== undefined) {
@@ -33,22 +34,23 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
         .from(categories)
         .where(eq(categories.id, parsed.data.categoryId))
         .limit(1);
-      if (!cat) return jsonError("Category not found.", 404);
+      if (!cat) return jsonError("القسم غير موجود.", 404);
     }
 
     const updated = await db
       .update(products)
-      .set(parsed.data)
+      .set({ ...parsed.data, updatedAt: new Date() })
       .where(eq(products.id, idParsed.data))
       .returning({ id: products.id });
 
-    if (updated.length === 0) return jsonError("Product not found.", 404);
+    if (updated.length === 0) return jsonError("المنتج غير موجود.", 404);
 
-    securityLog.adminAction({
-      action: "product.update",
+    await recordAudit({
       adminId: guard.user.id,
-      productId: idParsed.data,
-      fields: Object.keys(parsed.data).join(","),
+      action: "product.update",
+      targetType: "product",
+      targetId: idParsed.data,
+      meta: { fields: Object.keys(parsed.data).join(",") },
     });
     return jsonOk({ id: idParsed.data });
   } catch (err) {
@@ -58,9 +60,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
 /**
  * DELETE /api/admin/products/:id
- *
- * Products referenced by past orders are soft-disabled (order history is
- * immutable); unreferenced products are hard-deleted.
+ * Products referenced by orders are soft-disabled (history is immutable);
+ * unreferenced products are hard-deleted.
  */
 export async function DELETE(req: NextRequest, ctx: Ctx) {
   try {
@@ -68,7 +69,7 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
     if ("response" in guard) return guard.response;
 
     const idParsed = cartItemIdSchema.safeParse((await ctx.params).id);
-    if (!idParsed.success) return jsonError("Invalid input.", 400);
+    if (!idParsed.success) return jsonError("بيانات غير صالحة.", 400);
 
     const [referenced] = await db
       .select({ id: orderItems.id })
@@ -79,15 +80,16 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
     if (referenced) {
       const updated = await db
         .update(products)
-        .set({ active: false, featured: false })
+        .set({ active: false, featured: false, updatedAt: new Date() })
         .where(eq(products.id, idParsed.data))
         .returning({ id: products.id });
-      if (updated.length === 0) return jsonError("Product not found.", 404);
+      if (updated.length === 0) return jsonError("المنتج غير موجود.", 404);
 
-      securityLog.adminAction({
-        action: "product.disable",
+      await recordAudit({
         adminId: guard.user.id,
-        productId: idParsed.data,
+        action: "product.disable",
+        targetType: "product",
+        targetId: idParsed.data,
       });
       return jsonOk({ id: idParsed.data, disabled: true });
     }
@@ -96,12 +98,13 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
       .delete(products)
       .where(eq(products.id, idParsed.data))
       .returning({ id: products.id });
-    if (deleted.length === 0) return jsonError("Product not found.", 404);
+    if (deleted.length === 0) return jsonError("المنتج غير موجود.", 404);
 
-    securityLog.adminAction({
-      action: "product.delete",
+    await recordAudit({
       adminId: guard.user.id,
-      productId: idParsed.data,
+      action: "product.delete",
+      targetType: "product",
+      targetId: idParsed.data,
     });
     return jsonOk({ id: idParsed.data, deleted: true });
   } catch (err) {
