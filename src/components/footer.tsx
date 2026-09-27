@@ -7,56 +7,48 @@ export function Footer() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <div className="flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 border border-primary/30 text-primary font-bold text-sm">
-                W
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 border border-primary/30 text-primary font-extrabold text-sm">
+                خ
               </span>
-              <span className="font-bold">
-                Web<span className="text-primary">Stor</span>
+              <span className="font-extrabold">
+                خدمتك <span className="text-primary">ستور</span>
               </span>
             </div>
             <p className="mt-4 text-sm text-muted leading-relaxed">
-              A hardened marketplace for people who take their tech — and
-              their privacy — seriously.
+              خدماتك الرقمية في مكان واحد — اشتراكات، شحن ألعاب، رصيد،
+              وبطاقات رقمية أصلية بتسليم آمن وسريع.
             </p>
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Shop</h3>
+            <h2 className="text-sm font-bold text-foreground">الأقسام</h2>
             <ul className="mt-4 space-y-2.5 text-sm text-muted">
-              <li><Link href="/products" className="hover:text-primary transition-colors">All Products</Link></li>
-              <li><Link href="/products?category=electronics" className="hover:text-primary transition-colors">Electronics</Link></li>
-              <li><Link href="/products?category=security" className="hover:text-primary transition-colors">Security Gear</Link></li>
-              <li><Link href="/products?sort=rating" className="hover:text-primary transition-colors">Top Rated</Link></li>
+              <li><Link href="/products?category=subscriptions" className="hover:text-primary transition-colors">اشتراكات رقمية</Link></li>
+              <li><Link href="/products?category=gaming" className="hover:text-primary transition-colors">شحن ألعاب</Link></li>
+              <li><Link href="/products?category=recharge" className="hover:text-primary transition-colors">شحن رصيد</Link></li>
+              <li><Link href="/products?category=gift-cards" className="hover:text-primary transition-colors">بطاقات رقمية</Link></li>
             </ul>
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Trust</h3>
+            <h2 className="text-sm font-bold text-foreground">الأمان</h2>
             <ul className="mt-4 space-y-2.5 text-sm text-muted">
-              <li className="flex items-center gap-2">
-                <span className="text-success">✓</span> TLS-encrypted checkout
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-success">✓</span> HttpOnly signed sessions
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-success">✓</span> Strict input validation
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-success">✓</span> Zero third-party trackers
-              </li>
+              <li className="flex items-center gap-2"><span className="text-success">✓</span> دفع آمن ومشفّر</li>
+              <li className="flex items-center gap-2"><span className="text-success">✓</span> أكواد مشفّرة حتى التسليم</li>
+              <li className="flex items-center gap-2"><span className="text-success">✓</span> تحقق صارم من كل طلب</li>
+              <li className="flex items-center gap-2"><span className="text-success">✓</span> بدون متتبعات خارجية</li>
             </ul>
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Status</h3>
+            <h2 className="text-sm font-bold text-foreground">الحالة</h2>
             <div className="mt-4 space-y-3">
               <span className="badge-green">
                 <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-                All systems operational
+                جميع الأنظمة تعمل
               </span>
-              <p className="text-xs text-muted font-mono">
-                AES-256 · FIDO2 · SameSite=Lax
+              <p className="text-xs text-muted">
+                Khodmtak Store — Your Digital Services, All in One Place
               </p>
             </div>
           </div>
@@ -64,10 +56,10 @@ export function Footer() {
 
         <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-edge pt-6 sm:flex-row">
           <p className="text-xs text-muted">
-            © {new Date().getFullYear()} WebStor. Demo storefront — no real
-            payments are processed.
+            © {new Date().getFullYear()} خدمتك ستور. متجر تجريبي — لا تتم معالجة
+            مدفوعات حقيقية في بيئة التطوير.
           </p>
-          <p className="text-xs text-muted font-mono">built secure by design</p>
+          <p className="text-xs text-muted">صُنع بأمان وحب 🛡️</p>
         </div>
       </div>
     </footer>

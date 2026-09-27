@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
 /* ------------------------------------------------------------------ */
-/* WebStor dark theme — deep blacks, red primary, green success        */
+/* خدمتك ستور — Khodmtak Store                                         */
+/* Deep dark theme — red primary, green success, glassmorphism, RTL    */
 /* ------------------------------------------------------------------ */
 :root {
   --bg-deep: #050505;
@@ -10,7 +11,7 @@
   --bg-card: #141414;
   --border-subtle: #1f1f1f;
   --foreground: #e7e7e7;
-  --muted: #8a8a8a;
+  --muted: #969696;
   --accent-red: #ef4444;
   --accent-red-dim: #b91c1c;
   --accent-green: #22c55e;
@@ -29,8 +30,7 @@
   --color-primary-dim: var(--accent-red-dim);
   --color-success: var(--accent-green);
   --color-success-dim: var(--accent-green-dim);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: "Cairo Variable", "Segoe UI", system-ui, sans-serif;
 }
 
 html {
@@ -41,7 +41,7 @@ html {
 body {
   background: var(--bg-deep);
   color: var(--foreground);
-  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  font-family: "Cairo Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -97,12 +97,16 @@ body {
   border-radius: 0.65rem;
   background: var(--accent-red);
   color: #fff;
-  font-weight: 600;
+  font-weight: 700;
   padding: 0.65rem 1.25rem;
   transition: background 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
   &:hover {
     background: #dc2626;
     box-shadow: 0 0 20px rgba(239, 68, 68, 0.35);
+  }
+  &:focus-visible {
+    outline: 2px solid #fca5a5;
+    outline-offset: 2px;
   }
   &:disabled {
     opacity: 0.5;
@@ -119,12 +123,37 @@ body {
   border: 1px solid var(--border-subtle);
   background: rgba(17, 17, 17, 0.6);
   color: var(--foreground);
-  font-weight: 500;
+  font-weight: 600;
   padding: 0.65rem 1.25rem;
   transition: border-color 150ms ease, background 150ms ease;
   &:hover {
     border-color: rgba(239, 68, 68, 0.4);
     background: rgba(239, 68, 68, 0.06);
+  }
+  &:focus-visible {
+    outline: 2px solid #fca5a5;
+    outline-offset: 2px;
+  }
+  &:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+}
+
+@utility btn-success {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.65rem;
+  background: var(--accent-green-dim);
+  color: #fff;
+  font-weight: 700;
+  padding: 0.65rem 1.25rem;
+  transition: background 150ms ease, box-shadow 150ms ease;
+  &:hover {
+    background: #16a34a;
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.35);
   }
   &:disabled {
     opacity: 0.5;
@@ -159,7 +188,7 @@ body {
   background: rgba(34, 197, 94, 0.08);
   color: var(--accent-green);
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   padding: 0.25rem 0.7rem;
 }
 
@@ -172,7 +201,7 @@ body {
   background: rgba(239, 68, 68, 0.08);
   color: var(--accent-red);
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   padding: 0.25rem 0.7rem;
 }
 
@@ -185,7 +214,7 @@ body {
   background: rgba(255, 255, 255, 0.03);
   color: var(--muted);
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   padding: 0.25rem 0.7rem;
 }
 
@@ -198,4 +227,28 @@ body {
     radial-gradient(18rem 12rem at 50% 0%, rgba(239, 68, 68, 0.08), transparent 70%),
     linear-gradient(180deg, #161616 0%, #0d0d0d 100%);
   user-select: none;
+}
+
+/* Skeleton shimmer for loading states */
+@utility skeleton {
+  border-radius: 0.65rem;
+  background: linear-gradient(90deg, #121212 25%, #1a1a1a 50%, #121212 75%);
+  background-size: 200% 100%;
+  animation: skeleton-wave 1.4s ease infinite;
+}
+
+@keyframes skeleton-wave {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Latin numerals/codes inside RTL text */
+.ltr-inline {
+  direction: ltr;
+  unicode-bidi: isolate;
+  display: inline-block;
 }

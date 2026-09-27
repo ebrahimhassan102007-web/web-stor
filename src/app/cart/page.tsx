@@ -2,18 +2,20 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { useCart } from "@/components/cart-provider";
+import { useStore } from "@/components/store-provider";
 import { formatCents } from "@/lib/money";
 
 type CartLine = {
   id: number;
   productId: number;
-  name: string;
+  nameAr: string;
   slug: string;
   icon: string;
+  type: string;
   unitPriceCents: number;
   quantity: number;
   stock: number;
+  customerInputs: Record<string, string>;
   lineTotalCents: number;
 };
 
@@ -21,12 +23,17 @@ type CartSummary = {
   items: CartLine[];
   itemCount: number;
   subtotalCents: number;
-  shippingCents: number;
   totalCents: number;
 };
 
+const INPUT_LABELS: Record<string, string> = {
+  player_id: "معرّف اللاعب",
+  phone: "رقم الهاتف",
+  account_email: "بريد الحساب",
+};
+
 export default function CartPage() {
-  const { refresh } = useCart();
+  const { refreshCart } = useStore();
   const [cart, setCart] = useState<CartSummary | null>(null);
   const [busyLine, setBusyLine] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -37,7 +44,7 @@ export default function CartPage() {
       const body = await res.json();
       if (body?.ok) setCart(body.data);
     } catch {
-      setError("Could not load your cart. Please refresh.");
+      setError("تعذر تحميل السلة. يرجى تحديث الصفحة.");
     }
   }, []);
 
@@ -59,12 +66,12 @@ export default function CartPage() {
       const body = await res.json().catch(() => null);
       if (res.ok && body?.ok) {
         setCart(body.data);
-        await refresh();
+        await refreshCart();
       } else {
-        setError(body?.error ?? "Could not update the cart.");
+        setError(body?.error ?? "تعذر تحديث السلة.");
       }
     } catch {
-      setError("Network error. Please try again.");
+      setError("خطأ في الاتصال. حاول مرة أخرى.");
     } finally {
       setBusyLine(null);
     }
@@ -72,8 +79,12 @@ export default function CartPage() {
 
   if (!cart) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-20 sm:px-6 text-center text-muted">
-        Loading your cart…
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+        <div className="skeleton h-10 w-48" />
+        <div className="mt-6 space-y-4">
+          <div className="skeleton h-32 w-full" />
+          <div className="skeleton h-32 w-full" />
+        </div>
       </div>
     );
   }
@@ -83,12 +94,12 @@ export default function CartPage() {
       <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
         <div className="glass-card p-12 text-center">
           <p className="text-5xl" aria-hidden>🛒</p>
-          <h1 className="mt-5 text-2xl font-bold">Your cart is empty</h1>
+          <h1 className="mt-5 text-2xl font-extrabold">السلة فارغة</h1>
           <p className="mt-2 text-sm text-muted">
-            Browse the catalog and find something worth securing.
+            تصفح خدماتنا الرقمية وأضف ما يناسبك.
           </p>
           <Link href="/products" className="btn-primary mt-6 px-8">
-            Browse Products
+            تصفح الخدمات
           </Link>
         </div>
       </div>
@@ -97,11 +108,11 @@ export default function CartPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-      <h1 className="text-3xl font-bold tracking-tight">
-        Shopping <span className="text-primary">Cart</span>
+      <h1 className="text-3xl font-extrabold tracking-tight">
+        سلة <span className="text-primary">المشتريات</span>
       </h1>
       <p className="mt-1 text-sm text-muted">
-        {cart.itemCount} {cart.itemCount === 1 ? "item" : "items"}
+        {cart.itemCount} {cart.itemCount === 1 ? "عنصر" : "عناصر"}
       </p>
 
       {error && (
@@ -128,17 +139,23 @@ export default function CartPage() {
                   <div className="min-w-0">
                     <Link
                       href={`/products/${line.slug}`}
-                      className="font-semibold hover:text-primary transition-colors line-clamp-2"
+                      className="font-bold hover:text-primary transition-colors line-clamp-2"
                     >
-                      {line.name}
+                      {line.nameAr}
                     </Link>
                     <p className="mt-0.5 text-sm text-muted">
-                      {formatCents(line.unitPriceCents)} each
+                      {formatCents(line.unitPriceCents)} للوحدة
                     </p>
+                    {Object.entries(line.customerInputs).map(([k, v]) => (
+                      <p key={k} className="mt-0.5 text-xs text-muted">
+                        {INPUT_LABELS[k] ?? k}:{" "}
+                        <span className="ltr-inline text-foreground">{v}</span>
+                      </p>
+                    ))}
                   </div>
                   <button
                     type="button"
-                    aria-label={`Remove ${line.name}`}
+                    aria-label={`حذف ${line.nameAr}`}
                     onClick={() => mutate(line.id, 0)}
                     disabled={busyLine === line.id}
                     className="text-muted hover:text-primary transition-colors text-sm shrink-0"
@@ -151,27 +168,27 @@ export default function CartPage() {
                   <div className="flex items-center rounded-lg border border-edge bg-raised/60">
                     <button
                       type="button"
-                      aria-label="Decrease quantity"
+                      aria-label="زيادة الكمية"
+                      onClick={() => mutate(line.id, line.quantity + 1)}
+                      disabled={busyLine === line.id || line.quantity >= Math.min(line.stock, 20)}
+                      className="h-9 w-9 text-muted hover:text-foreground disabled:opacity-40"
+                    >
+                      +
+                    </button>
+                    <span className="w-9 text-center text-sm font-bold tabular-nums">
+                      {line.quantity}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="تقليل الكمية"
                       onClick={() => mutate(line.id, line.quantity - 1)}
                       disabled={busyLine === line.id}
                       className="h-9 w-9 text-muted hover:text-foreground disabled:opacity-40"
                     >
                       −
                     </button>
-                    <span className="w-9 text-center text-sm font-semibold tabular-nums">
-                      {line.quantity}
-                    </span>
-                    <button
-                      type="button"
-                      aria-label="Increase quantity"
-                      onClick={() => mutate(line.id, line.quantity + 1)}
-                      disabled={busyLine === line.id || line.quantity >= Math.min(line.stock, 99)}
-                      className="h-9 w-9 text-muted hover:text-foreground disabled:opacity-40"
-                    >
-                      +
-                    </button>
                   </div>
-                  <span className="font-bold tabular-nums">
+                  <span className="font-extrabold tabular-nums">
                     {formatCents(line.lineTotalCents)}
                   </span>
                 </div>
@@ -182,41 +199,35 @@ export default function CartPage() {
 
         {/* Summary */}
         <aside className="glass-card h-fit p-6 lg:sticky lg:top-24">
-          <h2 className="text-lg font-bold">Order Summary</h2>
+          <h2 className="text-lg font-extrabold">ملخص الطلب</h2>
           <dl className="mt-4 space-y-3 text-sm">
             <div className="flex justify-between">
-              <dt className="text-muted">Subtotal</dt>
-              <dd className="font-medium tabular-nums">
+              <dt className="text-muted">الإجمالي الفرعي</dt>
+              <dd className="font-semibold tabular-nums">
                 {formatCents(cart.subtotalCents)}
               </dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-muted">Shipping</dt>
-              <dd className="font-medium tabular-nums">
-                {cart.shippingCents === 0 ? (
-                  <span className="text-success">Free</span>
-                ) : (
-                  formatCents(cart.shippingCents)
-                )}
-              </dd>
+              <dt className="text-muted">رسوم التوصيل</dt>
+              <dd className="font-semibold text-success">مجاني — تسليم رقمي</dd>
             </div>
             <div className="flex justify-between border-t border-edge pt-3 text-base">
-              <dt className="font-bold">Total</dt>
-              <dd className="font-bold tabular-nums">
+              <dt className="font-extrabold">الإجمالي</dt>
+              <dd className="font-extrabold tabular-nums">
                 {formatCents(cart.totalCents)}
               </dd>
             </div>
           </dl>
 
           <Link href="/checkout" className="btn-primary mt-6 w-full py-3">
-            🔒 Secure Checkout
+            🔒 إتمام الشراء
           </Link>
           <Link href="/products" className="btn-ghost mt-3 w-full text-sm">
-            Continue shopping
+            متابعة التسوق
           </Link>
 
           <p className="mt-4 text-center text-xs text-muted">
-            Encrypted session · no card data stored
+            جلسة مشفّرة · الأسعار تُحسب على الخادم
           </p>
         </aside>
       </div>

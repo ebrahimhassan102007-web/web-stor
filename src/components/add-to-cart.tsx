@@ -1,26 +1,39 @@
 "use client";
 
 import { useState } from "react";
-import { useCart } from "./cart-provider";
+import { useStore } from "./store-provider";
 
+type Field = {
+  key: string;
+  labelAr: string;
+  placeholder: string;
+  format: string;
+};
+
+/**
+ * Add-to-cart with dynamic per-product-type customer inputs (player id /
+ * phone / account email). Values are validated client-side for UX and
+ * strictly re-validated on the server.
+ */
 export function AddToCart({
   productId,
   stock,
-  compact = false,
+  fields,
+  maxQty,
 }: {
   productId: number;
   stock: number;
-  compact?: boolean;
+  fields: Field[];
+  maxQty: number;
 }) {
-  const { refresh } = useCart();
+  const { refreshCart } = useStore();
   const [quantity, setQuantity] = useState(1);
-  const [state, setState] = useState<"idle" | "busy" | "added" | "error">(
-    "idle",
-  );
+  const [inputs, setInputs] = useState<Record<string, string>>({});
+  const [state, setState] = useState<"idle" | "busy" | "added" | "error">("idle");
   const [message, setMessage] = useState("");
 
   const inStock = stock > 0;
-  const maxQty = Math.min(stock, 99);
+  const limit = Math.min(stock, maxQty);
 
   async function add() {
     if (!inStock || state === "busy") return;
@@ -30,50 +43,71 @@ export function AddToCart({
       const res = await fetch("/api/cart/items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId, quantity }),
+        body: JSON.stringify({ productId, quantity, customerInputs: inputs }),
       });
       const body = await res.json().catch(() => null);
       if (res.ok && body?.ok) {
-        await refresh();
+        await refreshCart();
         setState("added");
-        setTimeout(() => setState("idle"), 1800);
+        setTimeout(() => setState("idle"), 2000);
       } else {
         setState("error");
-        setMessage(body?.error ?? "Could not add to cart.");
-        setTimeout(() => setState("idle"), 2500);
+        setMessage(body?.error ?? "تعذر إضافة المنتج للسلة.");
+        setTimeout(() => setState("idle"), 3000);
       }
     } catch {
       setState("error");
-      setMessage("Network error. Please try again.");
-      setTimeout(() => setState("idle"), 2500);
+      setMessage("خطأ في الاتصال. حاول مرة أخرى.");
+      setTimeout(() => setState("idle"), 3000);
     }
   }
 
   return (
-    <div className={compact ? "" : "space-y-3"}>
+    <div className="space-y-4">
+      {fields.map((f) => (
+        <div key={f.key}>
+          <label htmlFor={`field-${f.key}`} className="mb-1.5 block text-sm font-semibold">
+            {f.labelAr} <span className="text-primary">*</span>
+          </label>
+          <input
+            id={`field-${f.key}`}
+            type="text"
+            dir="ltr"
+            inputMode={f.format === "egypt_phone" || f.format === "player_id" ? "numeric" : "text"}
+            placeholder={f.placeholder}
+            maxLength={64}
+            value={inputs[f.key] ?? ""}
+            onChange={(e) =>
+              setInputs((v) => ({ ...v, [f.key]: e.target.value }))
+            }
+            className="input-dark text-left"
+          />
+        </div>
+      ))}
+
       <div className="flex items-center gap-3">
-        {!compact && inStock && (
+        {inStock && (
           <div className="flex items-center rounded-lg border border-edge bg-raised/60">
             <button
               type="button"
-              aria-label="Decrease quantity"
+              aria-label="زيادة الكمية"
+              onClick={() => setQuantity((q) => Math.min(limit, q + 1))}
+              className="h-11 w-10 text-lg text-muted hover:text-foreground disabled:opacity-40"
+              disabled={quantity >= limit}
+            >
+              +
+            </button>
+            <span className="w-10 text-center font-bold tabular-nums" aria-live="polite">
+              {quantity}
+            </span>
+            <button
+              type="button"
+              aria-label="تقليل الكمية"
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
               className="h-11 w-10 text-lg text-muted hover:text-foreground disabled:opacity-40"
               disabled={quantity <= 1}
             >
               −
-            </button>
-            <span className="w-10 text-center font-semibold tabular-nums">
-              {quantity}
-            </span>
-            <button
-              type="button"
-              aria-label="Increase quantity"
-              onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
-              className="h-11 w-10 text-lg text-muted hover:text-foreground disabled:opacity-40"
-              disabled={quantity >= maxQty}
-            >
-              +
             </button>
           </div>
         )}
@@ -82,15 +116,15 @@ export function AddToCart({
           type="button"
           onClick={add}
           disabled={!inStock || state === "busy"}
-          className={`btn-primary ${compact ? "px-4 py-2 text-sm" : "flex-1 py-3 text-base"}`}
+          className="btn-primary flex-1 py-3 text-base"
         >
           {state === "busy"
-            ? "Adding…"
+            ? "جارٍ الإضافة…"
             : state === "added"
-              ? "✓ Added to cart"
+              ? "✓ تمت الإضافة للسلة"
               : inStock
-                ? "Add to Cart"
-                : "Out of Stock"}
+                ? "أضف إلى السلة"
+                : "غير متوفر حالياً"}
         </button>
       </div>
 

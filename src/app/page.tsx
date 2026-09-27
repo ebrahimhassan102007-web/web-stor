@@ -1,35 +1,38 @@
 import Link from "next/link";
-import { getCategoriesWithCounts, getFeaturedProducts } from "@/lib/catalog";
+import {
+  getVisibleCategoriesWithCounts,
+  getFeaturedProducts,
+} from "@/lib/catalog";
 import { ProductCard } from "@/components/product-card";
 
 export const dynamic = "force-dynamic";
 
 const TRUST_BADGES = [
   {
+    icon: "⚡",
+    title: "تسليم فوري",
+    text: "الأكواد الرقمية تصلك في حسابك فور تأكيد الدفع مباشرة.",
+  },
+  {
     icon: "🔒",
-    title: "Encrypted Checkout",
-    text: "Every session runs over TLS with HttpOnly, signed cookies.",
+    title: "دفع آمن",
+    text: "جلسات مشفّرة وتحقق صارم من كل عملية قبل التنفيذ.",
   },
   {
-    icon: "🛡️",
-    title: "Hardened by Design",
-    text: "Strict input validation and parameterized queries everywhere.",
+    icon: "✅",
+    title: "منتجات أصلية",
+    text: "اشتراكات وبطاقات مرخّصة من مصادر معتمدة فقط.",
   },
   {
-    icon: "🚚",
-    title: "Free Shipping $100+",
-    text: "Fast, tracked delivery on every order over one hundred dollars.",
-  },
-  {
-    icon: "↩️",
-    title: "30-Day Returns",
-    text: "Changed your mind? Send it back within thirty days.",
+    icon: "🎧",
+    title: "دعم سريع",
+    text: "فريق دعم يتابع طلبك من لحظة الشراء حتى التسليم.",
   },
 ];
 
 export default async function HomePage() {
   const [categories, featured] = await Promise.all([
-    getCategoriesWithCounts(),
+    getVisibleCategoriesWithCounts(),
     getFeaturedProducts(8),
   ]);
 
@@ -40,95 +43,85 @@ export default async function HomePage() {
         <div className="mx-auto max-w-3xl">
           <span className="badge-green mb-6">
             <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-            Zero-trust storefront · v1.0
+            متجر رقمي موثوق
           </span>
-          <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl leading-[1.1]">
-            Gear for people who
-            <span className="block text-primary">trust no one.</span>
+          <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl leading-[1.15]">
+            كل خدماتك الرقمية
+            <span className="block text-primary">في مكان واحد.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-base sm:text-lg text-muted leading-relaxed">
-            Premium electronics, security hardware and techwear — sold through
-            a checkout built like a vault. No trackers, no leaks, no nonsense.
+            اشتراكات رقمية، شحن ألعاب، شحن رصيد، وبطاقات هدايا أصلية —
+            بتسليم آمن وسريع داخل حسابك.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link href="/products" className="btn-primary w-full sm:w-auto px-8 py-3 text-base">
-              Browse Products
+              تصفح الخدمات
             </Link>
-            <Link
-              href="/products?category=security"
-              className="btn-ghost w-full sm:w-auto px-8 py-3 text-base"
-            >
-              🛡️ Security Gear
+            <Link href="#categories" className="btn-ghost w-full sm:w-auto px-8 py-3 text-base">
+              تصفح الأقسام
             </Link>
           </div>
         </div>
       </section>
 
       {/* Trust badges */}
-      <section aria-label="Why shop with us" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section aria-label="لماذا خدمتك ستور" className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {TRUST_BADGES.map((b) => (
           <div key={b.title} className="glass-card card-glow-green p-5">
             <div className="flex items-center gap-3">
-              <span className="text-2xl" aria-hidden>
-                {b.icon}
-              </span>
-              <h2 className="font-semibold">{b.title}</h2>
+              <span className="text-2xl" aria-hidden>{b.icon}</span>
+              <h2 className="font-bold">{b.title}</h2>
             </div>
             <p className="mt-2 text-sm text-muted leading-relaxed">{b.text}</p>
           </div>
         ))}
       </section>
 
+      {/* Categories */}
+      <section id="categories" className="mt-20 scroll-mt-24">
+        <h2 className="mb-8 text-2xl sm:text-3xl font-extrabold tracking-tight">
+          تسوّق حسب <span className="text-success">القسم</span>
+        </h2>
+        <div className="grid gap-5 grid-cols-2 lg:grid-cols-5">
+          {categories.map((c) => (
+            <Link
+              key={c.id}
+              href={`/products?category=${encodeURIComponent(c.slug)}`}
+              className="glass-card card-glow-red group p-5 text-center"
+            >
+              <span className="text-4xl" aria-hidden>{c.icon}</span>
+              <h3 className="mt-3 font-bold group-hover:text-primary transition-colors">
+                {c.nameAr}
+              </h3>
+              <p className="mt-2 text-xs font-semibold text-muted">
+                {c.productCount} منتج
+              </p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       {/* Featured products */}
       <section className="mt-20">
         <div className="mb-8 flex items-end justify-between">
           <div>
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
-              Featured <span className="text-primary">Drops</span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              الأكثر <span className="text-primary">طلباً</span>
             </h2>
             <p className="mt-1 text-sm text-muted">
-              Hand-picked, top-rated, ready to ship.
+              خدمات مختارة بعناية، جاهزة للتسليم الفوري.
             </p>
           </div>
           <Link
             href="/products"
-            className="hidden sm:block text-sm font-medium text-primary hover:underline underline-offset-4"
+            className="hidden sm:block text-sm font-semibold text-primary hover:underline underline-offset-4"
           >
-            View all →
+            ← عرض الكل
           </Link>
         </div>
         <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {featured.map((p) => (
             <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
-      </section>
-
-      {/* Category grid */}
-      <section className="mt-20">
-        <h2 className="mb-8 text-2xl sm:text-3xl font-bold tracking-tight">
-          Shop by <span className="text-success">Category</span>
-        </h2>
-        <div className="grid gap-5 grid-cols-2 lg:grid-cols-3">
-          {categories.map((c) => (
-            <Link
-              key={c.id}
-              href={`/products?category=${encodeURIComponent(c.slug)}`}
-              className="glass-card card-glow-red group p-5 sm:p-6"
-            >
-              <span className="text-3xl" aria-hidden>
-                {c.icon}
-              </span>
-              <h3 className="mt-3 font-semibold group-hover:text-primary transition-colors">
-                {c.name}
-              </h3>
-              <p className="mt-1 hidden sm:block text-sm text-muted leading-relaxed">
-                {c.description}
-              </p>
-              <p className="mt-3 text-xs font-medium text-muted">
-                {c.productCount} products
-              </p>
-            </Link>
           ))}
         </div>
       </section>
@@ -141,20 +134,18 @@ export default async function HomePage() {
               aria-hidden
               className="pointer-events-none absolute inset-0 bg-[radial-gradient(40rem_16rem_at_50%_-20%,rgba(34,197,94,0.1),transparent_70%)]"
             />
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
-              Your data stays <span className="text-success">yours.</span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              بياناتك وأكوادك <span className="text-success">في أمان.</span>
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-sm sm:text-base text-muted leading-relaxed">
-              We validate every byte of input, sign every session, and never
-              run third-party trackers. The same discipline we demand from the
-              gear we sell.
+              كل كود رقمي مشفّر حتى لحظة تسليمه لك وحدك، وكل طلب يمر بتحقق
+              كامل على الخادم — لا نطلب منك إلا ما تحتاجه الخدمة فعلاً.
             </p>
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-2 font-mono text-xs">
-              <span className="badge-neutral">HttpOnly cookies</span>
-              <span className="badge-neutral">SameSite=Lax</span>
-              <span className="badge-neutral">HMAC-signed sessions</span>
-              <span className="badge-neutral">Zod-validated inputs</span>
-              <span className="badge-neutral">Parameterized SQL</span>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs">
+              <span className="badge-neutral">تشفير AES-256 للأكواد</span>
+              <span className="badge-neutral">جلسات HttpOnly موقّعة</span>
+              <span className="badge-neutral">تحقق كامل من المدخلات</span>
+              <span className="badge-neutral">دفع مُتحقق منه على الخادم</span>
             </div>
           </div>
         </div>
