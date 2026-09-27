@@ -1,26 +1,201 @@
 @import "tailwindcss";
 
+/* ------------------------------------------------------------------ */
+/* WebStor dark theme — deep blacks, red primary, green success        */
+/* ------------------------------------------------------------------ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-deep: #050505;
+  --bg-base: #0a0a0a;
+  --bg-raised: #111111;
+  --bg-card: #141414;
+  --border-subtle: #1f1f1f;
+  --foreground: #e7e7e7;
+  --muted: #8a8a8a;
+  --accent-red: #ef4444;
+  --accent-red-dim: #b91c1c;
+  --accent-green: #22c55e;
+  --accent-green-dim: #15803d;
 }
 
 @theme inline {
-  --color-background: var(--background);
+  --color-deep: var(--bg-deep);
+  --color-base: var(--bg-base);
+  --color-raised: var(--bg-raised);
+  --color-card: var(--bg-card);
+  --color-edge: var(--border-subtle);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-primary: var(--accent-red);
+  --color-primary-dim: var(--accent-red-dim);
+  --color-success: var(--accent-green);
+  --color-success-dim: var(--accent-green-dim);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
+  background: var(--bg-deep);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle red/green ambient glow at the top of the page */
+.bg-mesh {
+  background:
+    radial-gradient(60rem 30rem at 15% -10%, rgba(239, 68, 68, 0.07), transparent 60%),
+    radial-gradient(50rem 26rem at 85% -10%, rgba(34, 197, 94, 0.05), transparent 60%),
+    var(--bg-deep);
+}
+
+/* ------------------------------------------------------------------ */
+/* Reusable component utilities                                        */
+/* ------------------------------------------------------------------ */
+@utility glass {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+@utility glass-card {
+  background: rgba(17, 17, 17, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 1rem;
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease,
+    transform 200ms ease;
+}
+
+@utility card-glow-red {
+  &:hover {
+    border-color: rgba(239, 68, 68, 0.35);
+    box-shadow: 0 0 24px rgba(239, 68, 68, 0.1);
+  }
+}
+
+@utility card-glow-green {
+  &:hover {
+    border-color: rgba(34, 197, 94, 0.35);
+    box-shadow: 0 0 24px rgba(34, 197, 94, 0.1);
+  }
+}
+
+@utility btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.65rem;
+  background: var(--accent-red);
+  color: #fff;
+  font-weight: 600;
+  padding: 0.65rem 1.25rem;
+  transition: background 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+  &:hover {
+    background: #dc2626;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.35);
+  }
+  &:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+}
+
+@utility btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--border-subtle);
+  background: rgba(17, 17, 17, 0.6);
+  color: var(--foreground);
+  font-weight: 500;
+  padding: 0.65rem 1.25rem;
+  transition: border-color 150ms ease, background 150ms ease;
+  &:hover {
+    border-color: rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.06);
+  }
+  &:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+}
+
+@utility input-dark {
+  width: 100%;
+  border-radius: 0.65rem;
+  border: 1px solid var(--border-subtle);
+  background: rgba(10, 10, 10, 0.8);
+  color: var(--foreground);
+  padding: 0.65rem 0.9rem;
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  &::placeholder {
+    color: var(--muted);
+  }
+  &:focus {
+    border-color: rgba(239, 68, 68, 0.55);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+  }
+}
+
+@utility badge-green {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.08);
+  color: var(--accent-green);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.7rem;
+}
+
+@utility badge-red {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--accent-red);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.7rem;
+}
+
+@utility badge-neutral {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.7rem;
+}
+
+/* Product art tile (emoji-based imagery on a dark gradient) */
+@utility product-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(18rem 12rem at 50% 0%, rgba(239, 68, 68, 0.08), transparent 70%),
+    linear-gradient(180deg, #161616 0%, #0d0d0d 100%);
+  user-select: none;
 }
