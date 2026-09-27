@@ -8,9 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "db:server": "tsx scripts/db-server.ts",
-    "db:push": "drizzle-kit push",
     "db:seed": "tsx scripts/seed.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
     "dotenv": "^18.0.4",

@@ -13,16 +13,18 @@ import {
   getExistingCartId,
   clearCartCookie,
 } from "@/lib/security/session";
+import { getSessionUser } from "@/lib/security/auth";
 import { verifySameOrigin } from "@/lib/security/csrf";
 import { rateLimit, clientKey } from "@/lib/security/rate-limit";
 import { checkoutSchema } from "@/lib/validation";
 import { shippingFor } from "@/lib/money";
-import { jsonOk, jsonError, handleUnexpected } from "@/lib/http";
+import { jsonOk, jsonError, rateLimitedResponse, readJsonBody, handleUnexpected } from "@/lib/http";
+import { securityLog } from "@/lib/log";
 
 export const dynamic = "force-dynamic";
 
 function newOrderNumber(): string {
-  // WS-XXXXXXXXXX — unguessable, uppercase, no ambiguous chars.
+  // WS-XXXXXXXXXX — unguessable (~49 bits), uppercase, no ambiguous chars.
   const alphabet = "ABCDEFGHJKMNPQRSTVWXYZ23456789";
   const bytes = randomBytes(10);
   let s = "";
@@ -35,24 +37,26 @@ function newOrderNumber(): string {
  *
  * Creates an order from the session cart inside a single transaction:
  *  - prices and totals are computed exclusively from the database (the
- *    client can never dictate a price),
- *  - stock is decremented atomically with a `stock >= qty` guard so two
- *    simultaneous checkouts can never oversell,
+ *    client can never dictate a price, discount or total),
+ *  - stock is decremented atomically with a `stock >= qty` guard (plus a
+ *    database CHECK constraint) so concurrent checkouts can never oversell,
+ *  - inactive products abort the checkout,
+ *  - a client-minted idempotency key (unique index) makes replayed or
+ *    double-submitted checkouts return the original order,
+ *  - the order is bound to the authenticated user when one exists,
  *  - the cart is destroyed and the session cookie cleared on success.
  */
 export async function POST(req: NextRequest) {
+  let idemKey: string | undefined;
   try {
     if (!verifySameOrigin(req)) return jsonError("Request rejected.", 403);
     if (!rateLimit(`checkout:${clientKey(req)}`, 10, 60_000)) {
-      return jsonError("Too many requests. Please slow down.", 429);
+      securityLog.rateLimited({ endpoint: "checkout", ip: clientKey(req) });
+      return rateLimitedResponse();
     }
 
-    let raw: unknown;
-    try {
-      raw = await req.json();
-    } catch {
-      return jsonError("Invalid request body.", 400);
-    }
+    const raw = await readJsonBody(req);
+    if (raw === undefined) return jsonError("Invalid request body.", 400);
 
     const parsed = checkoutSchema.safeParse(raw);
     if (!parsed.success) {
@@ -63,9 +67,21 @@ export async function POST(req: NextRequest) {
       );
     }
     const shipping = parsed.data;
+    idemKey = shipping.idempotencyKey;
+
+    // Idempotency: if this exact submission already created an order,
+    // return it instead of creating a duplicate.
+    const [existing] = await db
+      .select({ orderNumber: orders.orderNumber, totalCents: orders.totalCents })
+      .from(orders)
+      .where(eq(orders.idempotencyKey, shipping.idempotencyKey))
+      .limit(1);
+    if (existing) return jsonOk(existing);
 
     const cartId = await getExistingCartId();
     if (!cartId) return jsonError("Your cart is empty.", 400);
+
+    const user = await getSessionUser();
 
     type CheckoutResult =
       | { error: string }
@@ -80,6 +96,7 @@ export async function POST(req: NextRequest) {
           name: products.name,
           priceCents: products.priceCents,
           stock: products.stock,
+          active: products.active,
         })
         .from(cartItems)
         .innerJoin(products, eq(cartItems.productId, products.id))
@@ -91,6 +108,11 @@ export async function POST(req: NextRequest) {
       }
 
       for (const line of lines) {
+        if (!line.active) {
+          return {
+            error: `"${line.name}" is no longer available. Please remove it from your cart.`,
+          };
+        }
         if (line.quantity > line.stock) {
           return {
             error: `Insufficient stock for "${line.name}". Please adjust your cart.`,
@@ -126,6 +148,8 @@ export async function POST(req: NextRequest) {
         .insert(orders)
         .values({
           orderNumber: newOrderNumber(),
+          userId: user?.id ?? null,
+          idempotencyKey: shipping.idempotencyKey,
           status: "confirmed",
           customerName: shipping.customerName,
           email: shipping.email,
@@ -156,17 +180,41 @@ export async function POST(req: NextRequest) {
       return { order: { orderNumber: order.orderNumber, totalCents } };
     });
 
-    if ("error" in result) return jsonError(result.error, 409);
+    if ("error" in result) {
+      securityLog.checkoutFailure({ reason: result.error, ip: clientKey(req) });
+      return jsonError(result.error, 409);
+    }
 
     await clearCartCookie();
     return jsonOk(result.order, { status: 201 });
   } catch (err) {
     if (err instanceof Error && err.message.startsWith("stock-conflict:")) {
+      securityLog.checkoutFailure({ reason: "stock-race", ip: clientKey(req) });
       return jsonError(
         "An item in your cart just sold out. Please review your cart.",
         409,
       );
     }
+    // Unique-violation race on the idempotency key: a concurrent request
+    // with the same key won — return the order it created.
+    if (isUniqueViolation(err) && idemKey) {
+      const [winner] = await db
+        .select({ orderNumber: orders.orderNumber, totalCents: orders.totalCents })
+        .from(orders)
+        .where(eq(orders.idempotencyKey, idemKey))
+        .limit(1);
+      if (winner) return jsonOk(winner);
+      return jsonError("This order was already submitted.", 409);
+    }
     return handleUnexpected("checkout", err);
   }
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: string }).code === "23505"
+  );
 }
