@@ -1,36 +1,99 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# WebStor — Secure Tech Marketplace
+
+A hardened, dark-themed e-commerce web application built with **Next.js 16 (App Router)**, **React 19**, **TypeScript**, **Tailwind CSS v4**, **PostgreSQL + Drizzle ORM** and **Zod**.
+
+> Deep-black glassmorphism UI · red primary / green success accents · security-first backend.
+
+---
+
+## Features
+
+- **Home** — hero, trusted-security badges, featured products, category grid
+- **Products** — grid listing with full-text search, category filtering and sorting (newest / price ↑↓ / rating)
+- **Product detail** — large art tile, description, dynamic stock status, quantity selector, add-to-cart
+- **Cart** — add / remove / update quantities with live totals and free-shipping logic
+- **Checkout** — validated shipping form, transactional order creation, order confirmation page
+
+## Tech Stack
+
+| Layer      | Choice                                        |
+| ---------- | --------------------------------------------- |
+| Framework  | Next.js 16 (App Router, Route Handlers, RSC)  |
+| UI         | React 19 + Tailwind CSS v4 (custom dark theme) |
+| Database   | PostgreSQL via Drizzle ORM (node-postgres)     |
+| Validation | Zod (shared client + server schemas)           |
+| Fonts      | Geist, self-hosted (zero external requests)    |
+
+## Security Architecture
+
+| Threat | Mitigation |
+| --- | --- |
+| **SQL injection** | 100% Drizzle ORM query builder — every query is parameterized; no raw SQL string concatenation anywhere. LIKE wildcards in search input are escaped. |
+| **XSS** | React auto-escaping everywhere; no `dangerouslySetInnerHTML`; strict CSP (`object-src 'none'`, `base-uri 'self'`, `form-action 'self'`). |
+| **CSRF** | Cart cookie is `SameSite=Lax`; additionally every state-changing Route Handler verifies the `Origin` header against the served host. |
+| **Session forgery** | Cart id is a random UUID, HMAC-SHA256-signed with `SESSION_SECRET`; signatures compared in constant time. Cookies are `HttpOnly`, `Secure` (production) and `SameSite=Lax`. |
+| **IDOR** | Every cart mutation is scoped to the cart id from the verified session cookie — line-item ids from the URL are always ANDed with the session cart. |
+| **Input abuse** | All bodies and URL params pass Zod schemas (bounded lengths, ranges, formats, control-character rejection) before touching the database. |
+| **Price manipulation** | Prices/totals are computed exclusively from the database inside the checkout transaction — client-supplied prices are never trusted. |
+| **Overselling / races** | Checkout runs in a single transaction with `SELECT … FOR UPDATE` and a `stock >= qty` guarded decrement. |
+| **Info leakage** | Uniform generic API errors; full details logged server-side only. `X-Powered-By` disabled. |
+| **Enumeration** | Order numbers are unguessable (58+ bits from a CSPRNG). |
+| **Abuse / flooding** | Per-client sliding-window rate limits on cart and checkout endpoints. |
+| **Clickjacking / misc.** | `nosniff`, `Referrer-Policy`, restrictive `Permissions-Policy` headers on every response. |
+
+Money is stored as **integer cents** end-to-end — no floating-point currency math.
 
 ## Getting Started
 
-First, run the development server:
+### 1. Install
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Configure environment
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cp .env.example .env
+# set DATABASE_URL and a strong SESSION_SECRET (openssl rand -hex 32)
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 3. Database
 
-## Learn More
+Use any PostgreSQL 14+ instance, **or** run the bundled zero-install dev server (real PostgreSQL binaries shipped via npm):
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run db:server   # starts local PostgreSQL on :5432 (keep running)
+npm run db:push     # apply the Drizzle schema
+npm run db:seed     # seed categories + products
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 4. Run
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run dev         # http://localhost:3000
+```
 
-## Deploy on Vercel
+### Scripts
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Script | Purpose |
+| --- | --- |
+| `npm run dev` / `build` / `start` | Next.js lifecycle |
+| `npm run db:server` | Local dev PostgreSQL (embedded binaries) |
+| `npm run db:push` | Push Drizzle schema to the database |
+| `npm run db:seed` | Seed demo catalog data |
+| `npm run lint` / `typecheck` | ESLint / strict TypeScript checks |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Database Schema
+
+```
+categories 1─∞ products 1─∞ cart_items ∞─1 carts
+                     │
+                     └─∞ order_items ∞─1 orders
+```
+
+Order items snapshot the product name and unit price at purchase time, so order history is immutable even if the catalog changes.
+
+---
+
+**Disclaimer:** demo storefront — no real payments are processed.
