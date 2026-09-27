@@ -15,7 +15,7 @@ import { eq } from "drizzle-orm";
  *   - SameSite=Lax → not sent on cross-site POSTs (CSRF containment)
  */
 
-export const CART_COOKIE = "webstor_cart";
+export const CART_COOKIE = "khodmtak_cart";
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
 const UUID_RE =

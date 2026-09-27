@@ -1,103 +1,202 @@
 /**
- * Seeds the database with initial catalog data.
- * Run with: npm run db:seed  (after `npm run db:push`)
+ * Seeds خدمتك ستور | Khodmtak Store with the initial catalog.
+ *
+ * - Idempotent: categories/products are upserted by slug; existing orders
+ *   and users are never touched.
+ * - Bootstraps the first admin account from ADMIN_EMAIL / ADMIN_PASSWORD
+ *   (required — no insecure default credentials).
+ * - In NON-production only, adds clearly-marked DEV test codes to
+ *   DIGITAL_CODE products that have no inventory, so the full
+ *   checkout → payment → delivery pipeline can be exercised.
+ *
+ * Run: npm run db:seed   (after `npm run db:migrate`)
  */
 import "dotenv/config";
+import { createCipheriv, createHash, randomBytes } from "node:crypto";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { categories, products } from "../src/lib/db/schema";
+import { eq, sql, and } from "drizzle-orm";
+import {
+  categories,
+  products,
+  users,
+  digitalCodes,
+} from "../src/lib/db/schema";
+import { hashPassword } from "../src/lib/security/password";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const db = drizzle({ client: pool });
 
+/* Local copy of the codes encryption (scripts can't import server-only). */
+function encryptCode(plaintext: string): string {
+  const secret = process.env.INVENTORY_SECRET;
+  if (!secret || secret.length < 16) throw new Error("INVENTORY_SECRET is not configured");
+  const key = createHash("sha256").update(secret).digest();
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const ct = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  return `${iv.toString("base64")}.${cipher.getAuthTag().toString("base64")}.${ct.toString("base64")}`;
+}
+
 const CATEGORIES = [
-  { slug: "electronics", name: "Electronics", icon: "💻", description: "Laptops, monitors, audio and cutting-edge devices." },
-  { slug: "security", name: "Security Gear", icon: "🛡️", description: "Hardware keys, encrypted drives and privacy tools." },
-  { slug: "fashion", name: "Fashion", icon: "🧥", description: "Techwear, apparel and everyday carry style." },
-  { slug: "gaming", name: "Gaming", icon: "🎮", description: "Peripherals, consoles and battle-ready rigs." },
-  { slug: "home", name: "Smart Home", icon: "🏠", description: "Automation, lighting and connected living." },
-  { slug: "accessories", name: "Accessories", icon: "🎒", description: "Bags, docks, cables and daily essentials." },
+  { slug: "subscriptions", nameAr: "اشتراكات رقمية", nameEn: "Digital Subscriptions", icon: "⭐", sortOrder: 1, description: "اشتراكات البرامج والخدمات الرقمية المرخّصة" },
+  { slug: "gaming", nameAr: "شحن ألعاب", nameEn: "Game Top-ups", icon: "🎮", sortOrder: 2, description: "شحن شدات ببجي وجواهر فري فاير وأكواد الألعاب" },
+  { slug: "recharge", nameAr: "شحن رصيد", nameEn: "Mobile Recharge", icon: "📱", sortOrder: 3, description: "شحن رصيد فودافون وشبكات المحمول المصرية" },
+  { slug: "gift-cards", nameAr: "بطاقات رقمية", nameEn: "Gift Cards", icon: "🎁", sortOrder: 4, description: "بطاقات هدايا رقمية أصلية لمختلف المنصات" },
+  { slug: "services", nameAr: "خدمات رقمية", nameEn: "Digital Services", icon: "🛠️", sortOrder: 5, description: "خدمات رقمية احترافية حسب الطلب" },
 ] as const;
 
 type SeedProduct = {
   slug: string;
-  name: string;
+  nameAr: string;
+  nameEn: string;
+  shortDescription: string;
   description: string;
-  priceCents: number;
+  type: "DIGITAL_CODE" | "SUBSCRIPTION" | "GAME_TOPUP" | "MOBILE_RECHARGE" | "DIGITAL_SERVICE";
   category: (typeof CATEGORIES)[number]["slug"];
+  priceCents: number;
+  originalPriceCents?: number;
   stock: number;
-  rating: string;
-  reviewCount: number;
   icon: string;
+  deliveryNote?: string;
   featured?: boolean;
+  reviewCount: number;
+  rating: string;
 };
 
 const PRODUCTS: SeedProduct[] = [
-  // Electronics
-  { slug: "quantum-x1-laptop", name: "Quantum X1 Ultrabook", description: "A 14-inch powerhouse with a 3K OLED display, 32 GB RAM and a hardware-level secure enclave. Built for engineers who ship from anywhere: 18-hour battery, tamper-evident chassis and a fingerprint reader integrated into the power key.", priceCents: 189900, category: "electronics", stock: 12, rating: "4.8", reviewCount: 412, icon: "💻", featured: true },
-  { slug: "nebula-4k-monitor", name: "Nebula 32\" 4K Monitor", description: "Factory-calibrated 4K IPS panel with 98% DCI-P3 coverage, USB-C 90 W passthrough and a blue-light shield mode for long night sessions.", priceCents: 64900, category: "electronics", stock: 27, rating: "4.6", reviewCount: 289, icon: "🖥️" },
-  { slug: "pulse-anc-headphones", name: "Pulse ANC Headphones", description: "Adaptive noise cancellation tuned for open offices, 40-hour battery, and a boom-quality mic array for crystal-clear calls.", priceCents: 27900, category: "electronics", stock: 54, rating: "4.7", reviewCount: 1874, icon: "🎧", featured: true },
-  { slug: "aero-drone-pro", name: "Aero Drone Pro", description: "4K/60 fps stabilized camera drone with 34-minute flight time, obstacle avoidance and encrypted video downlink.", priceCents: 99900, category: "electronics", stock: 8, rating: "4.5", reviewCount: 156, icon: "🛸" },
-  { slug: "volt-gan-charger", name: "Volt 140W GaN Charger", description: "Three-port GaN fast charger that powers a laptop, phone and earbuds simultaneously — half the size of a standard brick.", priceCents: 7900, category: "electronics", stock: 132, rating: "4.9", reviewCount: 3210, icon: "🔌" },
+  /* -------- اشتراكات رقمية -------- */
+  { slug: "ai-plus-monthly", nameAr: "اشتراك ذكاء اصطناعي بلس — شهر", nameEn: "AI Plus — 1 Month", shortDescription: "اشتراك شهري رسمي بخدمة الذكاء الاصطناعي المتقدمة", description: "اشتراك شهري مرخّص في باقة الذكاء الاصطناعي المتقدمة. يتم التفعيل على بريدك الإلكتروني الذي تُدخله عند الشراء خلال ساعات العمل. الاشتراك أصلي ومضمون طوال المدة.", type: "SUBSCRIPTION", category: "subscriptions", priceCents: 89900, originalPriceCents: 99900, stock: 25, icon: "🤖", deliveryNote: "سيتواصل معك فريقنا لتفعيل الاشتراك على بريدك خلال مدة أقصاها 6 ساعات.", featured: true, reviewCount: 342, rating: "4.9" },
+  { slug: "streaming-premium-3m", nameAr: "اشتراك منصة مشاهدة — 3 شهور", nameEn: "Streaming Premium — 3 Months", shortDescription: "اشتراك رسمي 3 شهور بجودة 4K", description: "اشتراك مرخّص لمدة ثلاثة أشهر في منصة المشاهدة بجودة تصل إلى 4K. يُفعَّل على حسابك الخاص الذي تحدده عند الطلب.", type: "SUBSCRIPTION", category: "subscriptions", priceCents: 64900, stock: 40, icon: "🎬", deliveryNote: "يتم التفعيل على حسابك خلال 6 ساعات من تأكيد الدفع.", reviewCount: 518, rating: "4.7" },
+  { slug: "design-suite-yearly", nameAr: "اشتراك حزمة تصميم — سنة", nameEn: "Design Suite — 1 Year", shortDescription: "رخصة سنوية رسمية لحزمة التصميم الاحترافية", description: "رخصة سنوية أصلية لحزمة أدوات التصميم الاحترافية تشمل جميع التطبيقات والتحديثات. تفعيل رسمي على بريدك.", type: "SUBSCRIPTION", category: "subscriptions", priceCents: 449900, originalPriceCents: 549900, stock: 10, icon: "🎨", featured: true, reviewCount: 96, rating: "4.8" },
 
-  // Security Gear
-  { slug: "sentinel-hardware-key", name: "Sentinel FIDO2 Hardware Key", description: "Phishing-proof passwordless login with FIDO2/WebAuthn, NFC + USB-C, and a secure element rated EAL6+. The last second factor you will ever need.", priceCents: 5900, category: "security", stock: 210, rating: "4.9", reviewCount: 5120, icon: "🔑", featured: true },
-  { slug: "vault-encrypted-ssd", name: "Vault X 2TB Encrypted SSD", description: "XTS-AES 256 hardware encryption with keypad unlock, brute-force self-wipe and IP68 ruggedized housing. Your data, sealed.", priceCents: 32900, category: "security", stock: 45, rating: "4.8", reviewCount: 640, icon: "🗄️", featured: true },
-  { slug: "ghost-privacy-screen", name: "Ghost Privacy Screen 14\"", description: "Magnetic micro-louver filter that blacks out your display beyond 30° — shoulder surfers see nothing.", priceCents: 4900, category: "security", stock: 88, rating: "4.4", reviewCount: 421, icon: "🕶️" },
-  { slug: "cipher-rfid-wallet", name: "Cipher RFID-Blocking Wallet", description: "Aerospace aluminum card vault with RFID/NFC shielding and a quick-fan trigger. Slim enough to forget, tough enough not to.", priceCents: 6900, category: "security", stock: 150, rating: "4.6", reviewCount: 980, icon: "🛡️" },
-  { slug: "watchdog-cam", name: "Watchdog Secure Cam", description: "End-to-end encrypted home camera with local-only storage option, physical lens shutter and zero-cloud mode.", priceCents: 14900, category: "security", stock: 33, rating: "4.5", reviewCount: 267, icon: "📹" },
+  /* -------- شحن ألعاب -------- */
+  { slug: "pubg-660-uc", nameAr: "ببجي موبايل — 660 شدة", nameEn: "PUBG Mobile — 660 UC", shortDescription: "شحن مباشر على معرّف اللاعب", description: "شحن 660 شدة (UC) مباشرة على حسابك في ببجي موبايل عبر معرّف اللاعب. الشحن رسمي 100% ويظهر في حسابك فور تنفيذ الطلب.", type: "GAME_TOPUP", category: "gaming", priceCents: 34900, stock: 200, icon: "🔫", featured: true, reviewCount: 2140, rating: "4.9" },
+  { slug: "pubg-1800-uc", nameAr: "ببجي موبايل — 1800 شدة", nameEn: "PUBG Mobile — 1800 UC", shortDescription: "أفضل قيمة لعشاق الببجي", description: "شحن 1800 شدة (UC) مباشرة على معرّف اللاعب الخاص بك. تنفيذ سريع وموثوق عبر قنوات الشحن الرسمية.", type: "GAME_TOPUP", category: "gaming", priceCents: 89900, originalPriceCents: 94900, stock: 150, icon: "🎯", featured: true, reviewCount: 1320, rating: "4.9" },
+  { slug: "freefire-530-diamonds", nameAr: "فري فاير — 530 جوهرة", nameEn: "Free Fire — 530 Diamonds", shortDescription: "شحن جواهر فوري على معرّف اللاعب", description: "شحن 530 جوهرة فري فاير مباشرة على حسابك عبر معرّف اللاعب. شحن رسمي يظهر فوراً داخل اللعبة.", type: "GAME_TOPUP", category: "gaming", priceCents: 24900, stock: 300, icon: "💎", reviewCount: 1785, rating: "4.8" },
 
-  // Fashion
-  { slug: "shadow-tech-jacket", name: "Shadow Techwear Jacket", description: "Water-repellent softshell with 9 hidden zip pockets, cable routing channels and reflective night-safe piping.", priceCents: 18900, category: "fashion", stock: 41, rating: "4.7", reviewCount: 534, icon: "🧥", featured: true },
-  { slug: "cipher-hoodie", name: "Cipher Graphite Hoodie", description: "Heavyweight 420 gsm organic cotton hoodie in deep graphite with a minimal red stitch accent. Warm, structured, quiet.", priceCents: 8900, category: "fashion", stock: 97, rating: "4.8", reviewCount: 1203, icon: "👕" },
-  { slug: "stealth-sneakers", name: "Stealth Low Sneakers", description: "All-black knit sneakers with a carbon-fiber shank and grippy all-weather outsole. From server room to street.", priceCents: 12900, category: "fashion", stock: 63, rating: "4.5", reviewCount: 789, icon: "👟" },
-  { slug: "night-ops-cap", name: "Night Ops Cap", description: "Matte black 6-panel cap with laser-cut vents and a hidden key pocket under the brim.", priceCents: 3400, category: "fashion", stock: 180, rating: "4.3", reviewCount: 342, icon: "🧢" },
+  /* -------- شحن رصيد -------- */
+  { slug: "vodafone-50", nameAr: "شحن رصيد فودافون — 50 جنيه", nameEn: "Vodafone Recharge — 50 EGP", shortDescription: "شحن مباشر على رقمك", description: "شحن رصيد فودافون بقيمة 50 جنيهاً مباشرة على الرقم الذي تدخله عند الطلب. يصل الرصيد فور تنفيذ العملية.", type: "MOBILE_RECHARGE", category: "recharge", priceCents: 5250, stock: 500, icon: "📶", reviewCount: 3260, rating: "4.9" },
+  { slug: "vodafone-100", nameAr: "شحن رصيد فودافون — 100 جنيه", nameEn: "Vodafone Recharge — 100 EGP", shortDescription: "شحن مباشر على رقمك", description: "شحن رصيد فودافون بقيمة 100 جنيه مباشرة على رقمك. تنفيذ فوري على مدار الساعة.", type: "MOBILE_RECHARGE", category: "recharge", priceCents: 10400, stock: 500, icon: "📱", featured: true, reviewCount: 2874, rating: "4.9" },
+  { slug: "orange-50", nameAr: "شحن رصيد أورنج — 50 جنيه", nameEn: "Orange Recharge — 50 EGP", shortDescription: "شحن مباشر على رقمك", description: "شحن رصيد أورنج بقيمة 50 جنيهاً على الرقم الذي تحدده. يصل الرصيد فور التنفيذ.", type: "MOBILE_RECHARGE", category: "recharge", priceCents: 5250, stock: 400, icon: "🟠", reviewCount: 1642, rating: "4.8" },
 
-  // Gaming
-  { slug: "raptor-mech-keyboard", name: "Raptor Mechanical Keyboard", description: "Hot-swappable 75% board with gasket mount, PBT keycaps and per-key RGB tuned for dark-room setups.", priceCents: 15900, category: "gaming", stock: 58, rating: "4.8", reviewCount: 2109, icon: "⌨️", featured: true },
-  { slug: "viper-gaming-mouse", name: "Viper 8K Gaming Mouse", description: "58-gram ultralight with an 8000 Hz polling rate, optical switches and a flawless 30K sensor.", priceCents: 9900, category: "gaming", stock: 74, rating: "4.7", reviewCount: 1645, icon: "🖱️" },
-  { slug: "titan-gpu-rig", name: "Titan RTX Battle Rig", description: "Pre-built tower with a flagship GPU, 64 GB DDR5, liquid cooling and a tempered-glass panel bathed in red light.", priceCents: 289900, category: "gaming", stock: 5, rating: "4.9", reviewCount: 98, icon: "🗼" },
-  { slug: "haptic-vr-headset", name: "Haptic VR Headset", description: "Dual 2.5K panels, inside-out tracking and haptic audio drivers for full immersion without a base station.", priceCents: 54900, category: "gaming", stock: 0, rating: "4.4", reviewCount: 310, icon: "🥽" },
-  { slug: "command-gaming-chair", name: "Command Ergonomic Chair", description: "4D armrests, magnetic lumbar support and breathable graphite mesh rated for 12-hour raids.", priceCents: 42900, category: "gaming", stock: 19, rating: "4.6", reviewCount: 458, icon: "🪑" },
+  /* -------- بطاقات رقمية -------- */
+  { slug: "google-play-10", nameAr: "بطاقة جوجل بلاي — 10 دولار", nameEn: "Google Play Gift Card — $10", shortDescription: "كود رقمي أصلي يصلك فوراً", description: "بطاقة جوجل بلاي الأمريكية بقيمة 10 دولارات. كود أصلي 100% يظهر في حسابك فور تأكيد الدفع، مع تعليمات الاستخدام.", type: "DIGITAL_CODE", category: "gift-cards", priceCents: 52900, stock: 0, icon: "▶️", deliveryNote: "افتح متجر Google Play ← الإعدادات ← تفعيل رمز — وأدخل الكود.", featured: true, reviewCount: 1204, rating: "4.9" },
+  { slug: "playstation-25", nameAr: "بطاقة بلايستيشن — 25 دولار", nameEn: "PlayStation Card — $25", shortDescription: "كود PSN أمريكي أصلي", description: "بطاقة شحن محفظة بلايستيشن (الستور الأمريكي) بقيمة 25 دولاراً. كود أصلي يُسلَّم فور الدفع داخل حسابك.", type: "DIGITAL_CODE", category: "gift-cards", priceCents: 129900, stock: 0, icon: "🎮", deliveryNote: "من جهاز PlayStation: الإعدادات ← المستخدمون والحسابات ← استرداد رمز.", reviewCount: 689, rating: "4.8" },
+  { slug: "steam-20", nameAr: "بطاقة ستيم — 20 دولار", nameEn: "Steam Gift Card — $20", shortDescription: "كود رقمي لمحفظة ستيم", description: "بطاقة شحن محفظة ستيم بقيمة 20 دولاراً. كود أصلي يُسلَّم فوراً في صفحة طلباتك بعد الدفع.", type: "DIGITAL_CODE", category: "gift-cards", priceCents: 104900, originalPriceCents: 109900, stock: 0, icon: "🚂", deliveryNote: "من عميل Steam: Games ← Redeem a Steam Wallet Code.", featured: true, reviewCount: 941, rating: "4.9" },
 
-  // Smart Home
-  { slug: "aurora-light-panels", name: "Aurora Light Panels (9-pack)", description: "Modular touch-reactive LED panels with 16M colors and local-network control — no cloud account required.", priceCents: 19900, category: "home", stock: 36, rating: "4.6", reviewCount: 720, icon: "💡", featured: true },
-  { slug: "nexus-smart-hub", name: "Nexus Smart Hub", description: "Matter + Thread border router that keeps automations local-first. Your home, your data.", priceCents: 12900, category: "home", stock: 48, rating: "4.5", reviewCount: 385, icon: "📡" },
-  { slug: "guardian-smart-lock", name: "Guardian Smart Lock", description: "ANSI Grade 1 deadbolt with fingerprint, keypad and offline key codes. Auto-locks behind you.", priceCents: 22900, category: "home", stock: 22, rating: "4.7", reviewCount: 512, icon: "🔒" },
-  { slug: "climate-sense-thermostat", name: "ClimateSense Thermostat", description: "Learning thermostat with room-by-room sensors and a crisp OLED ring display. Cuts energy waste by up to 23%.", priceCents: 17900, category: "home", stock: 31, rating: "4.4", reviewCount: 298, icon: "🌡️" },
-
-  // Accessories
-  { slug: "vector-commuter-pack", name: "Vector Commuter Backpack", description: "25 L weatherproof pack with a lockable laptop vault, luggage passthrough and theft-resistant zippers.", priceCents: 15900, category: "accessories", stock: 67, rating: "4.8", reviewCount: 934, icon: "🎒", featured: true },
-  { slug: "orbit-usb-c-dock", name: "Orbit 11-in-1 USB-C Dock", description: "Dual 4K HDMI, 2.5 GbE, SD reader and 100 W passthrough in a palm-sized anodized shell.", priceCents: 11900, category: "accessories", stock: 84, rating: "4.5", reviewCount: 612, icon: "🧩" },
-  { slug: "flux-wireless-pad", name: "Flux 3-in-1 Wireless Pad", description: "Charges phone, watch and earbuds at once with foreign-object detection and cool-touch coils.", priceCents: 8900, category: "accessories", stock: 0, rating: "4.3", reviewCount: 445, icon: "⚡" },
-  { slug: "titan-braided-cables", name: "Titan Braided Cable Trio", description: "Three 240 W USB-C cables in Kevlar-reinforced braid — 1 m, 2 m and 3 m — rated for 30,000 bends.", priceCents: 3900, category: "accessories", stock: 240, rating: "4.7", reviewCount: 1520, icon: "🧵" },
+  /* -------- خدمات رقمية -------- */
+  { slug: "logo-design", nameAr: "تصميم شعار احترافي", nameEn: "Professional Logo Design", shortDescription: "شعار مخصص لعلامتك التجارية خلال 72 ساعة", description: "خدمة تصميم شعار احترافي مخصص لعلامتك التجارية: 3 مقترحات مبدئية، مراجعتان مجانيتان، وتسليم الملفات المصدرية بجودة عالية خلال 72 ساعة.", type: "DIGITAL_SERVICE", category: "services", priceCents: 79900, stock: 15, icon: "✒️", deliveryNote: "سيتواصل معك فريق التصميم عبر بريدك خلال 24 ساعة لبدء التنفيذ.", reviewCount: 187, rating: "4.7" },
+  { slug: "cv-writing", nameAr: "كتابة سيرة ذاتية احترافية", nameEn: "Professional CV Writing", shortDescription: "سيرة ذاتية ATS جاهزة للتقديم", description: "كتابة سيرة ذاتية احترافية متوافقة مع أنظمة الفرز الآلي (ATS) باللغتين العربية والإنجليزية، مع خطاب تقديم مخصص.", type: "DIGITAL_SERVICE", category: "services", priceCents: 39900, stock: 30, icon: "📄", deliveryNote: "أرسل سيرتك الحالية إلى فريقنا عند التواصل معك خلال 24 ساعة.", reviewCount: 253, rating: "4.8" },
 ];
 
 async function seed() {
-  console.log("[seed] clearing existing catalog...");
-  await db.delete(products);
-  await db.delete(categories);
+  /* ------------------------- Admin bootstrap ------------------------- */
+  const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase().trim();
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminEmail || !adminPassword || adminPassword.length < 10) {
+    console.error(
+      "[seed] ADMIN_EMAIL and ADMIN_PASSWORD (>=10 chars) must be set in the environment.",
+    );
+    process.exit(1);
+  }
+  const [existingAdmin] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, adminEmail))
+    .limit(1);
+  if (!existingAdmin) {
+    await db.insert(users).values({
+      email: adminEmail,
+      name: "مدير المتجر",
+      passwordHash: await hashPassword(adminPassword),
+      role: "admin",
+    });
+    console.log(`[seed] admin account created: ${adminEmail}`);
+  } else {
+    console.log("[seed] admin account already exists — unchanged.");
+  }
 
-  console.log("[seed] inserting categories...");
-  const insertedCategories = await db
-    .insert(categories)
-    .values(CATEGORIES.map((c) => ({ ...c })))
-    .returning();
+  /* --------------------------- Categories --------------------------- */
+  console.log("[seed] upserting categories...");
+  for (const c of CATEGORIES) {
+    await db
+      .insert(categories)
+      .values({ ...c })
+      .onConflictDoUpdate({
+        target: categories.slug,
+        set: {
+          nameAr: c.nameAr,
+          nameEn: c.nameEn,
+          icon: c.icon,
+          sortOrder: c.sortOrder,
+          description: c.description,
+        },
+      });
+  }
+  const catRows = await db.select().from(categories);
+  const idBySlug = new Map(catRows.map((c) => [c.slug, c.id]));
 
-  const idBySlug = new Map(insertedCategories.map((c) => [c.slug, c.id]));
+  /* ---------------------------- Products ---------------------------- */
+  console.log("[seed] upserting products...");
+  for (const { category, ...p } of PRODUCTS) {
+    await db
+      .insert(products)
+      .values({
+        ...p,
+        featured: p.featured ?? false,
+        originalPriceCents: p.originalPriceCents ?? null,
+        deliveryNote: p.deliveryNote ?? "",
+        categoryId: idBySlug.get(category)!,
+      })
+      .onConflictDoUpdate({
+        target: products.slug,
+        set: {
+          nameAr: p.nameAr,
+          nameEn: p.nameEn,
+          shortDescription: p.shortDescription,
+          description: p.description,
+          priceCents: p.priceCents,
+          originalPriceCents: p.originalPriceCents ?? null,
+          icon: p.icon,
+          type: p.type,
+        },
+      });
+  }
 
-  console.log("[seed] inserting products...");
-  await db.insert(products).values(
-    PRODUCTS.map(({ category, ...p }) => ({
-      ...p,
-      featured: p.featured ?? false,
-      categoryId: idBySlug.get(category)!,
-    })),
-  );
+  /* ------------------ Dev-only test code inventory ------------------ */
+  if (process.env.NODE_ENV !== "production") {
+    const codeProducts = await db
+      .select({ id: products.id, slug: products.slug })
+      .from(products)
+      .where(eq(products.type, "DIGITAL_CODE"));
 
-  console.log(
-    `[seed] done — ${insertedCategories.length} categories, ${PRODUCTS.length} products.`,
-  );
+    for (const p of codeProducts) {
+      const [{ available }] = await db
+        .select({ available: sql<number>`count(*)::int` })
+        .from(digitalCodes)
+        .where(and(eq(digitalCodes.productId, p.id), eq(digitalCodes.status, "AVAILABLE")));
+
+      if (available === 0) {
+        const testCodes = Array.from({ length: 10 }, () =>
+          `DEV-TEST-${randomBytes(6).toString("hex").toUpperCase()}`,
+        );
+        await db.insert(digitalCodes).values(
+          testCodes.map((code) => ({
+            productId: p.id,
+            codeEncrypted: encryptCode(code),
+          })),
+        );
+        await db
+          .update(products)
+          .set({ stock: sql`${products.stock} + 10` })
+          .where(eq(products.id, p.id));
+        console.log(`[seed] added 10 DEV test codes to ${p.slug}`);
+      }
+    }
+  }
+
+  console.log(`[seed] done — ${CATEGORIES.length} categories, ${PRODUCTS.length} products.`);
   await pool.end();
 }
 

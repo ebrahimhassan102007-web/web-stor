@@ -1,7 +1,24 @@
-import { randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
-import { promisify } from "node:util";
+import {
+  randomBytes,
+  scrypt as scryptCb,
+  timingSafeEqual,
+  type ScryptOptions,
+} from "node:crypto";
 
-const scrypt = promisify(scryptCb);
+/** Promise wrapper — promisify() loses the options-bearing overload types. */
+function scrypt(
+  password: string,
+  salt: Buffer,
+  keylen: number,
+  options: ScryptOptions,
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    scryptCb(password, salt, keylen, options, (err, derivedKey) => {
+      if (err) reject(err);
+      else resolve(derivedKey);
+    });
+  });
+}
 
 /**
  * Password hashing with scrypt (built into Node — memory-hard, no native
@@ -19,12 +36,12 @@ const MAX_MEM = 128 * N * R * 2; // headroom above the scrypt requirement
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(SALT_LEN);
-  const hash = (await scrypt(password, salt, KEY_LEN, {
+  const hash = await scrypt(password, salt, KEY_LEN, {
     N,
     r: R,
     p: P,
     maxmem: MAX_MEM,
-  })) as Buffer;
+  });
   return `scrypt$${N}$${R}$${P}$${salt.toString("base64")}$${hash.toString("base64")}`;
 }
 
@@ -43,12 +60,12 @@ export async function verifyPassword(
     }
     const salt = Buffer.from(saltB64, "base64");
     const expected = Buffer.from(hashB64, "base64");
-    const actual = (await scrypt(password, salt, expected.length, {
+    const actual = await scrypt(password, salt, expected.length, {
       N: n,
       r,
       p,
       maxmem: 128 * n * r * 2,
-    })) as Buffer;
+    });
     return (
       expected.length === actual.length && timingSafeEqual(expected, actual)
     );

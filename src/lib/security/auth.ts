@@ -16,7 +16,7 @@ import { db, sessions, users, type User } from "@/lib/db";
  * - Cookies: HttpOnly, Secure (production), SameSite=Lax, Path=/.
  */
 
-export const SESSION_COOKIE = "webstor_session";
+export const SESSION_COOKIE = "khodmtak_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 
 export type SafeUser = Pick<User, "id" | "email" | "name" | "role">;
@@ -76,6 +76,8 @@ export async function getSessionUser(): Promise<SafeUser | null> {
       and(
         eq(sessions.tokenHash, hashToken(token)),
         gt(sessions.expiresAt, new Date()),
+        // Disabled accounts lose access immediately, even with live sessions.
+        eq(users.disabled, false),
       ),
     )
     .limit(1);
