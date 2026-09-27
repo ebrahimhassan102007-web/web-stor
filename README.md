@@ -1,99 +1,82 @@
-# WebStor — Secure Tech Marketplace
+# خدمتك ستور | Khodmtak Store
 
-A hardened, dark-themed e-commerce web application built with **Next.js 16 (App Router)**, **React 19**, **TypeScript**, **Tailwind CSS v4**, **PostgreSQL + Drizzle ORM** and **Zod**.
+**خدماتك الرقمية في مكان واحد — Your Digital Services, All in One Place**
 
-> Deep-black glassmorphism UI · red primary / green success accents · security-first backend.
+A production-grade, Arabic-first (RTL) digital services marketplace: digital
+subscriptions, game top-ups, mobile recharges, digital gift-card codes, and
+digital services — built with a security-first backend and a dark premium
+glassmorphism UI (near-black `#050505`, red accent, green success).
 
----
+> ⚠️ Only legitimate, authorized digital products are supported. The store is
+> not designed for, and must not be used for, reselling unauthorized or
+> stolen accounts/codes.
+
+## Stack
+
+| Layer      | Technology                                                |
+| ---------- | --------------------------------------------------------- |
+| Framework  | Next.js 16 (App Router) · React 19 · TypeScript (strict)  |
+| Styling    | Tailwind CSS v4 · Cairo variable font (Arabic-first, RTL) |
+| Database   | PostgreSQL · Drizzle ORM (parameterized only) · migrations |
+| Validation | Zod on every API input                                     |
+| Auth       | scrypt password hashing · DB-backed sessions (hashed tokens) · RBAC (customer / admin) |
+| Tests      | Vitest — unit + live security/concurrency integration      |
 
 ## Features
 
-- **Home** — hero, trusted-security badges, featured products, category grid
-- **Products** — grid listing with full-text search, category filtering and sorting (newest / price ↑↓ / rating)
-- **Product detail** — large art tile, description, dynamic stock status, quantity selector, add-to-cart
-- **Cart** — add / remove / update quantities with live totals and free-shipping logic
-- **Checkout** — validated shipping form, transactional order creation, order confirmation page
+- **DB-driven categories** (اشتراكات رقمية، شحن ألعاب، شحن رصيد، بطاقات رقمية، خدمات رقمية) with admin CRUD, reorder and visibility.
+- **5 product types** — `DIGITAL_CODE`, `SUBSCRIPTION`, `GAME_TOPUP`, `MOBILE_RECHARGE`, `DIGITAL_SERVICE` — with Arabic + English names, discount pricing, featured flags, and **dynamic required customer fields** (PUBG player ID, Egyptian recharge phone, account email) validated server-side per type.
+- **Encrypted digital-code inventory** (AES-256-GCM at rest, dedicated key): `AVAILABLE → RESERVED → SOLD` lifecycle, `SELECT … FOR UPDATE SKIP LOCKED` reservation, a DB constraint binding every `SOLD` code to exactly one order item — a code can never be delivered twice, and code values are never logged or exposed in listings.
+- **Verified-payment-then-fulfillment pipeline**: client `paymentStatus` is never trusted; HMAC-signed payment callbacks; `payment_events` uniqueness makes webhooks idempotent; state machine `PENDING_PAYMENT → PAID → PROCESSING → FULFILLED / FAILED / CANCELLED / REFUNDED` with guarded transitions.
+- **Provider abstractions** (`PaymentProvider`, `GameTopupProvider`, `RechargeProvider`, notifications) with clearly-isolated **mock/dev implementations that refuse to run in production** unless explicitly opted in — no fake production claims.
+- **Customer dashboard**: orders + deliveries with strict ownership checks (IDOR-safe), codes decrypted server-side only for the verified owner.
+- **Admin dashboard**: stats, product/category/order management, bulk encrypted code upload, and an append-only **audit log** of every admin action.
+- **Idempotent checkout** (client-generated idempotency key), server-computed prices/totals, transactional stock decrement.
+- Rate limiting, same-origin verification on mutations, strict security headers (CSP, HSTS in production), structured JSON logging that never includes secrets or code values.
 
-## Tech Stack
-
-| Layer      | Choice                                        |
-| ---------- | --------------------------------------------- |
-| Framework  | Next.js 16 (App Router, Route Handlers, RSC)  |
-| UI         | React 19 + Tailwind CSS v4 (custom dark theme) |
-| Database   | PostgreSQL via Drizzle ORM (node-postgres)     |
-| Validation | Zod (shared client + server schemas)           |
-| Fonts      | Geist, self-hosted (zero external requests)    |
-
-## Security Architecture
-
-| Threat | Mitigation |
-| --- | --- |
-| **SQL injection** | 100% Drizzle ORM query builder — every query is parameterized; no raw SQL string concatenation anywhere. LIKE wildcards in search input are escaped. |
-| **XSS** | React auto-escaping everywhere; no `dangerouslySetInnerHTML`; strict CSP (`object-src 'none'`, `base-uri 'self'`, `form-action 'self'`). |
-| **CSRF** | Cart cookie is `SameSite=Lax`; additionally every state-changing Route Handler verifies the `Origin` header against the served host. |
-| **Session forgery** | Cart id is a random UUID, HMAC-SHA256-signed with `SESSION_SECRET`; signatures compared in constant time. Cookies are `HttpOnly`, `Secure` (production) and `SameSite=Lax`. |
-| **IDOR** | Every cart mutation is scoped to the cart id from the verified session cookie — line-item ids from the URL are always ANDed with the session cart. |
-| **Input abuse** | All bodies and URL params pass Zod schemas (bounded lengths, ranges, formats, control-character rejection) before touching the database. |
-| **Price manipulation** | Prices/totals are computed exclusively from the database inside the checkout transaction — client-supplied prices are never trusted. |
-| **Overselling / races** | Checkout runs in a single transaction with `SELECT … FOR UPDATE` and a `stock >= qty` guarded decrement. |
-| **Info leakage** | Uniform generic API errors; full details logged server-side only. `X-Powered-By` disabled. |
-| **Enumeration** | Order numbers are unguessable (58+ bits from a CSPRNG). |
-| **Abuse / flooding** | Per-client sliding-window rate limits on cart and checkout endpoints. |
-| **Clickjacking / misc.** | `nosniff`, `Referrer-Policy`, restrictive `Permissions-Policy` headers on every response. |
-
-Money is stored as **integer cents** end-to-end — no floating-point currency math.
-
-## Getting Started
-
-### 1. Install
+## Getting started
 
 ```bash
 npm install
+cp .env.example .env        # fill DATABASE_URL, SESSION_SECRET, INVENTORY_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD
+
+npm run db:migrate          # apply SQL migrations (drizzle/)
+npm run db:seed             # idempotent Arabic catalog + admin bootstrap
+npm run dev                 # http://localhost:3000
 ```
 
-### 2. Configure environment
-
-```bash
-cp .env.example .env
-# set DATABASE_URL and a strong SESSION_SECRET (openssl rand -hex 32)
-```
-
-### 3. Database
-
-Use any PostgreSQL 14+ instance, **or** run the bundled zero-install dev server (real PostgreSQL binaries shipped via npm):
-
-```bash
-npm run db:server   # starts local PostgreSQL on :5432 (keep running)
-npm run db:push     # apply the Drizzle schema
-npm run db:seed     # seed categories + products
-```
-
-### 4. Run
-
-```bash
-npm run dev         # http://localhost:3000
-```
+In non-production, the seed also loads `DEV-TEST-*` sample codes so the full
+checkout → payment → delivery flow works end to end with the mock payment
+simulator at `/pay/mock`.
 
 ### Scripts
 
-| Script | Purpose |
-| --- | --- |
-| `npm run dev` / `build` / `start` | Next.js lifecycle |
-| `npm run db:server` | Local dev PostgreSQL (embedded binaries) |
-| `npm run db:push` | Push Drizzle schema to the database |
-| `npm run db:seed` | Seed demo catalog data |
-| `npm run lint` / `typecheck` | ESLint / strict TypeScript checks |
+| Command              | Purpose                                    |
+| -------------------- | ------------------------------------------ |
+| `npm run dev`        | Development server                         |
+| `npm run build`      | Production build                           |
+| `npm run db:migrate` | Apply Drizzle SQL migrations               |
+| `npm run db:seed`    | Idempotent seed (requires admin env vars)  |
+| `npm test`           | Vitest — unit + security integration suite |
+| `npm run lint`       | ESLint                                     |
 
-## Database Schema
+The integration tests in `tests/security-integration.test.ts` run against a
+**live server** (start the app first); they are skipped automatically when the
+server is unreachable. They cover the concurrent one-code-one-customer race,
+IDOR, CSRF, price manipulation, enumeration and rate limiting.
 
-```
-categories 1─∞ products 1─∞ cart_items ∞─1 carts
-                     │
-                     └─∞ order_items ∞─1 orders
-```
+## Production configuration required
 
-Order items snapshot the product name and unit price at purchase time, so order history is immutable even if the catalog changes.
+The following are intentionally **not** faked — each needs real credentials
+and a small provider implementation in `src/lib/providers/`:
 
----
+1. **Real payments** — implement a `PaymentProvider` (e.g. Stripe Checkout +
+   signed webhooks) and set `PAYMENT_PROVIDER` accordingly.
+2. **Game top-up API** — real `GameTopupProvider` against your supplier.
+3. **Mobile recharge API** — real `RechargeProvider` against the operator/aggregator.
+4. **Transactional email** — real notification provider (SMTP/API); the dev
+   provider only logs a queued event.
+5. **Production PostgreSQL** with TLS + backups; run `npm run db:migrate`.
+6. Secrets: unique `SESSION_SECRET`, `INVENTORY_SECRET`, `PAYMENT_WEBHOOK_SECRET`.
 
-**Disclaimer:** demo storefront — no real payments are processed.
+See `SECURITY.md` for the security posture and regression process.
