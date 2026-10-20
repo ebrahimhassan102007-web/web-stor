@@ -20,7 +20,7 @@ A hardened, dark-themed e-commerce web application built with **Next.js 16 (App 
 | ---------- | --------------------------------------------- |
 | Framework  | Next.js 16 (App Router, Route Handlers, RSC)  |
 | UI         | React 19 + Tailwind CSS v4 (custom dark theme) |
-| Database   | PostgreSQL via Drizzle ORM (node-postgres)     |
+| Database   | PostgreSQL via Drizzle ORM — embedded PGlite for local dev, node-postgres for external DBs |
 | Validation | Zod (shared client + server schemas)           |
 | Fonts      | Geist, self-hosted (zero external requests)    |
 
@@ -45,33 +45,42 @@ Money is stored as **integer cents** end-to-end — no floating-point currency m
 
 ## Getting Started
 
-### 1. Install
+### 1. Install & run — that's it
 
 ```bash
 npm install
-```
-
-### 2. Configure environment
-
-```bash
-cp .env.example .env
-# set DATABASE_URL and a strong SESSION_SECRET (openssl rand -hex 32)
-```
-
-### 3. Database
-
-Use any PostgreSQL 14+ instance, **or** run the bundled zero-install dev server (real PostgreSQL binaries shipped via npm):
-
-```bash
-npm run db:server   # starts local PostgreSQL on :5432 (keep running)
-npm run db:push     # apply the Drizzle schema
-npm run db:seed     # seed categories + products
-```
-
-### 4. Run
-
-```bash
 npm run dev         # http://localhost:3000
+```
+
+There is **no database to install and nothing to configure** for local
+development. On first boot the app creates an embedded PostgreSQL database
+([PGlite](https://pglite.dev), running in-process via WebAssembly), applies
+the migrations in `./drizzle/` and seeds the demo catalog (6 categories,
+27 products) automatically. Data persists in the `./.pglite/` folder —
+delete that folder to reset the dev database to a fresh seeded state.
+
+### 2. (Optional) Environment variables
+
+```bash
+cp .env.example .env   # see the file for details
+```
+
+- `SESSION_SECRET` — signs cart-session cookies. Optional in dev (a
+  temporary one is auto-generated; carts reset on restart), **required in
+  production**: `openssl rand -hex 32`.
+- `DATABASE_URL` — point the app at an external PostgreSQL (Neon,
+  Supabase, ...) instead of the embedded one. Only **remote** hosts are
+  honoured; a localhost URL falls back to the embedded database.
+  Migrations and the initial seed are applied automatically on boot here
+  too.
+
+### 3. Changing the schema
+
+Edit `src/lib/db/schema.ts`, then:
+
+```bash
+npm run db:generate   # writes a new migration into ./drizzle
+npm run dev           # the migration is applied automatically on boot
 ```
 
 ### Scripts
@@ -79,9 +88,9 @@ npm run dev         # http://localhost:3000
 | Script | Purpose |
 | --- | --- |
 | `npm run dev` / `build` / `start` | Next.js lifecycle |
-| `npm run db:server` | Local dev PostgreSQL (embedded binaries) |
-| `npm run db:push` | Push Drizzle schema to the database |
-| `npm run db:seed` | Seed demo catalog data |
+| `npm run db:generate` | Generate a SQL migration from the schema |
+| `npm run db:push` | Push the schema directly (embedded DB, or DATABASE_URL) |
+| `npm run db:seed` | Force re-seed the catalog (auto-seeded on first boot) |
 | `npm run lint` / `typecheck` | ESLint / strict TypeScript checks |
 
 ## Database Schema

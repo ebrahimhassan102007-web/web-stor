@@ -33,6 +33,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // PGlite loads .wasm/data files relative to its package at runtime, so
+  // keep it out of the bundler and let Node require() it directly.
+  serverExternalPackages: ["@electric-sql/pglite"],
   allowedDevOrigins: ["*.e2b.app"],
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];

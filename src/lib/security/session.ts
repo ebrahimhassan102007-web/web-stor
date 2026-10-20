@@ -1,5 +1,5 @@
 import "server-only";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { db, carts } from "@/lib/db";
 import { eq } from "drizzle-orm";
@@ -21,12 +21,32 @@ const MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const globalForSession = globalThis as unknown as {
+  __webstorDevSecret?: string;
+};
+
 function secret(): string {
   const s = process.env.SESSION_SECRET;
-  if (!s || s.length < 16) {
-    throw new Error("SESSION_SECRET is not configured");
+  if (s && s.length >= 16) return s;
+
+  // Zero-config local development: fall back to a random per-process secret.
+  // Existing cart cookies stop verifying after a restart, which is an
+  // acceptable trade-off in dev. Production must always provide a stable
+  // SESSION_SECRET (see .env.example).
+  if (process.env.NODE_ENV !== "production") {
+    let devSecret = globalForSession.__webstorDevSecret;
+    if (!devSecret) {
+      devSecret = randomBytes(32).toString("hex");
+      globalForSession.__webstorDevSecret = devSecret;
+      console.warn(
+        "[session] SESSION_SECRET is not set — using a temporary secret " +
+          "for this dev session. Add SESSION_SECRET to .env for stable carts.",
+      );
+    }
+    return devSecret;
   }
-  return s;
+
+  throw new Error("SESSION_SECRET is not configured");
 }
 
 function sign(value: string): string {
