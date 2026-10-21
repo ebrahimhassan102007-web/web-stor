@@ -38,7 +38,7 @@ A bilingual (EN/AR) demo digital-goods storefront built with **Next.js 16 (App R
 | **Price manipulation** | Prices/totals are computed exclusively from the database inside the checkout transaction — client-supplied prices are never trusted. |
 | **Overselling / races** | Checkout runs in a single transaction with `SELECT … FOR UPDATE` and a `stock >= qty` guarded decrement. |
 | **Info leakage** | Uniform generic API errors; full details logged server-side only. `X-Powered-By` disabled. Public order receipts show no customer data or delivery codes. |
-| **Enumeration** | New order numbers use 12 uniformly sampled characters from a 30-character alphabet (~58.87 bits of entropy). They are identifiers, never authorization. |
+| **Enumeration** | New order numbers use 12 uniformly sampled characters from a 30-character alphabet (~58.88 bits of entropy). They are identifiers, never authorization. |
 | **Abuse / flooding** | Best-effort in-memory sliding-window limits on one process. Multi-instance production needs a shared atomic rate limiter. Client forwarding headers are ignored unless trusted-proxy configuration is explicitly enabled. |
 | **Clickjacking / misc.** | `nosniff`, `Referrer-Policy`, restrictive `Permissions-Policy` headers on every response. |
 
