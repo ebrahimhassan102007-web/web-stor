@@ -12,7 +12,10 @@
  *     (`webstor` / `test` / `webstor_backup_test2` are all rejected).
  *  4. The **effective** host — the one node-postgres will actually connect to —
  *     is loopback/local. Remote hosts are rejected **by default** because a
- *     shared/staging database may contain data that matters.
+ *     shared/staging database may contain data that matters. Loopback means a
+ *     host name, a *valid* IPv4 address in 127.0.0.0/8 (octets range-checked),
+ *     IPv6 loopback or a unix socket path; malformed literals such as
+ *     `127.999.999.999` are not loopback.
  *  5. Remote hosts are only accepted when the operator sets
  *     `ALLOW_REMOTE_TEST_DATABASE=YES`. That opt-in is a deliberate,
  *     documented risk acceptance: the target *will be truncated*, so it must
@@ -41,7 +44,13 @@
  *  - `host` contains a comma-separated list,
  *  - any other host-like parameter is present (`hostaddr`, `host[]`, `HOST`…),
  *  - the authority host is percent-encoded (unix-socket-in-authority form),
+ *  - any host value carries whitespace or control characters — the driver keeps
+ *    `?host=` values verbatim, so `" localhost "` is **not** localhost and a
+ *    padded socket path does not begin with `/`,
  *  - no explicit host is present (the driver would fall back to `PGHOST`).
+ *
+ * Host values are never trimmed. The connection string handed to PostgreSQL is
+ * exactly the string that was validated.
  *
  * Error messages never contain credentials or the full connection URL — only a
  * credential-free `host:port/database` label.
@@ -110,26 +119,90 @@ function stripBrackets(hostname: string): string {
     : hostname;
 }
 
+/** Any whitespace or ASCII control character. */
+const WHITESPACE_OR_CONTROL = /[\s\u0000-\u001f\u007f]/;
+
+/** Plain DNS name or dotted-quad IPv4 (applied after lowercasing). */
+const DNS_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
+
+/** IPv6 literal (brackets already removed). */
+const IPV6_PATTERN = /^[0-9a-f:.]+$/;
+
 /**
- * Normalises a host the way the driver compares/uses it: trimmed, lowercased
- * and without a trailing dot (the fully-qualified form of the same name).
+ * Canonical form used for classification. Deliberately does **not** trim:
+ * `pg` keeps whitespace verbatim in a `?host=` value, so silently trimming here
+ * could classify a target as local while the driver connects elsewhere.
  */
-function normalizeHost(host: string): string {
-  return stripBrackets(host.trim().toLowerCase()).replace(/\.$/, "");
+function canonicalHost(host: string): string {
+  const withoutBrackets = stripBrackets(host);
+  // A trailing dot is the fully-qualified spelling of the same DNS name; that
+  // is a naming equivalence, not a value the driver would reinterpret.
+  const withoutTrailingDot = withoutBrackets.endsWith(".")
+    ? withoutBrackets.slice(0, -1)
+    : withoutBrackets;
+  return withoutTrailingDot.toLowerCase();
+}
+
+/** True when a host value contains whitespace or control characters. */
+export function hasWhitespaceOrControl(value: string): boolean {
+  return WHITESPACE_OR_CONTROL.test(value);
 }
 
 /**
- * True only for addresses that are this machine: `localhost`, `127.0.0.0/8`,
- * IPv6 loopback, IPv4-mapped loopback, or an empty hostname (unix socket).
+ * Strict dotted-quad parsing: exactly four decimal octets, 0–255 each, without
+ * leading zeros (which some resolvers read as octal). Returns null otherwise.
+ */
+export function parseIpv4Octets(host: string): number[] | null {
+  const parts = host.split(".");
+  if (parts.length !== 4) return null;
+
+  const octets: number[] = [];
+  for (const part of parts) {
+    if (!/^\d{1,3}$/.test(part)) return null;
+    if (part.length > 1 && part.startsWith("0")) return null;
+    const value = Number(part);
+    if (value > 255) return null;
+    octets.push(value);
+  }
+  return octets;
+}
+
+/** IPv6 loopback: `::1`, its expanded form, and IPv4-mapped loopback. */
+function isLoopbackIpv6(host: string): boolean {
+  if (host === "::1" || host === "0:0:0:0:0:0:0:1") return true;
+
+  // Dotted IPv4-mapped form (as written in a ?host= value).
+  const dotted = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(host);
+  if (dotted) {
+    const octets = parseIpv4Octets(dotted[1] ?? "");
+    return octets !== null && octets[0] === 127;
+  }
+
+  // WHATWG URL canonicalises [::ffff:127.0.0.1] to [::ffff:7f00:1].
+  if (host === "::ffff:7f00:1") return true;
+
+  return false;
+}
+
+/**
+ * True only for addresses that are this machine: `localhost`, a **valid**
+ * IPv4 address in 127.0.0.0/8, IPv6 loopback, or an empty host (driver
+ * default / unix socket).
+ *
+ * Values are not trimmed, so a padded `" localhost "` is not loopback. Invalid
+ * dotted-quads such as `127.999.999.999` are not loopback either, even though
+ * they look like 127/8 addresses.
  */
 export function isLoopbackHost(hostname: string): boolean {
-  const host = normalizeHost(hostname);
+  const host = canonicalHost(hostname);
   if (host === "") return true; // driver default / unix socket
   if (LOOPBACK_NAMES.has(host)) return true;
-  if (/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
-  if (host === "::1") return true;
-  if (host === "0:0:0:0:0:0:0:1") return true;
-  if (host === "::ffff:127.0.0.1") return true;
+
+  const octets = parseIpv4Octets(host);
+  if (octets) return octets[0] === 127;
+
+  if (host.includes(":")) return isLoopbackIpv6(host);
+
   return false;
 }
 
@@ -139,13 +212,25 @@ export function isUnixSocketHost(host: string): boolean {
 }
 
 /**
+ * True when a host token is one the driver could meaningfully use: a DNS name,
+ * a dotted-quad, an IPv6 literal, or a unix socket path. Rejects the percent
+ * encodings, whitespace and separators that make the target ambiguous.
+ */
+function isUsableHostToken(host: string): boolean {
+  if (isUnixSocketHost(host)) return !hasWhitespaceOrControl(host);
+  if (host.includes(":")) return IPV6_PATTERN.test(host);
+  return DNS_NAME_PATTERN.test(host);
+}
+
+/**
  * Resolves the host node-postgres will actually use, or explains why the URL
  * is too ambiguous to classify safely.
  *
  * Mirrors `pg-connection-string@2.14` (`parse()`): query parameters overwrite
- * authority parts, later duplicates overwrite earlier ones, and a missing host
- * falls back to `PGHOST`/`localhost`. Anything this deployment cannot prove to
- * be a single unambiguous host is rejected.
+ * authority parts, later duplicates overwrite earlier ones, a missing host
+ * falls back to `PGHOST`/`localhost`, and query values are kept **verbatim**
+ * (no trimming). Anything this policy cannot prove to be a single unambiguous
+ * host is rejected.
  */
 export function resolveEffectiveConnectionHost(
   url: URL,
@@ -177,8 +262,9 @@ export function resolveEffectiveConnectionHost(
   }
 
   const authorityRaw = url.hostname;
-  // e.g. postgres://%2Fvar%2Frun%2Fpostgresql/webstor_test — pg-connection-string
-  // folds this encoded form into the database name, which cannot be validated.
+  // pg-connection-string runs the authority host through decodeURIComponent and
+  // strips IPv6 brackets. A percent-encoded authority is decoded by the driver
+  // (e.g. %20localhost → " localhost"), so it cannot be classified here.
   if (authorityRaw.includes("%")) {
     return {
       ok: false,
@@ -187,10 +273,20 @@ export function resolveEffectiveConnectionHost(
     };
   }
 
-  const authorityHost = normalizeHost(authorityRaw);
+  const authorityHost = canonicalHost(authorityRaw);
 
   if (hostValues.length === 1) {
     const queryValue = hostValues[0] ?? "";
+
+    // pg keeps the query value verbatim: " localhost " is NOT localhost.
+    if (hasWhitespaceOrControl(queryValue)) {
+      return {
+        ok: false,
+        reason:
+          'The "host" parameter contains whitespace or control characters; PostgreSQL uses it verbatim, so the effective target cannot be validated.',
+      };
+    }
+
     if (queryValue.includes(",")) {
       return {
         ok: false,
@@ -199,10 +295,17 @@ export function resolveEffectiveConnectionHost(
       };
     }
 
-    const queryHost = normalizeHost(queryValue);
+    const queryHost = canonicalHost(queryValue);
 
     // An empty ?host= falls back to the authority in pg-connection-string.
     if (queryHost !== "") {
+      if (!isUsableHostToken(queryHost)) {
+        return {
+          ok: false,
+          reason:
+            'The "host" parameter is not a plain host name, address or unix socket path; refusing to guess the effective target.',
+        };
+      }
       if (authorityHost !== "" && authorityHost !== queryHost) {
         return {
           ok: false,
@@ -223,6 +326,14 @@ export function resolveEffectiveConnectionHost(
       ok: false,
       reason:
         "The URL does not specify a host; PostgreSQL would fall back to PGHOST or localhost, so the effective target cannot be validated.",
+    };
+  }
+
+  if (!isUsableHostToken(authorityHost)) {
+    return {
+      ok: false,
+      reason:
+        "The URL authority is not a plain host name, address or unix socket path; refusing to guess the effective target.",
     };
   }
 

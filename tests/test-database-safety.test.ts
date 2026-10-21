@@ -12,6 +12,8 @@ import {
   isUnixSocketHost,
   REMOTE_TEST_DATABASE_OPT_IN,
   REMOTE_TEST_DATABASE_OPT_IN_VALUE,
+  hasWhitespaceOrControl,
+  parseIpv4Octets,
   resolveEffectiveConnectionHost,
   resolveTestDatabaseTarget,
   TEST_DATABASE_NAME_SUFFIX,
@@ -536,6 +538,12 @@ test("no socket is opened while an unsafe URL is rejected (network tripwire)", a
     "postgres:///webstor_test?host=db.example.com",
     "postgres:///webstor_test?host=a&host=b",
     "postgres://db.example.com:5432/webstor_prod",
+    // whitespace-padded hosts and malformed 127/8 literals must also be
+    // refused without a socket ever being opened.
+    "postgres:///webstor_test?host=%20localhost%20",
+    "postgres:///webstor_test?host=%20%2Fvar%2Frun%2Fpostgresql%20",
+    "postgres://leakuser:leakpassword@127.999.999.999:5432/webstor_test",
+    "postgres:///webstor_test?host=%20db.example.com%20",
   ]) {
     const { stdout, stderr } = await probeUrl(url);
     assert.equal(stderr.includes("NETWORK_ATTEMPT"), false, `${url} opened a connection`);
@@ -571,4 +579,188 @@ test("no socket is opened while an unsafe URL is rejected (network tripwire)", a
   );
   assert.equal(control.code, 3, "the tripwire must abort TCP connections");
   assert.match(control.stderr, /NETWORK_ATTEMPT/);
+});
+
+/* ------------------- Whitespace in host values (no trimming) --------------- */
+
+test("the driver keeps whitespace in ?host= values, which is why padded hosts are refused", () => {
+  // Documents the regression: pg-connection-string retains the padding, so
+  // trimming it away in the guard would classify a different target than the
+  // one the driver actually uses.
+  for (const url of [
+    "postgres:///webstor_test?host=%20localhost%20",
+    "postgres:///webstor_test?host=localhost%20",
+    "postgres:///webstor_test?host=%09localhost",
+    "postgres:///webstor_test?host=%20%2Fvar%2Frun%2Fpostgresql%20",
+  ]) {
+    const driverHost = parseConnectionString(url).host ?? "";
+    assert.notEqual(driverHost, driverHost.trim(), `${url} must keep the padding`);
+  }
+
+  assert.equal(
+    parseConnectionString("postgres:///webstor_test?host=%20localhost%20").host,
+    " localhost ",
+  );
+});
+
+test("whitespace-padded host values are never accepted as local", () => {
+  const padded = [
+    "postgres:///webstor_test?host=%20localhost%20",
+    "postgres:///webstor_test?host=localhost%20",
+    "postgres:///webstor_test?host=%20localhost",
+    "postgres:///webstor_test?host=%09localhost",
+    "postgres:///webstor_test?host=%0A127.0.0.1",
+    "postgres:///webstor_test?host=127.0.0.1%20",
+    "postgres://localhost:5432/webstor_test?host=%20localhost%20",
+    "postgres:///webstor_test?host=local%20host",
+  ];
+
+  for (const url of padded) {
+    const resolution = resolveTestDatabaseTarget({ TEST_DATABASE_URL: url });
+    assert.equal(resolution.allowed, false, url);
+    if (resolution.allowed) return;
+    assert.equal(resolution.kind, "ambiguous", url);
+    assert.match(resolution.reason, /whitespace or control characters/, url);
+  }
+
+  // The opt-in must not turn a padded value into an accepted target either.
+  for (const url of padded) {
+    const resolution = resolveTestDatabaseTarget({
+      TEST_DATABASE_URL: url,
+      [REMOTE_TEST_DATABASE_OPT_IN]: REMOTE_TEST_DATABASE_OPT_IN_VALUE,
+    });
+    assert.equal(resolution.allowed, false, `${url} with opt-in`);
+  }
+
+  // `isLoopbackHost` itself must not trim.
+  assert.equal(isLoopbackHost(" localhost "), false);
+  assert.equal(isLoopbackHost("127.0.0.1 "), false);
+  assert.equal(isLoopbackHost("\tlocalhost"), false);
+});
+
+test("a whitespace-prefixed unix socket path is not treated as a local socket", () => {
+  const url = "postgres:///webstor_test?host=%20%2Fvar%2Frun%2Fpostgresql%20";
+  assert.equal(parseConnectionString(url).host, " /var/run/postgresql ");
+
+  const resolution = resolveTestDatabaseTarget({ TEST_DATABASE_URL: url });
+  assert.equal(resolution.allowed, false);
+  if (resolution.allowed) return;
+  assert.equal(resolution.kind, "ambiguous");
+
+  // The unpadded socket path is still accepted as a local target.
+  const plain = resolveTestDatabaseTarget({
+    TEST_DATABASE_URL: "postgres:///webstor_test?host=%2Fvar%2Frun%2Fpostgresql",
+  });
+  assert.equal(plain.allowed, true);
+  if (!plain.allowed) return;
+  assert.equal(plain.hostSource, "unix-socket");
+  assert.equal(plain.remote, false);
+});
+
+/* ------------------------- Strict IPv4 (127/8 only) ---------------------- */
+
+test("malformed 127/8 literals are not loopback", () => {
+  for (const host of [
+    "127.999.999.999",
+    "127.256.0.1",
+    "127.0.0.999",
+    "127.0.0",
+    "127.0.0.1.2",
+    "127.0.0.-1",
+    "127.0.0.1a",
+    "127.00.0.1",
+    "127.0.0.01",
+    "127..0.1",
+  ]) {
+    assert.equal(isLoopbackHost(host), false, host);
+  }
+
+  assert.equal(parseIpv4Octets("127.999.999.999"), null);
+  assert.equal(parseIpv4Octets("127.256.0.1"), null);
+  assert.equal(parseIpv4Octets("127.0.0.999"), null);
+  assert.equal(parseIpv4Octets("127.00.0.1"), null);
+  assert.deepEqual(parseIpv4Octets("127.0.0.1"), [127, 0, 0, 1]);
+  assert.deepEqual(parseIpv4Octets("127.1.2.3"), [127, 1, 2, 3]);
+});
+
+test("malformed 127/8 URLs are refused by the default local-only policy", () => {
+  for (const host of ["127.999.999.999", "127.256.0.1", "127.0.0.999"]) {
+    const url = `postgres://webstor:secret@${host}:5432/webstor_test`;
+    const resolution = resolveTestDatabaseTarget({ TEST_DATABASE_URL: url });
+    assert.equal(resolution.allowed, false, url);
+    if (resolution.allowed) return;
+    assert.equal(resolution.kind, "remote", url);
+    assert.match(resolution.reason, /non-loopback/, url);
+
+    // Only an explicit opt-in (plus the strict `_test` name) can enable it.
+    const optedIn = resolveTestDatabaseTarget({
+      TEST_DATABASE_URL: url,
+      [REMOTE_TEST_DATABASE_OPT_IN]: REMOTE_TEST_DATABASE_OPT_IN_VALUE,
+    });
+    assert.equal(optedIn.allowed, true, url);
+    if (optedIn.allowed) assert.equal(optedIn.remote, true, url);
+
+    const wrongName = resolveTestDatabaseTarget({
+      TEST_DATABASE_URL: `postgres://webstor:secret@${host}:5432/webstor_prod`,
+      [REMOTE_TEST_DATABASE_OPT_IN]: REMOTE_TEST_DATABASE_OPT_IN_VALUE,
+    });
+    assert.equal(wrongName.allowed, false, url);
+    if (!wrongName.allowed) assert.equal(wrongName.kind, "unsafe-name", url);
+  }
+});
+
+test("valid loopback addresses and the CI connection string still pass", () => {
+  const accepted = [
+    "postgres://webstor:webstor@localhost:5432/webstor_test",
+    "postgres://webstor:webstor@127.0.0.1:5432/webstor_test",
+    "postgres://webstor:webstor@127.1.2.3:5432/webstor_test",
+    "postgres://webstor:webstor@127.255.255.255:5432/webstor_test",
+    "postgres://webstor:webstor@[::1]:5432/webstor_test",
+    "postgres://webstor:webstor@LOCALHOST.:5432/webstor_test",
+    "postgres:///webstor_test?host=127.0.0.1",
+    "postgres:///webstor_test?host=::ffff:127.0.0.1",
+  ];
+
+  for (const url of accepted) {
+    const resolution = resolveTestDatabaseTarget({ TEST_DATABASE_URL: url });
+    assert.equal(resolution.allowed, true, url);
+    if (!resolution.allowed) return;
+    assert.equal(resolution.remote, false, url);
+
+    // Consistency with the installed parser: same target, same exact string.
+    const driverHost = (parseConnectionString(url).host ?? "")
+      .replace(/\.$/, "")
+      .toLowerCase();
+    assert.equal(resolution.host, driverHost, url);
+    assert.equal(resolution.connectionString, url, url);
+    assert.equal(hasWhitespaceOrControl(resolution.connectionString), false, url);
+  }
+
+  assert.equal(isLoopbackHost("127.0.0.1"), true);
+  assert.equal(isLoopbackHost("127.1.2.3"), true);
+  assert.equal(isLoopbackHost("::ffff:7f00:1"), true);
+});
+
+test("every accepted target is exactly what the driver resolves, with no padding", () => {
+  const accepted = OVERRIDE_CASES.filter((c) => c.kind === "allowed").map((c) => c.url)
+    .concat([
+      LOCAL_TEST_URL,
+      "postgres://webstor:webstor@127.0.0.1:5432/webstor_test",
+      "postgres://webstor:webstor@[::1]:5432/webstor_test",
+      "postgres:///webstor_test?host=%2Fvar%2Frun%2Fpostgresql",
+    ]);
+
+  for (const url of accepted) {
+    const resolution = resolveTestDatabaseTarget({ TEST_DATABASE_URL: url });
+    assert.equal(resolution.allowed, true, url);
+    if (!resolution.allowed) continue;
+
+    const driverHost = parseConnectionString(url).host ?? "";
+    assert.equal(driverHost, driverHost.trim(), `${url}: driver host must be unpadded`);
+    assert.equal(
+      resolution.host,
+      driverHost.replace(/^\[|\]$/g, "").replace(/\.$/, "").toLowerCase(),
+      `${url}: guard host must equal the driver host`,
+    );
+  }
 });

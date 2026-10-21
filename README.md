@@ -132,9 +132,10 @@ connection is opened:
 | --- | --- |
 | `NODE_ENV=production` | refused, always |
 | Database name | must end with the strict suffix `_test` (`webstor`, `test`, `webstor_prod`, `stagingtest` are rejected) |
-| Host | must be loopback/local (`localhost`, `127.0.0.0/8`, `::1`, unix socket path) |
+| Host | must be loopback/local (`localhost`, a **valid** IPv4 address in `127.0.0.0/8`, `::1`/IPv4-mapped loopback, unix socket path). Octets are range-checked, so `127.999.999.999`, `127.256.0.1`, `127.0.0.999` and leading-zero forms are not treated as loopback |
 | Remote host | rejected unless `ALLOW_REMOTE_TEST_DATABASE=YES` is set explicitly |
 | Host overrides | the **effective** host PostgreSQL will use is validated, not `URL.hostname`. A `?host=` parameter that disagrees with the URI authority, a repeated/comma-separated `host`, any other host-like parameter (`hostaddr`, `host[]`, `HOST`…), a percent-encoded authority or a URL with no explicit host is rejected as ambiguous |
+| Host padding | host values are never trimmed. `pg` keeps a `?host=` value verbatim, so `?host=%20localhost%20` is rejected as ambiguous rather than classified as localhost — likewise a padded unix socket path is not treated as a local socket |
 | Missing/invalid/permitted target | skipped with a notice / fails the run with a credential-free message |
 
 `pg` lets a `?host=` query parameter override the URI authority — and applies
