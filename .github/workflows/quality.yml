@@ -49,6 +49,10 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # The service above is loopback (localhost) and named `webstor_test`, so
+      # the destructive-suite guard in src/lib/db/test-database.ts accepts it
+      # without ALLOW_REMOTE_TEST_DATABASE. Nothing here weakens those checks.
+      #
       # The documented schema workflow (db:push) against a throwaway database.
       - name: Create test schema
         run: npm run db:push -- --force

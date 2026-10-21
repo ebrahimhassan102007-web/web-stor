@@ -1,10 +1,16 @@
 /**
  * PostgreSQL integration tests for the retained architecture.
  *
- * These run against a disposable database via TEST_DATABASE_URL (the schema is
- * created with the documented `npm run db:push` workflow). The database name
- * must contain "test" and production is refused, so the suite can never wipe
- * real data. Configuration: see README → Tests.
+ * ⚠ These tests TRUNCATE the catalog, cart and order tables, so they only run
+ * against an explicitly identified disposable database. `TEST_DATABASE_URL`
+ * is validated by `resolveTestDatabaseTarget()` before any connection exists:
+ *
+ *  - `NODE_ENV=production` is always refused,
+ *  - the database name must end with `_test`,
+ *  - the host must be loopback/local unless `ALLOW_REMOTE_TEST_DATABASE=YES`
+ *    is set for a throwaway instance (see README → Tests).
+ *
+ * An unsafe target fails the run loudly instead of silently skipping.
  */
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
@@ -12,32 +18,36 @@ import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { eq } from "drizzle-orm";
 import { Pool } from "pg";
 import * as schema from "../src/lib/db/schema";
-import { cartItems, carts, categories, products } from "../src/lib/db/schema";
+import { cartItems, carts, categories, orders, products } from "../src/lib/db/schema";
 import { addToCartLine, MAX_QTY_PER_LINE } from "../src/lib/db/cart-operations";
 import { seedMissingCatalog } from "../src/lib/db/seed-catalog";
 import { SEED_CATEGORIES, SEED_PRODUCTS } from "../src/lib/db/seed-data";
+import { recordDemoOrder } from "../src/lib/db/demo-order";
+import { DEMO_ORDER_STATUS, isPaidOrConfirmedStatus } from "../src/lib/checkout-policy";
+import {
+  assertTestDatabaseTarget,
+  type TestDatabaseTarget,
+} from "../src/lib/db/test-database";
 
-const testUrl = process.env.TEST_DATABASE_URL?.trim();
+const configuredUrl = process.env.TEST_DATABASE_URL?.trim();
 
-if (testUrl) {
-  assert.notEqual(
-    process.env.NODE_ENV,
-    "production",
-    "refusing to run database tests with NODE_ENV=production",
-  );
-  const databaseName = decodeURIComponent(new URL(testUrl).pathname.replace(/^\//, ""));
-  assert.match(
-    databaseName,
-    /test/i,
-    "TEST_DATABASE_URL must point at a disposable database whose name contains 'test'",
+// Throws (and therefore fails the run) for production, remote-without-opt-in
+// or wrongly named targets — before a pool is created.
+const target: TestDatabaseTarget | null = configuredUrl
+  ? assertTestDatabaseTarget(process.env)
+  : null;
+
+if (target) {
+  console.log(
+    `[tests] destructive integration tests target ${target.remote ? "OPTED-IN REMOTE" : "local"} database ${target.label}`,
   );
 }
 
-const skip = testUrl
+const skip = target
   ? false
   : "TEST_DATABASE_URL is not set — start PostgreSQL, run db:push against a *_test database and re-run";
 
-const pool = testUrl ? new Pool({ connectionString: testUrl, max: 10 }) : null;
+const pool = target ? new Pool({ connectionString: target.connectionString, max: 10 }) : null;
 const db: NodePgDatabase<typeof schema> | null = pool
   ? drizzle({ client: pool, schema })
   : null;
@@ -222,6 +232,88 @@ test("cart additions validate the product and its stock", { skip }, async () => 
     .from(cartItems)
     .where(eq(cartItems.cartId, cart.id));
   assert.equal(lines.length, 0);
+});
+
+test("demo checkout records an unpaid order without consuming stock or the cart", { skip }, async () => {
+  assert.ok(db);
+  const [category] = await db
+    .insert(categories)
+    .values({ slug: `demo-order-category-${Date.now()}`, name: "Demo Order Fixture" })
+    .returning();
+  const [product] = await db
+    .insert(products)
+    .values({
+      slug: `demo-order-${Date.now()}`,
+      name: "Demo Order Fixture",
+      description: "Fixture product for the demo checkout test.",
+      priceCents: 2500,
+      categoryId: category.id,
+      stock: 4,
+    })
+    .returning();
+  const [cart] = await db.insert(carts).values({}).returning();
+  await db
+    .insert(cartItems)
+    .values({ cartId: cart.id, productId: product.id, quantity: 2 });
+
+  const result = await recordDemoOrder(db, {
+    cartId: cart.id,
+    shipping: {
+      customerName: "Demo Customer",
+      email: "demo@example.invalid",
+      addressLine1: "1 Demo Street",
+      city: "Demoville",
+      postalCode: "DE1 1MO",
+      country: "Demo",
+    },
+  });
+
+  assert.equal(result.status, "recorded");
+  if (result.status !== "recorded") return;
+  assert.match(result.orderNumber, /^WS-[A-Z0-9]{12}$/);
+  // $25.00 x 2 with flat shipping under the free-shipping threshold.
+  assert.equal(result.totalCents, 5000 + 900);
+
+  // The order is stored as explicitly unpaid — never as paid/confirmed.
+  const [order] = await db.select().from(orders).limit(1);
+  assert.equal(order.status, DEMO_ORDER_STATUS);
+  assert.equal(isPaidOrConfirmedStatus(order.status), false);
+  assert.notEqual(order.status, "confirmed");
+
+  // No inventory was consumed and the cart is still usable for the demo.
+  const [afterProduct] = await db
+    .select()
+    .from(products)
+    .where(eq(products.id, product.id));
+  assert.equal(afterProduct.stock, 4);
+  const lines = await db
+    .select()
+    .from(cartItems)
+    .where(eq(cartItems.cartId, cart.id));
+  assert.equal(lines.length, 1);
+  assert.equal(lines[0].quantity, 2);
+
+  // Oversized lines are rejected without writing an order.
+  await db.update(cartItems).set({ quantity: 5 }).where(eq(cartItems.id, lines[0].id));
+  const before = (await db.select().from(orders)).length;
+  const rejected = await recordDemoOrder(db, {
+    cartId: cart.id,
+    shipping: {
+      customerName: "Demo Customer",
+      email: "demo@example.invalid",
+      addressLine1: "1 Demo Street",
+      city: "Demoville",
+      postalCode: "DE1 1MO",
+      country: "Demo",
+    },
+  });
+  assert.deepEqual(rejected, { status: "insufficient-stock", productName: "Demo Order Fixture" });
+  assert.equal((await db.select().from(orders)).length, before);
+  const [stillStock] = await db
+    .select()
+    .from(products)
+    .where(eq(products.id, product.id));
+  assert.equal(stillStock.stock, 4);
 });
 
 async function firstCategoryId(database: NodePgDatabase<typeof schema>) {

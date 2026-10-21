@@ -12,7 +12,7 @@ A hardened, dark-themed e-commerce web application built with **Next.js 16 (App 
 - **Products** — grid listing with full-text search, category filtering and sorting (newest / price ↑↓ / rating)
 - **Product detail** — large art tile, description, dynamic stock status, quantity selector, add-to-cart
 - **Cart** — add / remove / update quantities with live totals and free-shipping logic
-- **Checkout** — validated shipping form, transactional order creation, order confirmation page
+- **Checkout** — validated shipping form and an explicitly **unpaid demo** order record (checkout is disabled in production until real payments exist)
 
 ## Tech Stack
 
@@ -35,7 +35,7 @@ A hardened, dark-themed e-commerce web application built with **Next.js 16 (App 
 | **IDOR** | Every cart mutation is scoped to the cart id from the verified session cookie — line-item ids from the URL are always ANDed with the session cart. |
 | **Input abuse** | All bodies and URL params pass Zod schemas (bounded lengths, ranges, formats, control-character rejection) before touching the database. |
 | **Price manipulation** | Prices/totals are computed exclusively from the database inside the checkout transaction — client-supplied prices are never trusted. |
-| **Overselling / races** | Checkout runs in a single transaction with `SELECT … FOR UPDATE` and a `stock >= qty` guarded decrement. Cart additions use a product-row lock plus a single atomic `INSERT … ON CONFLICT DO UPDATE` whose `LEAST(...)` expression increments the stored quantity, so concurrent adds cannot lose an increment. |
+| **Overselling / races** | Cart additions use a product-row lock plus a single atomic `INSERT … ON CONFLICT DO UPDATE` whose `LEAST(...)` expression increments the stored quantity, so concurrent adds cannot lose an increment. Checkout is disabled in production and the local demo never decrements stock; the payment phase must restore an atomic `stock >= qty` guarded decrement inside the payment-verified transaction. |
 | **Info leakage** | Uniform generic API errors; full details logged server-side only. `X-Powered-By` disabled. The anonymous order confirmation shows the order reference only — never customer details, addresses, items or totals. |
 | **Enumeration** | Order references are `WS-` + 12 characters uniformly sampled from a 30-character alphabet (≈ 58.88 bits, no modulo bias). They are identifiers, never authorisation. |
 | **Abuse / flooding** | Best-effort in-memory sliding-window rate limits on cart and checkout endpoints. See the limitation below. |
@@ -60,9 +60,16 @@ Money is stored as **integer cents** end-to-end — no floating-point currency m
 - The current CSP permits `unsafe-inline` and `unsafe-eval` scripts; a tested
   nonce-based policy remains future work. HSTS is deployment-specific and must
   be enforced at the TLS edge.
-- **Demo checkout only:** no payment is processed and no email is sent. The
-  public confirmation page deliberately exposes no personal data, and there is
-  no authenticated order-history mechanism in this phase.
+- **Checkout is unavailable in production.** There is no payment provider, so
+  no payment can be verified: `POST /api/checkout` fails closed with `503`
+  before reading the body, touching the database or mutating anything. Local
+  development records an explicitly unpaid demo order (`status =
+  demo-unpaid`) that does not decrement stock, does not delete the cart, and
+  sends no email. Production checkout stays unavailable until a real payment
+  integration with verified server-side payment results (and a guarded stock
+  decrement) is implemented and reviewed. The public receipt shows the order
+  reference only — no personal data, items or totals — and there is no
+  authenticated order-history mechanism in this phase.
 
 ## Getting Started
 
@@ -114,16 +121,33 @@ npm run dev         # http://localhost:3000
 
 ### Tests
 
-`npm test` runs the unit tests always. Integration tests that exercise the
-real PostgreSQL schema (additive seeding, concurrent cart additions, cart-line
-atomicity) run against `TEST_DATABASE_URL` and are skipped with a notice when
-it is not set. Point it at a disposable database whose name contains `test`:
+`npm test` runs every unit test unconditionally. Integration tests that
+exercise the real PostgreSQL schema (additive seeding, concurrent cart
+additions, demo-order recording) are **destructive — they TRUNCATE the
+catalog, cart and order tables** — so they only run against an explicitly
+identified disposable database. `TEST_DATABASE_URL` is validated before any
+connection is opened:
+
+| Rule | Behaviour |
+| --- | --- |
+| `NODE_ENV=production` | refused, always |
+| Database name | must end with the strict suffix `_test` (`webstor`, `test`, `webstor_prod`, `stagingtest` are rejected) |
+| Host | must be loopback/local (`localhost`, `127.0.0.0/8`, `::1`, unix socket) |
+| Remote host | rejected unless `ALLOW_REMOTE_TEST_DATABASE=YES` is set explicitly |
+| Missing/invalid/permitted target | skipped with a notice / fails the run with a credential-free message |
+
+Local run:
 
 ```bash
 npm run db:server
 DATABASE_URL=postgres://webstor:webstor_dev_password@localhost:5432/webstor_test npm run db:push
 TEST_DATABASE_URL=postgres://webstor:webstor_dev_password@localhost:5432/webstor_test npm test
 ```
+
+⚠ `ALLOW_REMOTE_TEST_DATABASE=YES` accepts an explicitly named risk: the target
+database **will be truncated**. Only use it for a throwaway, test-only instance
+that nobody else uses — never a shared, staging or production database. Error
+messages never include credentials or the full connection URL.
 
 Never point the test suite at production data.
 

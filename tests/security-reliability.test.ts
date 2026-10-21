@@ -291,15 +291,20 @@ test("cart and checkout pages use the strict loader and expose a retry path", as
 
 /* ------------------------------ Checkout API ---------------------------- */
 
-test("checkout remains server-priced and stock-decrement guarded", async () => {
+test("checkout delegates to the demo recorder: no client prices, no codes, no inventory writes", async () => {
   const route = await source("src/app/api/checkout/route.ts");
-  assert.match(route, /priceCents: products\.priceCents/);
-  assert.match(route, /gte\(products\.stock, line\.quantity\)/);
-  assert.match(route, /sql`\$\{products\.stock\} - \$\{line\.quantity\}`/);
-  assert.match(route, /newOrderNumber/);
+  assert.match(route, /recordDemoOrder\(/);
+  assert.match(route, /newOrderNumber|recordDemoOrder/);
   assert.doesNotMatch(route, /randomBytes/);
   assert.doesNotMatch(route, /parsed\.data\.(price|total|subtotal)/);
   assert.doesNotMatch(route, /deliveryCode|topUp|playerId|region/i);
+  // Pricing and the (non-)treatment of stock live in one reviewed module; the
+  // demo recorder never decrements or deletes anything but its own rows.
+  const demoOrder = await source("src/lib/db/demo-order.ts");
+  assert.match(demoOrder, /priceCents: products\.priceCents/);
+  assert.match(demoOrder, /newOrderNumber\(\)/);
+  assert.match(demoOrder, /status: DEMO_ORDER_STATUS/);
+  assert.doesNotMatch(demoOrder, /\.update\(products\)|\.delete\(carts\)/);
 });
 
 test("cart addition uses a row lock and an atomic conflict expression", async () => {

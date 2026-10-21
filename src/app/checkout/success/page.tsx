@@ -5,7 +5,7 @@ import { orderExistsByNumber } from "@/lib/catalog";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = { title: "Order Confirmed" };
+export const metadata: Metadata = { title: "Demo Order Record" };
 
 type SearchParams = Promise<{ order?: string | string[] }>;
 
@@ -14,8 +14,9 @@ type SearchParams = Promise<{ order?: string | string[] }>;
  *
  * Anyone holding the reference can open this page, so it deliberately shows
  * only the reference itself (after confirming it exists) — never the customer
- * name, email, address, order contents or totals. It also states plainly that
- * this demo sends no email and processes no payment.
+ * name, email, address, order contents or totals. The heading states plainly
+ * that this is a recorded demo order: nothing was paid or confirmed, no email
+ * was sent and no stock was reserved.
  */
 export default async function OrderSuccessPage(props: {
   searchParams: SearchParams;
@@ -36,11 +37,11 @@ export default async function OrderSuccessPage(props: {
             ✓
           </span>
           <h1 className="mt-5 text-3xl font-bold tracking-tight">
-            Order <span className="text-success">Confirmed</span>
+            Demo order <span className="text-success">recorded</span>
           </h1>
           <p className="mt-2 text-sm text-muted">
-            Thank you. This is a demo order: no payment was processed and no
-            confirmation email was sent.
+            This order is not paid or confirmed: no payment was processed, no
+            stock was reserved, and no confirmation email was sent.
           </p>
           <p className="mt-4 inline-block rounded-lg border border-edge bg-raised/60 px-4 py-2 font-mono text-sm">
             {orderNumber}
