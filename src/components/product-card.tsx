@@ -1,15 +1,24 @@
 import Link from "next/link";
 import type { Product } from "@/lib/db/schema";
 import { formatCents } from "@/lib/money";
+import {
+  dictionaries,
+  fill,
+  locName,
+  type Locale,
+} from "@/lib/i18n/dictionary";
 import { Stars } from "./stars";
 
 export function ProductCard({
   product,
+  locale,
   categoryName,
 }: {
   product: Product;
+  locale: Locale;
   categoryName?: string;
 }) {
+  const t = dictionaries[locale];
   const inStock = product.stock > 0;
   const low = inStock && product.stock <= 10;
 
@@ -31,25 +40,28 @@ export function ProductCard({
           )}
           {inStock ? (
             <span className="badge-green">
-              {low ? `Only ${product.stock} left` : "In Stock"}
+              {low
+                ? fill(t.card.onlyLeft, { count: product.stock })
+                : t.card.inStock}
             </span>
           ) : (
-            <span className="badge-red">Out of Stock</span>
+            <span className="badge-red">{t.card.outOfStock}</span>
           )}
         </div>
 
         <h3 className="font-semibold leading-snug group-hover:text-primary transition-colors">
-          {product.name}
+          {locName(product, locale)}
         </h3>
 
-        <Stars rating={Number(product.rating)} count={product.reviewCount} />
+        <Stars rating={Number(product.rating)} count={product.reviewCount} locale={locale} />
 
         <div className="mt-auto flex items-center justify-between pt-2">
           <span className="text-lg font-bold">
-            {formatCents(product.priceCents)}
+            {formatCents(product.priceCents, locale)}
           </span>
           <span className="text-xs font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
-            View details →
+            {t.card.viewDetails}{" "}
+            <span aria-hidden className="inline-block rtl:-scale-x-100">→</span>
           </span>
         </div>
       </div>

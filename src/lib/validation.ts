@@ -10,6 +10,18 @@ import { z } from "zod";
 export const addToCartSchema = z.object({
   productId: z.coerce.number().int().positive().max(2_147_483_647),
   quantity: z.coerce.number().int().min(1).max(99),
+  /**
+   * Optional delivery input for digital goods (Player ID for top-ups,
+   * region code for gift cards). Bounded + control-char free; an empty
+   * string is normalized to undefined.
+   */
+  inputValue: z
+    .string()
+    .trim()
+    .max(128)
+    .regex(/^[^\u0000-\u001f\u007f]*$/, "Invalid characters")
+    .optional()
+    .transform((v) => (v ? v : undefined)),
 });
 
 export const updateCartItemSchema = z.object({
@@ -35,11 +47,13 @@ const safeText = (min: number, max: number) =>
 export const checkoutSchema = z.object({
   customerName: safeText(2, 128),
   email: z.string().trim().toLowerCase().email().max(254),
-  addressLine1: safeText(4, 256),
+  // Digital delivery needs no postal address. The legacy address fields
+  // are still accepted (optional) so older clients keep working.
+  addressLine1: safeText(0, 256).optional().default(""),
   addressLine2: safeText(0, 256).optional().default(""),
-  city: safeText(2, 128),
-  postalCode: safeText(2, 32),
-  country: safeText(2, 128),
+  city: safeText(0, 128).optional().default(""),
+  postalCode: safeText(0, 32).optional().default(""),
+  country: safeText(0, 128).optional().default(""),
 });
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
@@ -72,4 +86,5 @@ export const orderNumberSchema = z
   .trim()
   .min(6)
   .max(32)
-  .regex(/^WS-[A-Z0-9-]+$/);
+  // EV- is current (E-Vora); WS- kept for pre-rebrand orders.
+  .regex(/^(EV|WS)-[A-Z0-9-]+$/);

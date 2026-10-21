@@ -1,70 +1,370 @@
 /**
- * Initial catalog data (categories + products).
+ * Initial catalog data for E-Vora (digital goods store).
  *
  * Shared by:
- *  - the automatic first-boot seed in `src/lib/db/index.ts`, and
+ *  - the automatic first-boot seed / catalog upgrade in
+ *    `src/lib/db/index.ts`, and
  *  - the manual `npm run db:seed` script (force re-seed).
+ *
+ * Every entry carries both English and Arabic copy so the storefront
+ * can switch language without extra translation lookups.
  */
 
+export type DeliveryInputType = "none" | "player-id" | "region";
+
 export const SEED_CATEGORIES = [
-  { slug: "electronics", name: "Electronics", icon: "💻", description: "Laptops, monitors, audio and cutting-edge devices." },
-  { slug: "security", name: "Security Gear", icon: "🛡️", description: "Hardware keys, encrypted drives and privacy tools." },
-  { slug: "fashion", name: "Fashion", icon: "🧥", description: "Techwear, apparel and everyday carry style." },
-  { slug: "gaming", name: "Gaming", icon: "🎮", description: "Peripherals, consoles and battle-ready rigs." },
-  { slug: "home", name: "Smart Home", icon: "🏠", description: "Automation, lighting and connected living." },
-  { slug: "accessories", name: "Accessories", icon: "🎒", description: "Bags, docks, cables and daily essentials." },
+  {
+    slug: "game-topups",
+    name: "Game Top-Ups",
+    nameAr: "شحن الألعاب",
+    icon: "⚡",
+    description: "Instant in-game currency credited straight to your Player ID.",
+    descriptionAr: "عملات ألعاب فورية تُضاف مباشرة إلى حسابك عبر الآي دي.",
+  },
+  {
+    slug: "gift-cards",
+    name: "Gift Cards",
+    nameAr: "بطاقات الهدايا",
+    icon: "🎁",
+    description: "Official store credit for Steam, PlayStation, Xbox and more.",
+    descriptionAr: "رصيد رسمي لمتاجر ستيم وبلايستيشن وإكس بوكس والمزيد.",
+  },
+  {
+    slug: "subscriptions",
+    name: "Subscriptions",
+    nameAr: "اشتراكات",
+    icon: "🌟",
+    description: "Premium memberships for gaming, music and streaming.",
+    descriptionAr: "عضويات مدفوعة للألعاب والموسيقى والبث الترفيهي.",
+  },
+  {
+    slug: "software-keys",
+    name: "Software & Game Keys",
+    nameAr: "مفاتيح البرامج والألعاب",
+    icon: "🔑",
+    description: "Genuine activation keys for Windows, Office and PC games.",
+    descriptionAr: "مفاتيح تفعيل أصلية لويندوز وأوفيس وألعاب الكمبيوتر.",
+  },
 ] as const;
 
 export type SeedProduct = {
   slug: string;
   name: string;
+  nameAr: string;
   description: string;
+  descriptionAr: string;
   priceCents: number;
   category: (typeof SEED_CATEGORIES)[number]["slug"];
+  /** Available codes/credits (digital stock). */
   stock: number;
   rating: string;
   reviewCount: number;
   icon: string;
+  inputType: DeliveryInputType;
   featured?: boolean;
 };
 
 export const SEED_PRODUCTS: SeedProduct[] = [
-  // Electronics
-  { slug: "quantum-x1-laptop", name: "Quantum X1 Ultrabook", description: "A 14-inch powerhouse with a 3K OLED display, 32 GB RAM and a hardware-level secure enclave. Built for engineers who ship from anywhere: 18-hour battery, tamper-evident chassis and a fingerprint reader integrated into the power key.", priceCents: 189900, category: "electronics", stock: 12, rating: "4.8", reviewCount: 412, icon: "💻", featured: true },
-  { slug: "nebula-4k-monitor", name: "Nebula 32\" 4K Monitor", description: "Factory-calibrated 4K IPS panel with 98% DCI-P3 coverage, USB-C 90 W passthrough and a blue-light shield mode for long night sessions.", priceCents: 64900, category: "electronics", stock: 27, rating: "4.6", reviewCount: 289, icon: "🖥️" },
-  { slug: "pulse-anc-headphones", name: "Pulse ANC Headphones", description: "Adaptive noise cancellation tuned for open offices, 40-hour battery, and a boom-quality mic array for crystal-clear calls.", priceCents: 27900, category: "electronics", stock: 54, rating: "4.7", reviewCount: 1874, icon: "🎧", featured: true },
-  { slug: "aero-drone-pro", name: "Aero Drone Pro", description: "4K/60 fps stabilized camera drone with 34-minute flight time, obstacle avoidance and encrypted video downlink.", priceCents: 99900, category: "electronics", stock: 8, rating: "4.5", reviewCount: 156, icon: "🛸" },
-  { slug: "volt-gan-charger", name: "Volt 140W GaN Charger", description: "Three-port GaN fast charger that powers a laptop, phone and earbuds simultaneously — half the size of a standard brick.", priceCents: 7900, category: "electronics", stock: 132, rating: "4.9", reviewCount: 3210, icon: "🔌" },
+  /* ---------------------------- Game Top-Ups --------------------------- */
+  {
+    slug: "pubg-660-uc",
+    name: "PUBG Mobile — 660 UC",
+    nameAr: "شدات ببجي موبايل — 660 شدة",
+    description:
+      "Top up 660 Unknown Cash (UC) directly to your PUBG Mobile account via Player ID. No login required — the UC lands in your account within minutes of checkout.",
+    descriptionAr:
+      "اشحن 660 شدة (UC) مباشرة إلى حسابك في ببجي موبايل عبر الآي دي فقط، بدون الحاجة لتسجيل الدخول. تصل الشدات إلى حسابك خلال دقائق من إتمام الطلب.",
+    priceCents: 999,
+    category: "game-topups",
+    stock: 2400,
+    rating: "4.9",
+    reviewCount: 18240,
+    icon: "🪂",
+    inputType: "player-id",
+  },
+  {
+    slug: "pubg-1800-uc",
+    name: "PUBG Mobile — 1800 UC",
+    nameAr: "شدات ببجي موبايل — 1800 شدة",
+    description:
+      "The Royale Pass favourite: 1800 UC credited to your Player ID, enough for elite passes, crates and skins. Official top-up channels only — zero ban risk.",
+    descriptionAr:
+      "الحزمة المثالية للرويال باس: 1800 شدة تُضاف إلى الآي دي الخاص بك، تكفي للباسات والصناديق والسكنات. شحن رسمي بالكامل — بدون أي مخاطرة بالبان.",
+    priceCents: 2499,
+    category: "game-topups",
+    stock: 1650,
+    rating: "4.9",
+    reviewCount: 12687,
+    icon: "👑",
+    inputType: "player-id",
+    featured: true,
+  },
+  {
+    slug: "valorant-4750-vp",
+    name: "Valorant — 4750 Points (VP)",
+    nameAr: "نقاط فالورانت — 4750 نقطة",
+    description:
+      "4750 Valorant Points added via your Riot ID. Unlock premium skin bundles, battle passes and Night Market deals — credited in minutes, region-safe delivery.",
+    descriptionAr:
+      "4750 نقطة فالورانت تُضاف عبر Riot ID الخاص بك. افتح حزم السكنات والباتل باس وعروض النايت ماركت — شحن سريع وآمن على حسابك خلال دقائق.",
+    priceCents: 4999,
+    category: "game-topups",
+    stock: 980,
+    rating: "4.8",
+    reviewCount: 5932,
+    icon: "🎯",
+    inputType: "player-id",
+    featured: true,
+  },
+  {
+    slug: "fc-2800-points",
+    name: "EA FC Points — 2800",
+    nameAr: "نقاط EA FC — 2800 نقطة",
+    description:
+      "2800 FC Points for Ultimate Team packs and Draft entries, delivered to your EA account ID. Build your dream squad faster with official, instant points.",
+    descriptionAr:
+      "2800 نقطة FC لحزم الألتميت تيم والدرافت، تُسلَّم إلى حساب EA الخاص بك. كوِّن فريق أحلامك أسرع مع نقاط رسمية وفورية.",
+    priceCents: 2499,
+    category: "game-topups",
+    stock: 1430,
+    rating: "4.7",
+    reviewCount: 8744,
+    icon: "⚽",
+    inputType: "player-id",
+  },
+  {
+    slug: "robux-800",
+    name: "Roblox — 800 Robux",
+    nameAr: "روبوكس — 800",
+    description:
+      "800 Robux credited to your Roblox username. Spend on avatar items, game passes and in-game boosts across millions of experiences — no password needed.",
+    descriptionAr:
+      "800 روبوكس تُضاف إلى اسم المستخدم الخاص بك في روبلوكس. استخدمها لشراء الملابس والجيم باس والمزايا داخل آلاف الألعاب — بدون كلمة مرور.",
+    priceCents: 999,
+    category: "game-topups",
+    stock: 3100,
+    rating: "4.8",
+    reviewCount: 21903,
+    icon: "🧱",
+    inputType: "player-id",
+  },
 
-  // Security Gear
-  { slug: "sentinel-hardware-key", name: "Sentinel FIDO2 Hardware Key", description: "Phishing-proof passwordless login with FIDO2/WebAuthn, NFC + USB-C, and a secure element rated EAL6+. The last second factor you will ever need.", priceCents: 5900, category: "security", stock: 210, rating: "4.9", reviewCount: 5120, icon: "🔑", featured: true },
-  { slug: "vault-encrypted-ssd", name: "Vault X 2TB Encrypted SSD", description: "XTS-AES 256 hardware encryption with keypad unlock, brute-force self-wipe and IP68 ruggedized housing. Your data, sealed.", priceCents: 32900, category: "security", stock: 45, rating: "4.8", reviewCount: 640, icon: "🗄️", featured: true },
-  { slug: "ghost-privacy-screen", name: "Ghost Privacy Screen 14\"", description: "Magnetic micro-louver filter that blacks out your display beyond 30° — shoulder surfers see nothing.", priceCents: 4900, category: "security", stock: 88, rating: "4.4", reviewCount: 421, icon: "🕶️" },
-  { slug: "cipher-rfid-wallet", name: "Cipher RFID-Blocking Wallet", description: "Aerospace aluminum card vault with RFID/NFC shielding and a quick-fan trigger. Slim enough to forget, tough enough not to.", priceCents: 6900, category: "security", stock: 150, rating: "4.6", reviewCount: 980, icon: "🛡️" },
-  { slug: "watchdog-cam", name: "Watchdog Secure Cam", description: "End-to-end encrypted home camera with local-only storage option, physical lens shutter and zero-cloud mode.", priceCents: 14900, category: "security", stock: 33, rating: "4.5", reviewCount: 267, icon: "📹" },
+  /* ----------------------------- Gift Cards ---------------------------- */
+  {
+    slug: "steam-wallet-20",
+    name: "Steam Wallet Card — $20",
+    nameAr: "بطاقة ستيم والت — 20 دولار",
+    description:
+      "Official $20 Steam Wallet code delivered instantly after checkout. Redeem it for games, DLC, in-game items and hardware on the Steam store.",
+    descriptionAr:
+      "كود ستيم والت رسمي بقيمة 20 دولار يصلك فوراً بعد الشراء. استبدله لشراء الألعاب والإضافات والعناصر داخل متجر ستيم.",
+    priceCents: 2000,
+    category: "gift-cards",
+    stock: 860,
+    rating: "5.0",
+    reviewCount: 15311,
+    icon: "💻",
+    inputType: "region",
+    featured: true,
+  },
+  {
+    slug: "ps-store-50",
+    name: "PlayStation Store Card — $50",
+    nameAr: "بطاقة بلايستيشن ستور — 50 دولار",
+    description:
+      "Top up your PlayStation wallet with $50 of official store credit. Games, add-ons, PS Plus and more — the code appears on-screen the second you check out.",
+    descriptionAr:
+      "اشحن محفظة بلايستيشن بـ 50 دولار رصيد رسمي. ألعاب وإضافات واشتراك PS Plus — يظهر لك الكود على الشاشة لحظة إتمام الطلب.",
+    priceCents: 5000,
+    category: "gift-cards",
+    stock: 0,
+    rating: "4.9",
+    reviewCount: 9870,
+    icon: "🕹️",
+    inputType: "region",
+  },
+  {
+    slug: "xbox-gift-25",
+    name: "Xbox Gift Card — $25",
+    nameAr: "بطاقة هدايا إكس بوكس — 25 دولار",
+    description:
+      "$25 Xbox & Microsoft Store balance for games, movies, apps and Game Pass.Works on Xbox consoles and Windows PCs — instant code, no fees, no expiry.",
+    descriptionAr:
+      "رصيد 25 دولار لمتجر إكس بوكس ومايكروسوفت لشراء الألعاب والأفلام والتطبيقات والجيم باس. يعمل على أجهزة إكس بوكس والويندوز — كود فوري بدون رسوم أو تاريخ انتهاء.",
+    priceCents: 2500,
+    category: "gift-cards",
+    stock: 720,
+    rating: "4.9",
+    reviewCount: 7412,
+    icon: "🎮",
+    inputType: "region",
+  },
+  {
+    slug: "google-play-10",
+    name: "Google Play Card — $10",
+    nameAr: "بطاقة جوجل بلاي — 10 دولار",
+    description:
+      "Official $10 Google Play balance for apps, games, movies and books on Android. Pick your account region at purchase — delivery is instant and guaranteed.",
+    descriptionAr:
+      "رصيد جوجل بلاي رسمي 10 دولارات للتطبيقات والألعاب والأفلام والكتب على أندرويد. اختر منطقة حسابك عند الشراء — التسليم فوري ومضمون.",
+    priceCents: 1000,
+    category: "gift-cards",
+    stock: 1950,
+    rating: "4.8",
+    reviewCount: 11028,
+    icon: "▶️",
+    inputType: "region",
+  },
+  {
+    slug: "apple-gift-15",
+    name: "Apple Gift Card — $15",
+    nameAr: "بطاقة هدايا آبل — 15 دولار",
+    description:
+      "$15 Apple balance for the App Store, iTunes, iCloud+ and subscriptions like Apple Music. One code for everything Apple — delivered in seconds.",
+    descriptionAr:
+      "رصيد آبل 15 دولار للآب ستور وآيتيونز وآيكلاود بلس واشتراكات مثل آبل ميوزك. كود واحد لكل منتجات آبل — يصلك خلال ثوانٍ.",
+    priceCents: 1500,
+    category: "gift-cards",
+    stock: 1340,
+    rating: "4.9",
+    reviewCount: 6654,
+    icon: "🍎",
+    inputType: "region",
+  },
 
-  // Fashion
-  { slug: "shadow-tech-jacket", name: "Shadow Techwear Jacket", description: "Water-repellent softshell with 9 hidden zip pockets, cable routing channels and reflective night-safe piping.", priceCents: 18900, category: "fashion", stock: 41, rating: "4.7", reviewCount: 534, icon: "🧥", featured: true },
-  { slug: "cipher-hoodie", name: "Cipher Graphite Hoodie", description: "Heavyweight 420 gsm organic cotton hoodie in deep graphite with a minimal red stitch accent. Warm, structured, quiet.", priceCents: 8900, category: "fashion", stock: 97, rating: "4.8", reviewCount: 1203, icon: "👕" },
-  { slug: "stealth-sneakers", name: "Stealth Low Sneakers", description: "All-black knit sneakers with a carbon-fiber shank and grippy all-weather outsole. From server room to street.", priceCents: 12900, category: "fashion", stock: 63, rating: "4.5", reviewCount: 789, icon: "👟" },
-  { slug: "night-ops-cap", name: "Night Ops Cap", description: "Matte black 6-panel cap with laser-cut vents and a hidden key pocket under the brim.", priceCents: 3400, category: "fashion", stock: 180, rating: "4.3", reviewCount: 342, icon: "🧢" },
+  /* ---------------------------- Subscriptions -------------------------- */
+  {
+    slug: "discord-nitro-1mo",
+    name: "Discord Nitro — 1 Month",
+    nameAr: "ديسكورد نيترو — شهر",
+    description:
+      "One month of Discord Nitro: animated avatar, custom emoji everywhere, HD streaming, bigger uploads and 2 server boosts. Gift link delivered instantly.",
+    descriptionAr:
+      "شهر كامل من ديسكورد نيترو: صورة متحركة وإيموجي مخصصة في كل السيرفرات وبث عالي الجودة ورفع ملفات أكبر وبوستين للسيرفرات. يصلك رابط التفعيل فوراً.",
+    priceCents: 999,
+    category: "subscriptions",
+    stock: 480,
+    rating: "4.9",
+    reviewCount: 13477,
+    icon: "🚀",
+    inputType: "none",
+    featured: true,
+  },
+  {
+    slug: "spotify-premium-3mo",
+    name: "Spotify Premium — 3 Months",
+    nameAr: "سبوتيفاي بريميوم — 3 شهور",
+    description:
+      "Three months of ad-free music, offline downloads and high-quality audio. Delivered as an official redeemable code you apply to your own account.",
+    descriptionAr:
+      "ثلاثة شهور من الموسيقى بدون إعلانات مع التحميل للاستماع أوفلاين وجودة صوت عالية. يصلك الكود رسمي لتفعيله على حسابك الشخصي.",
+    priceCents: 3499,
+    category: "subscriptions",
+    stock: 390,
+    rating: "4.8",
+    reviewCount: 5231,
+    icon: "🎵",
+    inputType: "none",
+  },
+  {
+    slug: "netflix-premium-1mo",
+    name: "Netflix Premium — 1 Month (4K)",
+    nameAr: "نتفليكس بريميوم — شهر (4K)",
+    description:
+      "One month of Netflix Premium with 4K Ultra HD + HDR streaming on 4 devices. Activation code delivered instantly — start watching tonight.",
+    descriptionAr:
+      "شهر من نتفليكس بريميوم بجودة 4K وHDR على 4 أجهزة في نفس الوقت. يصلك كود التفعيل فوراً — ابدأ المشاهدة الليلة.",
+    priceCents: 2299,
+    category: "subscriptions",
+    stock: 260,
+    rating: "4.7",
+    reviewCount: 9018,
+    icon: "🍿",
+    inputType: "none",
+  },
+  {
+    slug: "gamepass-ultimate-3mo",
+    name: "Xbox Game Pass Ultimate — 3 Months",
+    nameAr: "إكس بوكس جيم باس ألتميت — 3 شهور",
+    description:
+      "Three months of Game Pass Ultimate: 100s of games on console, PC and cloud, EA Play included, plus online multiplayer. One code, instant activation.",
+    descriptionAr:
+      "ثلاثة شهور من جيم باس ألتميت: مئات الألعاب على الكونسول والبي سي والكلاود، مع EA Play واللعب الجماعي أونلاين. كود واحد وتفعيل فوري.",
+    priceCents: 5499,
+    category: "subscriptions",
+    stock: 540,
+    rating: "4.9",
+    reviewCount: 11260,
+    icon: "🏆",
+    inputType: "none",
+    featured: true,
+  },
 
-  // Gaming
-  { slug: "raptor-mech-keyboard", name: "Raptor Mechanical Keyboard", description: "Hot-swappable 75% board with gasket mount, PBT keycaps and per-key RGB tuned for dark-room setups.", priceCents: 15900, category: "gaming", stock: 58, rating: "4.8", reviewCount: 2109, icon: "⌨️", featured: true },
-  { slug: "viper-gaming-mouse", name: "Viper 8K Gaming Mouse", description: "58-gram ultralight with an 8000 Hz polling rate, optical switches and a flawless 30K sensor.", priceCents: 9900, category: "gaming", stock: 74, rating: "4.7", reviewCount: 1645, icon: "🖱️" },
-  { slug: "titan-gpu-rig", name: "Titan RTX Battle Rig", description: "Pre-built tower with a flagship GPU, 64 GB DDR5, liquid cooling and a tempered-glass panel bathed in red light.", priceCents: 289900, category: "gaming", stock: 5, rating: "4.9", reviewCount: 98, icon: "🗼" },
-  { slug: "haptic-vr-headset", name: "Haptic VR Headset", description: "Dual 2.5K panels, inside-out tracking and haptic audio drivers for full immersion without a base station.", priceCents: 54900, category: "gaming", stock: 0, rating: "4.4", reviewCount: 310, icon: "🥽" },
-  { slug: "command-gaming-chair", name: "Command Ergonomic Chair", description: "4D armrests, magnetic lumbar support and breathable graphite mesh rated for 12-hour raids.", priceCents: 42900, category: "gaming", stock: 19, rating: "4.6", reviewCount: 458, icon: "🪑" },
-
-  // Smart Home
-  { slug: "aurora-light-panels", name: "Aurora Light Panels (9-pack)", description: "Modular touch-reactive LED panels with 16M colors and local-network control — no cloud account required.", priceCents: 19900, category: "home", stock: 36, rating: "4.6", reviewCount: 720, icon: "💡", featured: true },
-  { slug: "nexus-smart-hub", name: "Nexus Smart Hub", description: "Matter + Thread border router that keeps automations local-first. Your home, your data.", priceCents: 12900, category: "home", stock: 48, rating: "4.5", reviewCount: 385, icon: "📡" },
-  { slug: "guardian-smart-lock", name: "Guardian Smart Lock", description: "ANSI Grade 1 deadbolt with fingerprint, keypad and offline key codes. Auto-locks behind you.", priceCents: 22900, category: "home", stock: 22, rating: "4.7", reviewCount: 512, icon: "🔒" },
-  { slug: "climate-sense-thermostat", name: "ClimateSense Thermostat", description: "Learning thermostat with room-by-room sensors and a crisp OLED ring display. Cuts energy waste by up to 23%.", priceCents: 17900, category: "home", stock: 31, rating: "4.4", reviewCount: 298, icon: "🌡️" },
-
-  // Accessories
-  { slug: "vector-commuter-pack", name: "Vector Commuter Backpack", description: "25 L weatherproof pack with a lockable laptop vault, luggage passthrough and theft-resistant zippers.", priceCents: 15900, category: "accessories", stock: 67, rating: "4.8", reviewCount: 934, icon: "🎒", featured: true },
-  { slug: "orbit-usb-c-dock", name: "Orbit 11-in-1 USB-C Dock", description: "Dual 4K HDMI, 2.5 GbE, SD reader and 100 W passthrough in a palm-sized anodized shell.", priceCents: 11900, category: "accessories", stock: 84, rating: "4.5", reviewCount: 612, icon: "🧩" },
-  { slug: "flux-wireless-pad", name: "Flux 3-in-1 Wireless Pad", description: "Charges phone, watch and earbuds at once with foreign-object detection and cool-touch coils.", priceCents: 8900, category: "accessories", stock: 0, rating: "4.3", reviewCount: 445, icon: "⚡" },
-  { slug: "titan-braided-cables", name: "Titan Braided Cable Trio", description: "Three 240 W USB-C cables in Kevlar-reinforced braid — 1 m, 2 m and 3 m — rated for 30,000 bends.", priceCents: 3900, category: "accessories", stock: 240, rating: "4.7", reviewCount: 1520, icon: "🧵" },
+  /* -------------------------- Software & Games ------------------------- */
+  {
+    slug: "windows-11-pro-key",
+    name: "Windows 11 Pro — Activation Key",
+    nameAr: "مفتاح تفعيل ويندوز 11 برو",
+    description:
+      "Genuine Windows 11 Professional OEM activation key for 1 PC, lifetime validity. BitLocker, Remote Desktop and all Pro features — key shown instantly after checkout.",
+    descriptionAr:
+      "مفتاح تفعيل ويندوز 11 بروفيشنال أصلي لجهاز واحد بصلاحية مدى الحياة. جميع مزايا النسخة الاحترافية مثل BitLocker وسطح المكتب البعيد — يظهر المفتاح فوراً بعد الشراء.",
+    priceCents: 2499,
+    category: "software-keys",
+    stock: 630,
+    rating: "4.8",
+    reviewCount: 7893,
+    icon: "🪟",
+    inputType: "none",
+    featured: true,
+  },
+  {
+    slug: "office-2021-pro-key",
+    name: "Microsoft Office 2021 Pro Plus — Key",
+    nameAr: "مفتاح أوفيس 2021 برو بلس",
+    description:
+      "Lifetime Office 2021 Professional Plus key: Word, Excel, PowerPoint, Outlook and more on 1 PC. No subscription — pay once, use forever.",
+    descriptionAr:
+      "مفتاح أوفيس 2021 بروفيشنال بلس مدى الحياة: وورد وإكسل وباوربوينت وآوتلوك والمزيد على جهاز واحد. بدون اشتراك — ادفع مرة واحدة واستخدمه للأبد.",
+    priceCents: 3499,
+    category: "software-keys",
+    stock: 455,
+    rating: "4.8",
+    reviewCount: 6117,
+    icon: "📎",
+    inputType: "none",
+  },
+  {
+    slug: "minecraft-java-bedrock-key",
+    name: "Minecraft: Java & Bedrock — PC Key",
+    nameAr: "ماينكرافت: جافا وبيدروك — نسخة PC",
+    description:
+      "Both editions in one key: Minecraft Java Edition and Bedrock for Windows. Official Microsoft redemption, yours forever — delivered in seconds.",
+    descriptionAr:
+      "نسختان في مفتاح واحد: ماينكرافت جافا وبيدروك للويندوز. تفعيل رسمي عبر مايكروسوفت وملكية دائمة — التسليم خلال ثوانٍ.",
+    priceCents: 2999,
+    category: "software-keys",
+    stock: 340,
+    rating: "5.0",
+    reviewCount: 16842,
+    icon: "⛏️",
+    inputType: "none",
+  },
+  {
+    slug: "elden-ring-steam-key",
+    name: "Elden Ring — Steam Key",
+    nameAr: "إلدن رينج — مفتاح ستيم",
+    description:
+      "FromSoftware's award-winning epic as a global Steam key. Rise, Tarnished — your journey through the Lands Between starts the moment you check out.",
+    descriptionAr:
+      "ملحمة FromSoftware الحائزة على الجوائز كمفتاح ستيم عالمي. انطلق في رحلتك عبر الأراضي الواقعة بين العوالم لحظة إتمام الشراء.",
+    priceCents: 3999,
+    category: "software-keys",
+    stock: 8,
+    rating: "4.9",
+    reviewCount: 9540,
+    icon: "💍",
+    inputType: "none",
+    featured: true,
+  },
 ];

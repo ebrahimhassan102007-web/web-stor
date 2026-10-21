@@ -39,7 +39,11 @@ function isRemoteDatabaseUrl(raw?: string): boolean {
 }
 
 async function reseed(db: Database): Promise<void> {
-  console.log("[seed] clearing existing catalog...");
+  console.log("[seed] clearing existing catalog (and dependent carts/orders)...");
+  // Deepest FK children first so product deletes can't be restricted.
+  await db.delete(schema.orderItems);
+  await db.delete(schema.orders);
+  await db.delete(schema.cartItems);
   await db.delete(products);
   await db.delete(categories);
 

@@ -15,14 +15,14 @@ import { eq } from "drizzle-orm";
  *   - SameSite=Lax → not sent on cross-site POSTs (CSRF containment)
  */
 
-export const CART_COOKIE = "webstor_cart";
+export const CART_COOKIE = "evora_cart";
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const globalForSession = globalThis as unknown as {
-  __webstorDevSecret?: string;
+  __evoraDevSecret?: string;
 };
 
 function secret(): string {
@@ -34,10 +34,10 @@ function secret(): string {
   // acceptable trade-off in dev. Production must always provide a stable
   // SESSION_SECRET (see .env.example).
   if (process.env.NODE_ENV !== "production") {
-    let devSecret = globalForSession.__webstorDevSecret;
+    let devSecret = globalForSession.__evoraDevSecret;
     if (!devSecret) {
       devSecret = randomBytes(32).toString("hex");
-      globalForSession.__webstorDevSecret = devSecret;
+      globalForSession.__evoraDevSecret = devSecret;
       console.warn(
         "[session] SESSION_SECRET is not set — using a temporary secret " +
           "for this dev session. Add SESSION_SECRET to .env for stable carts.",

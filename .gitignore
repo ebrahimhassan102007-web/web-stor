@@ -44,3 +44,5 @@ next-env.d.ts
 .pglite/
 .env
 !.env.example
+
+.pglite.broken-*/

@@ -1,8 +1,8 @@
-# WebStor — Secure Tech Marketplace
+# E-Vora — Digital Goods & Gaming Store
 
-A hardened, dark-themed e-commerce web application built with **Next.js 16 (App Router)**, **React 19**, **TypeScript**, **Tailwind CSS v4**, **PostgreSQL + Drizzle ORM** and **Zod**.
+A hardened, bilingual (EN/AR) digital-goods storefront built with **Next.js 16 (App Router)**, **React 19**, **TypeScript**, **Tailwind CSS v4**, **PostgreSQL + Drizzle ORM** and **Zod**. Game top-ups, gift cards, subscriptions and software keys — delivered instantly on-screen after checkout.
 
-> Deep-black glassmorphism UI · red primary / green success accents · security-first backend.
+> Dark & light themes · full RTL/LTR support · instant code delivery · security-first backend.
 
 ---
 
@@ -11,18 +11,19 @@ A hardened, dark-themed e-commerce web application built with **Next.js 16 (App 
 - **Home** — hero, trusted-security badges, featured products, category grid
 - **Products** — grid listing with full-text search, category filtering and sorting (newest / price ↑↓ / rating)
 - **Product detail** — large art tile, description, dynamic stock status, quantity selector, add-to-cart
-- **Cart** — add / remove / update quantities with live totals and free-shipping logic
-- **Checkout** — validated shipping form, transactional order creation, order confirmation page
+- **Cart** — add / remove / update quantities with live totals; per-line delivery inputs (Player ID for top-ups, region for gift cards)
+- **Checkout** — lean email-based form, transactional order creation, and an order page that reveals your digital codes with one-click copy
+- **EN / عربي** — full bilingual UI (catalog included) with RTL layout and the Cairo font, plus a dark/light theme toggle — both persisted in cookies
 
 ## Tech Stack
 
 | Layer      | Choice                                        |
 | ---------- | --------------------------------------------- |
 | Framework  | Next.js 16 (App Router, Route Handlers, RSC)  |
-| UI         | React 19 + Tailwind CSS v4 (custom dark theme) |
+| UI         | React 19 + Tailwind CSS v4 (dark & light themes, RTL-ready) |
 | Database   | PostgreSQL via Drizzle ORM — embedded PGlite for local dev, node-postgres for external DBs |
 | Validation | Zod (shared client + server schemas)           |
-| Fonts      | Geist, self-hosted (zero external requests)    |
+| Fonts      | Geist (Latin) + Cairo (Arabic), self-hosted (zero external requests) |
 
 ## Security Architecture
 
@@ -55,9 +56,17 @@ npm run dev         # http://localhost:3000
 There is **no database to install and nothing to configure** for local
 development. On first boot the app creates an embedded PostgreSQL database
 ([PGlite](https://pglite.dev), running in-process via WebAssembly), applies
-the migrations in `./drizzle/` and seeds the demo catalog (6 categories,
-27 products) automatically. Data persists in the `./.pglite/` folder —
-delete that folder to reset the dev database to a fresh seeded state.
+the migrations in `./drizzle/` and seeds the E-Vora digital catalog
+(4 categories, 18 products) automatically. Data persists in the
+`./.pglite/` folder — delete that folder to reset the dev database to a
+fresh seeded state.
+
+Upgrading from the old physical-goods catalog? Just pull and run — if the
+legacy catalog is detected it is replaced with the digital one on boot
+(demo carts/orders referencing it are cleared). If the embedded database
+files are ever damaged, the broken folder is preserved as
+`.pglite.broken-<timestamp>/` and a fresh database is created instead of
+crashing.
 
 ### 2. (Optional) Environment variables
 

@@ -19,7 +19,9 @@ export async function getCategoriesWithCounts() {
       id: categories.id,
       slug: categories.slug,
       name: categories.name,
+      nameAr: categories.nameAr,
       description: categories.description,
+      descriptionAr: categories.descriptionAr,
       icon: categories.icon,
       productCount: sql<number>`count(${products.id})::int`,
     })
@@ -66,6 +68,9 @@ export async function getFilteredProducts(rawFilters: ProductFilters) {
       or(
         ilike(products.name, `%${escaped}%`),
         ilike(products.description, `%${escaped}%`),
+        // Arabic copy is searchable too (e.g. "شدات" or "بطاقة").
+        ilike(products.nameAr, `%${escaped}%`),
+        ilike(products.descriptionAr, `%${escaped}%`),
       ),
     );
   }
@@ -84,6 +89,7 @@ export async function getFilteredProducts(rawFilters: ProductFilters) {
     .select({
       product: products,
       categoryName: categories.name,
+      categoryNameAr: categories.nameAr,
       categorySlug: categories.slug,
     })
     .from(products)
@@ -103,6 +109,7 @@ export async function getProductBySlug(rawSlug: string) {
     .select({
       product: products,
       categoryName: categories.name,
+      categoryNameAr: categories.nameAr,
       categorySlug: categories.slug,
     })
     .from(products)

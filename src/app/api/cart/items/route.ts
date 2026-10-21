@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return jsonError("Invalid input.", 400, parsed.error.flatten().fieldErrors);
     }
-    const { productId, quantity } = parsed.data;
+    const { productId, quantity, inputValue } = parsed.data;
 
     // Product must exist and have stock.
     const [product] = await db
@@ -63,12 +63,17 @@ export async function POST(req: NextRequest) {
     if (existing) {
       await db
         .update(cartItems)
-        .set({ quantity: target })
+        .set({
+          quantity: target,
+          // Keep the previously entered delivery input when the latest
+          // add doesn't provide a new one.
+          ...(inputValue ? { inputValue } : {}),
+        })
         .where(eq(cartItems.id, existing.id));
     } else {
       await db
         .insert(cartItems)
-        .values({ cartId, productId, quantity: target })
+        .values({ cartId, productId, quantity: target, inputValue })
         .onConflictDoUpdate({
           target: [cartItems.cartId, cartItems.productId],
           set: { quantity: sql`excluded.quantity` },

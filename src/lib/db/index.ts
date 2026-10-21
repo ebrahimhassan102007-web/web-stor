@@ -1,4 +1,5 @@
 import "server-only";
+import fs from "node:fs";
 import path from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import {
@@ -11,6 +12,7 @@ import {
   type PgliteDatabase,
 } from "drizzle-orm/pglite";
 import { migrate as migratePglite } from "drizzle-orm/pglite/migrator";
+import { eq } from "drizzle-orm";
 import { Pool } from "pg";
 import * as schema from "./schema";
 import { SEED_CATEGORIES, SEED_PRODUCTS } from "./seed-data";
@@ -53,9 +55,9 @@ function isRemoteDatabaseUrl(raw?: string): boolean {
 const useRemotePostgres = isRemoteDatabaseUrl(process.env.DATABASE_URL);
 
 const globalForDb = globalThis as unknown as {
-  __webstorDb?: Database;
-  __webstorPglite?: PGlite;
-  __webstorDbReady?: Promise<void>;
+  __evoraDb?: Database;
+  __evoraPglite?: PGlite;
+  __evoraDbReady?: Promise<void>;
 };
 
 function createDb(): Database {
@@ -70,32 +72,76 @@ function createDb(): Database {
     "[db] using embedded PGlite database (./.pglite) — " +
       "set a remote DATABASE_URL to use an external PostgreSQL instead.",
   );
-  const client = (globalForDb.__webstorPglite ??= new PGlite(PGLITE_DIR));
+  const client = (globalForDb.__evoraPglite ??= new PGlite(PGLITE_DIR));
   // Both drivers expose the identical Drizzle PostgreSQL query API that
   // this application uses, so the PGlite instance can be safely typed as
   // the node-postgres one.
   return drizzlePglite(client, { schema }) as unknown as Database;
 }
 
-export const db: Database = globalForDb.__webstorDb ?? createDb();
+/**
+ * The real Drizzle instance lives behind a thin proxy so the embedded
+ * database can self-heal at boot (see `ensureDbReady`): if the local
+ * `.pglite/` files are ever damaged (hard kill mid-write, two dev
+ * processes racing, ...), the broken folder is moved aside and a fresh
+ * instance is swapped in — importers keep using `db` untouched.
+ */
+let liveDb: Database = globalForDb.__evoraDb ?? createDb();
 
 if (process.env.NODE_ENV !== "production") {
-  globalForDb.__webstorDb = db;
+  globalForDb.__evoraDb = liveDb;
 }
+
+export const db: Database = new Proxy({} as Database, {
+  get(_target, prop) {
+    const value = Reflect.get(liveDb, prop, liveDb);
+    return typeof value === "function" ? value.bind(liveDb) : value;
+  },
+  set(_target, prop, value) {
+    return Reflect.set(liveDb, prop, value);
+  },
+});
 
 /* ------------------------------------------------------------------ */
 /* First-boot initialisation: migrations + catalog seed                */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Slug that only exists in the current (E-Vora digital) catalog. Used to
+ * detect databases still holding the legacy physical-goods catalog so it
+ * can be swapped automatically — a `git pull` + `npm run dev` is enough
+ * to upgrade, with no manual reset needed.
+ */
+const CATALOG_MARKER_SLUG = "game-topups";
+
 async function seedCatalogIfEmpty(): Promise<void> {
-  const [existing] = await db
+  const [marker] = await db
+    .select({ id: schema.categories.id })
+    .from(schema.categories)
+    .where(eq(schema.categories.slug, CATALOG_MARKER_SLUG))
+    .limit(1);
+  if (marker) return; // current catalog already in place
+
+  const [anyCategory] = await db
     .select({ id: schema.categories.id })
     .from(schema.categories)
     .limit(1);
-  if (existing) return;
 
-  console.log("[db] empty database detected — seeding catalog...");
   await db.transaction(async (tx) => {
+    if (anyCategory) {
+      // Legacy catalog found — clear it (and demo carts/orders that
+      // reference it, deepest FK children first) before reseeding.
+      console.log(
+        "[db] legacy catalog detected — replacing it with the E-Vora digital catalog...",
+      );
+      await tx.delete(schema.orderItems);
+      await tx.delete(schema.orders);
+      await tx.delete(schema.cartItems);
+      await tx.delete(schema.products);
+      await tx.delete(schema.categories);
+    } else {
+      console.log("[db] empty database detected — seeding catalog...");
+    }
     const insertedCategories = await tx
       .insert(schema.categories)
       .values(SEED_CATEGORIES.map((c) => ({ ...c })))
@@ -117,18 +163,54 @@ async function seedCatalogIfEmpty(): Promise<void> {
 }
 
 /**
+ * Waits for the embedded engine, recovering automatically if the local
+ * `.pglite/` data files are damaged: the broken folder is preserved as
+ * `.pglite.broken-<timestamp>` and a fresh database takes its place
+ * (dev data is disposable; the catalog is reseeded right after).
+ */
+async function waitForEmbeddedDb(): Promise<void> {
+  const client = globalForDb.__evoraPglite;
+  if (!client) return;
+  try {
+    await client.waitReady;
+  } catch (err) {
+    if (!fs.existsSync(path.join(PGLITE_DIR, "PG_VERSION"))) {
+      throw err; // nothing on disk to recover — a real startup failure
+    }
+    console.error(
+      "[db] embedded database failed to start — its local files look damaged.",
+      err instanceof Error ? err.message : err,
+    );
+    await client.close().catch(() => {});
+    const brokenDir = `${PGLITE_DIR}.broken-${Date.now()}`;
+    fs.renameSync(PGLITE_DIR, brokenDir);
+    console.error(
+      `[db] moved the damaged database to ${path.basename(brokenDir)}/ ` +
+        "and created a fresh one (previous dev data was reset).",
+    );
+    const freshClient = new PGlite(PGLITE_DIR);
+    globalForDb.__evoraPglite = freshClient;
+    liveDb = drizzlePglite(freshClient, { schema }) as unknown as Database;
+    if (process.env.NODE_ENV !== "production") {
+      globalForDb.__evoraDb = liveDb;
+    }
+    await freshClient.waitReady;
+  }
+}
+
+/**
  * Applies pending migrations and seeds the catalog when empty.
  * Memoized: safe to call repeatedly (subsequent calls are no-ops).
  * Called once at server startup from `src/instrumentation.ts`.
  */
 export function ensureDbReady(): Promise<void> {
-  globalForDb.__webstorDbReady ??= (async () => {
+  globalForDb.__evoraDbReady ??= (async () => {
     const migrationsFolder = path.join(process.cwd(), "drizzle");
     if (useRemotePostgres) {
-      await migrateNode(db, { migrationsFolder });
+      await migrateNode(liveDb, { migrationsFolder });
     } else {
-      await globalForDb.__webstorPglite?.waitReady;
-      await migratePglite(db as unknown as PgliteDatabase<typeof schema>, {
+      await waitForEmbeddedDb();
+      await migratePglite(liveDb as unknown as PgliteDatabase<typeof schema>, {
         migrationsFolder,
       });
     }
@@ -136,10 +218,10 @@ export function ensureDbReady(): Promise<void> {
     console.log("[db] database ready.");
   })().catch((err) => {
     // Don't cache a failed initialisation — allow a later retry.
-    globalForDb.__webstorDbReady = undefined;
+    globalForDb.__evoraDbReady = undefined;
     throw err;
   });
-  return globalForDb.__webstorDbReady;
+  return globalForDb.__evoraDbReady;
 }
 
 export * from "./schema";

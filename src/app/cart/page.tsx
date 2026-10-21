@@ -3,30 +3,40 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useCart } from "@/components/cart-provider";
+import { useI18n } from "@/components/locale-provider";
 import { formatCents } from "@/lib/money";
+import {
+  fill,
+  locName,
+  REGION_CODES,
+  type RegionCode,
+} from "@/lib/i18n/dictionary";
 
 type CartLine = {
   id: number;
   productId: number;
   name: string;
+  nameAr: string;
   slug: string;
   icon: string;
   unitPriceCents: number;
   quantity: number;
   stock: number;
   lineTotalCents: number;
+  inputType: string;
+  inputValue: string | null;
 };
 
 type CartSummary = {
   items: CartLine[];
   itemCount: number;
   subtotalCents: number;
-  shippingCents: number;
   totalCents: number;
 };
 
 export default function CartPage() {
   const { refresh } = useCart();
+  const { locale, t } = useI18n();
   const [cart, setCart] = useState<CartSummary | null>(null);
   const [busyLine, setBusyLine] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -37,9 +47,9 @@ export default function CartPage() {
       const body = await res.json();
       if (body?.ok) setCart(body.data);
     } catch {
-      setError("Could not load your cart. Please refresh.");
+      setError(t.cart.errLoad);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     // State is set only after the awaited fetch resolves (not synchronously).
@@ -61,10 +71,10 @@ export default function CartPage() {
         setCart(body.data);
         await refresh();
       } else {
-        setError(body?.error ?? "Could not update the cart.");
+        setError(body?.error ?? t.cart.errUpdate);
       }
     } catch {
-      setError("Network error. Please try again.");
+      setError(t.cart.errNetwork);
     } finally {
       setBusyLine(null);
     }
@@ -73,7 +83,7 @@ export default function CartPage() {
   if (!cart) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-20 sm:px-6 text-center text-muted">
-        Loading your cart…
+        {t.cart.loading}
       </div>
     );
   }
@@ -83,12 +93,10 @@ export default function CartPage() {
       <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
         <div className="glass-card p-12 text-center">
           <p className="text-5xl" aria-hidden>🛒</p>
-          <h1 className="mt-5 text-2xl font-bold">Your cart is empty</h1>
-          <p className="mt-2 text-sm text-muted">
-            Browse the catalog and find something worth securing.
-          </p>
+          <h1 className="mt-5 text-2xl font-bold">{t.cart.emptyTitle}</h1>
+          <p className="mt-2 text-sm text-muted">{t.cart.emptyText}</p>
           <Link href="/products" className="btn-primary mt-6 px-8">
-            Browse Products
+            {t.cart.browse}
           </Link>
         </div>
       </div>
@@ -98,10 +106,12 @@ export default function CartPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
       <h1 className="text-3xl font-bold tracking-tight">
-        Shopping <span className="text-primary">Cart</span>
+        {t.cart.title} <span className="text-primary">{t.cart.titleAccent}</span>
       </h1>
       <p className="mt-1 text-sm text-muted">
-        {cart.itemCount} {cart.itemCount === 1 ? "item" : "items"}
+        {cart.itemCount === 1
+          ? t.cart.itemsCountOne
+          : fill(t.cart.itemsCount, { count: cart.itemCount })}
       </p>
 
       {error && (
@@ -130,15 +140,29 @@ export default function CartPage() {
                       href={`/products/${line.slug}`}
                       className="font-semibold hover:text-primary transition-colors line-clamp-2"
                     >
-                      {line.name}
+                      {locName(line, locale)}
                     </Link>
                     <p className="mt-0.5 text-sm text-muted">
-                      {formatCents(line.unitPriceCents)} each
+                      {formatCents(line.unitPriceCents, locale)} {t.cart.each}
                     </p>
+                    {line.inputValue && line.inputType === "player-id" && (
+                      <p className="mt-1 text-xs text-success font-medium">
+                        🎮 {t.cart.sentToPlayer}{" "}
+                        <span dir="ltr" className="font-mono">{line.inputValue}</span>
+                      </p>
+                    )}
+                    {line.inputValue && line.inputType === "region" && (
+                      <p className="mt-1 text-xs text-success font-medium">
+                        🌐 {t.cart.regionTag}{" "}
+                        {REGION_CODES.includes(line.inputValue as RegionCode)
+                          ? t.regions[line.inputValue as RegionCode]
+                          : line.inputValue}
+                      </p>
+                    )}
                   </div>
                   <button
                     type="button"
-                    aria-label={`Remove ${line.name}`}
+                    aria-label={fill(t.cart.remove, { name: locName(line, locale) })}
                     onClick={() => mutate(line.id, 0)}
                     disabled={busyLine === line.id}
                     className="text-muted hover:text-primary transition-colors text-sm shrink-0"
@@ -151,7 +175,7 @@ export default function CartPage() {
                   <div className="flex items-center rounded-lg border border-edge bg-raised/60">
                     <button
                       type="button"
-                      aria-label="Decrease quantity"
+                      aria-label={t.add.decrease}
                       onClick={() => mutate(line.id, line.quantity - 1)}
                       disabled={busyLine === line.id}
                       className="h-9 w-9 text-muted hover:text-foreground disabled:opacity-40"
@@ -163,7 +187,7 @@ export default function CartPage() {
                     </span>
                     <button
                       type="button"
-                      aria-label="Increase quantity"
+                      aria-label={t.add.increase}
                       onClick={() => mutate(line.id, line.quantity + 1)}
                       disabled={busyLine === line.id || line.quantity >= Math.min(line.stock, 99)}
                       className="h-9 w-9 text-muted hover:text-foreground disabled:opacity-40"
@@ -172,7 +196,7 @@ export default function CartPage() {
                     </button>
                   </div>
                   <span className="font-bold tabular-nums">
-                    {formatCents(line.lineTotalCents)}
+                    {formatCents(line.lineTotalCents, locale)}
                   </span>
                 </div>
               </div>
@@ -182,42 +206,34 @@ export default function CartPage() {
 
         {/* Summary */}
         <aside className="glass-card h-fit p-6 lg:sticky lg:top-24">
-          <h2 className="text-lg font-bold">Order Summary</h2>
+          <h2 className="text-lg font-bold">{t.cart.summary}</h2>
           <dl className="mt-4 space-y-3 text-sm">
             <div className="flex justify-between">
-              <dt className="text-muted">Subtotal</dt>
+              <dt className="text-muted">{t.cart.subtotal}</dt>
               <dd className="font-medium tabular-nums">
-                {formatCents(cart.subtotalCents)}
+                {formatCents(cart.subtotalCents, locale)}
               </dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-muted">Shipping</dt>
-              <dd className="font-medium tabular-nums">
-                {cart.shippingCents === 0 ? (
-                  <span className="text-success">Free</span>
-                ) : (
-                  formatCents(cart.shippingCents)
-                )}
-              </dd>
+              <dt className="text-muted">{t.cart.delivery}</dt>
+              <dd className="font-medium text-success">{t.cart.instantFree}</dd>
             </div>
             <div className="flex justify-between border-t border-edge pt-3 text-base">
-              <dt className="font-bold">Total</dt>
+              <dt className="font-bold">{t.cart.total}</dt>
               <dd className="font-bold tabular-nums">
-                {formatCents(cart.totalCents)}
+                {formatCents(cart.totalCents, locale)}
               </dd>
             </div>
           </dl>
 
           <Link href="/checkout" className="btn-primary mt-6 w-full py-3">
-            🔒 Secure Checkout
+            {t.cart.checkoutBtn}
           </Link>
           <Link href="/products" className="btn-ghost mt-3 w-full text-sm">
-            Continue shopping
+            {t.cart.continueShopping}
           </Link>
 
-          <p className="mt-4 text-center text-xs text-muted">
-            Encrypted session · no card data stored
-          </p>
+          <p className="mt-4 text-center text-xs text-muted">{t.cart.note}</p>
         </aside>
       </div>
     </div>
