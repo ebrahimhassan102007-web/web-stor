@@ -7,6 +7,7 @@ import { useCart } from "@/components/cart-provider";
 import { useI18n } from "@/components/locale-provider";
 import { checkoutSchema } from "@/lib/validation";
 import { formatCents } from "@/lib/money";
+import { fetchCartSummary } from "@/lib/client/cart-load";
 import {
   fill,
   locName,
@@ -40,10 +41,9 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
+    setFormError("");
     try {
-      const res = await fetch("/api/cart", { cache: "no-store" });
-      const body = await res.json();
-      if (body?.ok) setCart(body.data);
+      setCart(await fetchCartSummary<CartSummary>());
     } catch {
       setFormError(t.checkout.errLoad);
     }
@@ -100,7 +100,14 @@ export default function CheckoutPage() {
   if (!cart) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-20 sm:px-6 text-center text-muted">
-        {t.checkout.loading}
+        {formError ? (
+          <>
+            <p role="alert">{formError}</p>
+            <button type="button" className="btn-primary mt-4 px-8" onClick={() => void load()}>
+              {t.checkout.retry}
+            </button>
+          </>
+        ) : t.checkout.loading}
       </div>
     );
   }

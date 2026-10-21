@@ -12,7 +12,6 @@ import {
   type PgliteDatabase,
 } from "drizzle-orm/pglite";
 import { migrate as migratePglite } from "drizzle-orm/pglite/migrator";
-import { eq } from "drizzle-orm";
 import { Pool } from "pg";
 import * as schema from "./schema";
 import { SEED_CATEGORIES, SEED_PRODUCTS } from "./seed-data";
@@ -106,60 +105,36 @@ export const db: Database = new Proxy({} as Database, {
 /* First-boot initialisation: migrations + catalog seed                */
 /* ------------------------------------------------------------------ */
 
-/**
- * Slug that only exists in the current (E-Vora digital) catalog. Used to
- * detect databases still holding the legacy physical-goods catalog so it
- * can be swapped automatically — a `git pull` + `npm run dev` is enough
- * to upgrade, with no manual reset needed.
- */
-const CATALOG_MARKER_SLUG = "game-topups";
-
+/** Seed only an empty non-production database; never replace an existing catalog. */
 async function seedCatalogIfEmpty(): Promise<void> {
-  const [marker] = await db
-    .select({ id: schema.categories.id })
-    .from(schema.categories)
-    .where(eq(schema.categories.slug, CATALOG_MARKER_SLUG))
-    .limit(1);
-  if (marker) return; // current catalog already in place
-
   const [anyCategory] = await db
     .select({ id: schema.categories.id })
     .from(schema.categories)
     .limit(1);
+  if (anyCategory) {
+    console.log("[db] existing catalog preserved; automatic seeding made no changes.");
+    return;
+  }
+  if (process.env.NODE_ENV === "production") {
+    console.warn("[db] automatic demo seeding is disabled in production.");
+    return;
+  }
 
   await db.transaction(async (tx) => {
-    if (anyCategory) {
-      // Legacy catalog found — clear it (and demo carts/orders that
-      // reference it, deepest FK children first) before reseeding.
-      console.log(
-        "[db] legacy catalog detected — replacing it with the E-Vora digital catalog...",
-      );
-      await tx.delete(schema.orderItems);
-      await tx.delete(schema.orders);
-      await tx.delete(schema.cartItems);
-      await tx.delete(schema.products);
-      await tx.delete(schema.categories);
-    } else {
-      console.log("[db] empty database detected — seeding catalog...");
-    }
     const insertedCategories = await tx
       .insert(schema.categories)
-      .values(SEED_CATEGORIES.map((c) => ({ ...c })))
+      .values(SEED_CATEGORIES.map((category) => ({ ...category })))
       .returning();
-
-    const idBySlug = new Map(insertedCategories.map((c) => [c.slug, c.id]));
-
+    const idBySlug = new Map(insertedCategories.map((category) => [category.slug, category.id]));
     await tx.insert(schema.products).values(
-      SEED_PRODUCTS.map(({ category, ...p }) => ({
-        ...p,
-        featured: p.featured ?? false,
+      SEED_PRODUCTS.map(({ category, ...product }) => ({
+        ...product,
+        featured: product.featured ?? false,
         categoryId: idBySlug.get(category)!,
       })),
     );
   });
-  console.log(
-    `[db] seeded ${SEED_CATEGORIES.length} categories, ${SEED_PRODUCTS.length} products.`,
-  );
+  console.log(`[db] seeded ${SEED_CATEGORIES.length} categories and ${SEED_PRODUCTS.length} products.`);
 }
 
 /**
@@ -177,6 +152,9 @@ async function waitForEmbeddedDb(): Promise<void> {
     if (!fs.existsSync(path.join(PGLITE_DIR, "PG_VERSION"))) {
       throw err; // nothing on disk to recover — a real startup failure
     }
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Refusing to reset damaged embedded PGlite data in production.");
+    }
     console.error(
       "[db] embedded database failed to start — its local files look damaged.",
       err instanceof Error ? err.message : err,
@@ -191,9 +169,7 @@ async function waitForEmbeddedDb(): Promise<void> {
     const freshClient = new PGlite(PGLITE_DIR);
     globalForDb.__evoraPglite = freshClient;
     liveDb = drizzlePglite(freshClient, { schema }) as unknown as Database;
-    if (process.env.NODE_ENV !== "production") {
-      globalForDb.__evoraDb = liveDb;
-    }
+    globalForDb.__evoraDb = liveDb;
     await freshClient.waitReady;
   }
 }

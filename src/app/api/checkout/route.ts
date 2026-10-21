@@ -23,15 +23,21 @@ export const dynamic = "force-dynamic";
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789";
 
 function randomCodeChars(count: number): string {
-  const bytes = randomBytes(count);
-  let s = "";
-  for (const b of bytes) s += CODE_ALPHABET[b % CODE_ALPHABET.length];
-  return s;
+  const limit = Math.floor(256 / CODE_ALPHABET.length) * CODE_ALPHABET.length;
+  let result = "";
+  while (result.length < count) {
+    const bytes = randomBytes(Math.max(16, count - result.length));
+    for (const byte of bytes) {
+      if (byte < limit) result += CODE_ALPHABET[byte % CODE_ALPHABET.length];
+      if (result.length === count) break;
+    }
+  }
+  return result;
 }
 
 function newOrderNumber(): string {
-  // EV-XXXXXXXXXX — unguessable, uppercase, no ambiguous chars.
-  return `EV-${randomCodeChars(10)}`;
+  // 30-character alphabet, 12 uniformly sampled characters (~58.87 bits).
+  return `EV-${randomCodeChars(12)}`;
 }
 
 /**
