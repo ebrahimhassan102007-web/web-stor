@@ -3,9 +3,10 @@ import type { NextConfig } from "next";
 /**
  * Hardened security headers.
  *
- * Note: the CSP allows 'unsafe-inline'/'unsafe-eval' for script because the
- * Next.js dev runtime and hydration require them. For a stricter production
- * posture, migrate to a nonce-based CSP emitted from proxy.ts.
+ * Note: the CSP allows 'unsafe-inline'/'unsafe-eval' for script in both
+ * development and production because the Next.js runtime and hydration need
+ * them. This is a compatibility policy, not a strict CSP; a tested nonce-based
+ * policy is required before claiming stricter protection.
  */
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },

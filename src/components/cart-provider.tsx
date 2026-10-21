@@ -8,6 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { fetchCartSummary } from "@/lib/client/cart-load";
 
 /**
  * Lightweight client-side cart state (item count only).
@@ -29,12 +30,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/cart", { cache: "no-store" });
-      if (!res.ok) return;
-      const body = await res.json();
-      if (body?.ok) setCount(body.data.itemCount ?? 0);
+      const summary = await fetchCartSummary<{ itemCount?: number }>();
+      setCount(summary.itemCount ?? 0);
     } catch {
-      // Network hiccup — keep the previous count.
+      // Network/API hiccup (including `{ ok: false }`) — keep the last count.
     }
   }, []);
 

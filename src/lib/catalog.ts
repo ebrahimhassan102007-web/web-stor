@@ -1,5 +1,5 @@
 import "server-only";
-import { db, categories, products, orders, orderItems } from "@/lib/db";
+import { db, categories, products, orders } from "@/lib/db";
 import { and, asc, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { productQuerySchema, slugSchema, orderNumberSchema } from "@/lib/validation";
 
@@ -122,22 +122,24 @@ export async function getRelatedProducts(categoryId: number, excludeId: number, 
     .limit(limit);
 }
 
-export async function getOrderByNumber(rawNumber: string) {
+/**
+ * Checks only whether an order reference exists.
+ *
+ * The public confirmation page is anonymous, so it must never read or render
+ * customer details, addresses, items, totals or any delivery data — no more
+ * than the existence of the reference is required there.
+ */
+export async function orderExistsByNumber(
+  rawNumber: string,
+): Promise<boolean> {
   const parsed = orderNumberSchema.safeParse(rawNumber);
-  if (!parsed.success) return null;
+  if (!parsed.success) return false;
 
-  const [order] = await db
-    .select()
+  const [row] = await db
+    .select({ id: orders.id })
     .from(orders)
     .where(eq(orders.orderNumber, parsed.data))
     .limit(1);
-  if (!order) return null;
 
-  const items = await db
-    .select()
-    .from(orderItems)
-    .where(eq(orderItems.orderId, order.id))
-    .orderBy(asc(orderItems.id));
-
-  return { order, items };
+  return Boolean(row);
 }

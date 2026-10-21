@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useCart } from "@/components/cart-provider";
 import { formatCents } from "@/lib/money";
+import { fetchCartSummary } from "@/lib/client/cart-load";
 
 type CartLine = {
   id: number;
@@ -32,12 +33,12 @@ export default function CartPage() {
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
+    setError("");
     try {
-      const res = await fetch("/api/cart", { cache: "no-store" });
-      const body = await res.json();
-      if (body?.ok) setCart(body.data);
+      setCart(await fetchCartSummary<CartSummary>());
     } catch {
-      setError("Could not load your cart. Please refresh.");
+      // Covers network/HTTP failures and 200 responses carrying { ok: false }.
+      setError("Could not load your cart. Please try again.");
     }
   }, []);
 
@@ -73,7 +74,20 @@ export default function CartPage() {
   if (!cart) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-20 sm:px-6 text-center text-muted">
-        Loading your cart…
+        {error ? (
+          <>
+            <p role="alert">{error}</p>
+            <button
+              type="button"
+              className="btn-primary mt-4 px-8"
+              onClick={() => void load()}
+            >
+              Try again
+            </button>
+          </>
+        ) : (
+          "Loading your cart…"
+        )}
       </div>
     );
   }

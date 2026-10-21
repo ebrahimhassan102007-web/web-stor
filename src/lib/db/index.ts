@@ -1,6 +1,7 @@
 import "server-only";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { resolveDatabaseUrl } from "./config";
 import * as schema from "./schema";
 
 /**
@@ -15,11 +16,9 @@ const globalForDb = globalThis as unknown as {
 };
 
 function createPool(): Pool {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
-    throw new Error("DATABASE_URL environment variable is not set");
-  }
-  return new Pool({ connectionString, max: 10 });
+  // Validated once at startup: a missing or unsupported DATABASE_URL throws
+  // here, so the app can never fall back to a local/embedded database.
+  return new Pool({ connectionString: resolveDatabaseUrl(), max: 10 });
 }
 
 export const db: NodePgDatabase<typeof schema> =

@@ -1,0 +1,63 @@
+name: Quality checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: webstor
+          POSTGRES_PASSWORD: webstor
+          POSTGRES_DB: webstor_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U webstor"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://webstor:webstor@localhost:5432/webstor_test
+      TEST_DATABASE_URL: postgres://webstor:webstor@localhost:5432/webstor_test
+      SESSION_SECRET: ci-only-session-secret-not-used-in-production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # The documented schema workflow (db:push) against a throwaway database.
+      - name: Create test schema
+        run: npm run db:push -- --force
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Production dependency audit
+        run: npm audit --omit=dev

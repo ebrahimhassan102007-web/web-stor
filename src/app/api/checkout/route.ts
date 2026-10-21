@@ -1,5 +1,4 @@
 import type { NextRequest } from "next/server";
-import { randomBytes } from "node:crypto";
 import { eq, and, gte, sql } from "drizzle-orm";
 import {
   db,
@@ -17,18 +16,10 @@ import { verifySameOrigin } from "@/lib/security/csrf";
 import { rateLimit, clientKey } from "@/lib/security/rate-limit";
 import { checkoutSchema } from "@/lib/validation";
 import { shippingFor } from "@/lib/money";
+import { newOrderNumber } from "@/lib/order-number";
 import { jsonOk, jsonError, handleUnexpected } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
-
-function newOrderNumber(): string {
-  // WS-XXXXXXXXXX — unguessable, uppercase, no ambiguous chars.
-  const alphabet = "ABCDEFGHJKMNPQRSTVWXYZ23456789";
-  const bytes = randomBytes(10);
-  let s = "";
-  for (const b of bytes) s += alphabet[b % alphabet.length];
-  return `WS-${s}`;
-}
 
 /**
  * POST /api/checkout
