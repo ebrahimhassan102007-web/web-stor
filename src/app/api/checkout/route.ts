@@ -16,18 +16,47 @@ import {
 import { verifySameOrigin } from "@/lib/security/csrf";
 import { rateLimit, clientKey } from "@/lib/security/rate-limit";
 import { checkoutSchema } from "@/lib/validation";
-import { shippingFor } from "@/lib/money";
 import { jsonOk, jsonError, handleUnexpected } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
+const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789";
+
+function randomCodeChars(count: number): string {
+  const limit = Math.floor(256 / CODE_ALPHABET.length) * CODE_ALPHABET.length;
+  let result = "";
+  while (result.length < count) {
+    const bytes = randomBytes(Math.max(16, count - result.length));
+    for (const byte of bytes) {
+      if (byte < limit) result += CODE_ALPHABET[byte % CODE_ALPHABET.length];
+      if (result.length === count) break;
+    }
+  }
+  return result;
+}
+
 function newOrderNumber(): string {
-  // WS-XXXXXXXXXX — unguessable, uppercase, no ambiguous chars.
-  const alphabet = "ABCDEFGHJKMNPQRSTVWXYZ23456789";
-  const bytes = randomBytes(10);
-  let s = "";
-  for (const b of bytes) s += alphabet[b % alphabet.length];
-  return `WS-${s}`;
+  // 30-character alphabet, 12 uniformly sampled characters (~58.87 bits).
+  return `EV-${randomCodeChars(12)}`;
+}
+
+/**
+ * Generates one digital delivery code (XXXXX-XXXXX-XXXXX) per unit
+ * bought, newline-separated. Top-ups get a TXN-style reference instead,
+ * since the credit is delivered to the player's account directly.
+ */
+function newDeliveryCodes(inputType: string, quantity: number): string {
+  const codes: string[] = [];
+  for (let i = 0; i < quantity; i++) {
+    if (inputType === "player-id") {
+      codes.push(`TOPUP-${randomCodeChars(10)}`);
+    } else {
+      codes.push(
+        `${randomCodeChars(5)}-${randomCodeChars(5)}-${randomCodeChars(5)}`,
+      );
+    }
+  }
+  return codes.join("\n");
 }
 
 /**
@@ -77,9 +106,12 @@ export async function POST(req: NextRequest) {
         .select({
           productId: cartItems.productId,
           quantity: cartItems.quantity,
+          inputValue: cartItems.inputValue,
           name: products.name,
+          nameAr: products.nameAr,
           priceCents: products.priceCents,
           stock: products.stock,
+          inputType: products.inputType,
         })
         .from(cartItems)
         .innerJoin(products, eq(cartItems.productId, products.id))
@@ -102,7 +134,8 @@ export async function POST(req: NextRequest) {
         (s, l) => s + l.priceCents * l.quantity,
         0,
       );
-      const shippingCents = shippingFor(subtotalCents);
+      // Digital goods: instant delivery, always free.
+      const shippingCents = 0;
       const totalCents = subtotalCents + shippingCents;
 
       // Atomic stock decrement, guarded against underflow.
@@ -145,8 +178,14 @@ export async function POST(req: NextRequest) {
           orderId: order.id,
           productId: l.productId,
           productName: l.name,
+          productNameAr: l.nameAr,
           unitPriceCents: l.priceCents,
           quantity: l.quantity,
+          deliveryCode: newDeliveryCodes(l.inputType, l.quantity),
+          // Echo the delivery target as "type:value" (player id / region).
+          deliveryInfo: l.inputValue
+            ? `${l.inputType}:${l.inputValue}`
+            : null,
         })),
       );
 

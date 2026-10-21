@@ -2,33 +2,48 @@ import type { Metadata } from "next";
 // Self-hosted fonts (no external font CDN requests — privacy by default).
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
+import "@fontsource-variable/cairo"; // Arabic (used when lang="ar")
 import "./globals.css";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { CartProvider } from "@/components/cart-provider";
+import { LocaleProvider } from "@/components/locale-provider";
+import { getI18n, getTheme } from "@/lib/i18n/server";
+import { dirFor } from "@/lib/i18n/dictionary";
 
-export const metadata: Metadata = {
-  title: {
-    default: "WebStor — Secure Tech Marketplace",
-    template: "%s · WebStor",
-  },
-  description:
-    "A hardened e-commerce experience for electronics, security gear, fashion and more. Encrypted checkout, zero tracking.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+    title: {
+      default: t.meta.title,
+      template: "%s · E-Vora",
+    },
+    description: t.meta.description,
+  };
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const [{ locale, t }, theme] = await Promise.all([getI18n(), getTheme()]);
+
   return (
-    <html lang="en">
+    <html
+      lang={locale}
+      dir={dirFor(locale)}
+      data-theme={theme}
+      suppressHydrationWarning
+    >
       <body
         className={`${GeistSans.variable} ${GeistMono.variable} bg-mesh min-h-screen antialiased flex flex-col`}
       >
-        <CartProvider>
-          <Header />
-          <main className="flex-1">{children}</main>
-          <Footer />
-        </CartProvider>
+        <LocaleProvider locale={locale} dict={t}>
+          <CartProvider>
+            <Header initialTheme={theme} />
+            <main className="flex-1">{children}</main>
+            <Footer />
+          </CartProvider>
+        </LocaleProvider>
       </body>
     </html>
   );

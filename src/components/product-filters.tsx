@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
+import { useI18n } from "./locale-provider";
 
 type CategoryOption = { slug: string; name: string; icon: string };
 
@@ -14,6 +15,7 @@ export function ProductFilters({
 }) {
   const router = useRouter();
   const params = useSearchParams();
+  const { t } = useI18n();
   const [q, setQ] = useState(applied.q);
   const [, startTransition] = useTransition();
 
@@ -43,29 +45,29 @@ export function ProductFilters({
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search products…"
+            placeholder={t.filters.searchPlaceholder}
             maxLength={100}
-            className="input-dark pr-24"
-            aria-label="Search products"
+            className="input-dark pe-24"
+            aria-label={t.filters.searchAria}
           />
           <button
             type="submit"
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 btn-primary px-4 py-1.5 text-sm"
+            className="absolute end-1.5 top-1/2 -translate-y-1/2 btn-primary px-4 py-1.5 text-sm"
           >
-            Search
+            {t.filters.search}
           </button>
         </form>
 
         <select
           value={applied.sort}
           onChange={(e) => pushParams({ sort: e.target.value })}
-          aria-label="Sort products"
-          className="input-dark sm:w-52 cursor-pointer"
+          aria-label={t.filters.sortAria}
+          className="input-dark sm:w-56 cursor-pointer"
         >
-          <option value="newest">Newest</option>
-          <option value="price-asc">Price: Low → High</option>
-          <option value="price-desc">Price: High → Low</option>
-          <option value="rating">Top Rated</option>
+          <option value="newest">{t.filters.newest}</option>
+          <option value="price-asc">{t.filters.priceAsc}</option>
+          <option value="price-desc">{t.filters.priceDesc}</option>
+          <option value="rating">{t.filters.rating}</option>
         </select>
       </div>
 
@@ -77,10 +79,10 @@ export function ProductFilters({
           className={`rounded-full px-4 py-1.5 text-sm font-medium border transition-colors ${
             !applied.category
               ? "border-primary/50 bg-primary/15 text-primary"
-              : "border-edge bg-raised/60 text-muted hover:text-foreground hover:border-white/20"
+              : "border-edge bg-raised/60 text-muted hover:text-foreground hover:border-strong"
           }`}
         >
-          All
+          {t.filters.all}
         </button>
         {categories.map((c) => (
           <button
@@ -92,10 +94,10 @@ export function ProductFilters({
             className={`rounded-full px-4 py-1.5 text-sm font-medium border transition-colors ${
               applied.category === c.slug
                 ? "border-primary/50 bg-primary/15 text-primary"
-                : "border-edge bg-raised/60 text-muted hover:text-foreground hover:border-white/20"
+                : "border-edge bg-raised/60 text-muted hover:text-foreground hover:border-strong"
             }`}
           >
-            <span aria-hidden className="mr-1.5">{c.icon}</span>
+            <span aria-hidden className="me-1.5">{c.icon}</span>
             {c.name}
           </button>
         ))}
