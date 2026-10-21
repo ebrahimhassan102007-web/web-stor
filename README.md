@@ -132,9 +132,19 @@ connection is opened:
 | --- | --- |
 | `NODE_ENV=production` | refused, always |
 | Database name | must end with the strict suffix `_test` (`webstor`, `test`, `webstor_prod`, `stagingtest` are rejected) |
-| Host | must be loopback/local (`localhost`, `127.0.0.0/8`, `::1`, unix socket) |
+| Host | must be loopback/local (`localhost`, `127.0.0.0/8`, `::1`, unix socket path) |
 | Remote host | rejected unless `ALLOW_REMOTE_TEST_DATABASE=YES` is set explicitly |
+| Host overrides | the **effective** host PostgreSQL will use is validated, not `URL.hostname`. A `?host=` parameter that disagrees with the URI authority, a repeated/comma-separated `host`, any other host-like parameter (`hostaddr`, `host[]`, `HOST`…), a percent-encoded authority or a URL with no explicit host is rejected as ambiguous |
 | Missing/invalid/permitted target | skipped with a notice / fails the run with a credential-free message |
+
+`pg` lets a `?host=` query parameter override the URI authority — and applies
+the **last** of several `host` parameters — so
+`postgres://user:pass@localhost:5432/webstor_test?host=db.example.com` really
+connects to `db.example.com`. The guard therefore resolves the host exactly as
+`pg-connection-string` does and refuses anything it cannot prove is a single
+unambiguous target; it never guesses. This is covered by regression tests,
+including a cross-check against the installed parser and a network tripwire
+proving no socket is opened while a URL is being rejected.
 
 Local run:
 
