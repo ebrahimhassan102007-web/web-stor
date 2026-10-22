@@ -55,7 +55,33 @@ jobs:
         run: npm run db:push -- --force
 
       - name: Test against PostgreSQL
-        run: npm test
+        shell: bash
+        run: |
+          set +e
+          npm test > /tmp/evora-tests.log 2>&1
+          result=$?
+          cat /tmp/evora-tests.log
+          if [ "$result" -ne 0 ]; then
+            python3 - <<'PY'
+          from pathlib import Path
+          import os
+
+          lines = Path("/tmp/evora-tests.log").read_text().splitlines()
+          starts = [index for index, line in enumerate(lines) if line.startswith("not ok ")]
+          details = []
+          for start in starts:
+              end = next((index for index in range(start + 1, len(lines))
+                          if lines[index].startswith(("# Subtest:", "ok ", "not ok "))), len(lines))
+              details.append("\n".join(lines[start:end]).strip())
+          message = "\n\n".join(details) or "\n".join(lines[-60:])
+          summary = "### PostgreSQL test failure details\n\n```text\n" + message + "\n```\n"
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as output:
+              output.write(summary)
+          escaped = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+          print(f"::error title=PostgreSQL test failure::{escaped}")
+          PY
+          fi
+          exit "$result"
 
       - name: Production build
         run: npm run build
