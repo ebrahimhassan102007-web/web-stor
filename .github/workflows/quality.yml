@@ -28,6 +28,7 @@ jobs:
 
     env:
       DATABASE_URL: postgres://evora:evora@localhost:5432/evora_test
+      DRIZZLE_KIT_DATABASE_URL: postgres://evora:evora@localhost:5432/evora_test
       TEST_DATABASE_URL: postgres://evora:evora@localhost:5432/evora_test
       SESSION_SECRET: ci-only-session-secret-not-used-in-production
       AUTH_SECRET: ci-only-auth-secret-that-is-long-enough-for-test-runs

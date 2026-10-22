@@ -111,6 +111,10 @@ cp .env.example .env   # see the file for details
   honoured; a localhost URL falls back to the embedded database.
   Migrations and the initial seed are applied automatically on boot here
   too.
+- `DRIZZLE_KIT_DATABASE_URL` — explicit schema-tool target override for
+  `npm run db:push` / `db:generate`, including localhost PostgreSQL. Use only
+  with an intentionally selected disposable/test database; it is separate
+  from runtime database selection and should never target production.
 
 ### 3. Changing the schema
 
@@ -127,7 +131,7 @@ npm run dev           # the migration is applied automatically on boot
 | --- | --- |
 | `npm run dev` / `build` / `start` | Next.js lifecycle |
 | `npm run db:generate` | Generate a SQL migration from the schema |
-| `npm run db:push` | Push the schema directly (embedded DB, or DATABASE_URL) |
+| `npm run db:push` | Push the schema to embedded PGlite, a remote `DATABASE_URL`, or an explicit `DRIZZLE_KIT_DATABASE_URL` target |
 | `npm run db:seed` | Add missing demo-catalog rows only; refuses production and requires explicit opt-in for remote non-production databases |
 | `npm run lint` / `typecheck` / `test` | ESLint / strict TypeScript / security, migration and database tests |
 

@@ -1,6 +1,8 @@
 import { defineConfig } from "drizzle-kit";
 
-const databaseUrl = process.env.DATABASE_URL;
+const explicitDrizzleDatabaseUrl = process.env.DRIZZLE_KIT_DATABASE_URL;
+const databaseUrl = explicitDrizzleDatabaseUrl || process.env.DATABASE_URL;
+const explicitlyUseDatabaseUrl = Boolean(explicitDrizzleDatabaseUrl);
 
 function isRemoteDatabaseUrl(raw?: string): boolean {
   if (!raw) return false;
@@ -13,16 +15,18 @@ function isRemoteDatabaseUrl(raw?: string): boolean {
 }
 
 /**
- * Matches the runtime engine selection in `src/lib/db/index.ts`:
+ * Matches the runtime engine selection in `src/lib/db/index.ts`, with one
+ * explicit tooling-only override for disposable/local PostgreSQL test targets:
  *  - Remote DATABASE_URL (Neon, ...) → drizzle-kit talks to that PostgreSQL.
- *  - Otherwise → the embedded PGlite database in `./.pglite/`
- *    (the one `npm run dev` creates and uses automatically).
+ *  - DRIZZLE_KIT_DATABASE_URL, when set, explicitly selects that PostgreSQL
+ *    URL even if it is localhost (used by the isolated CI service).
+ *  - Otherwise → embedded PGlite in `./.pglite/` (the zero-config dev DB).
  *
  * Typical workflow after editing the schema:
  *   npm run db:generate   → writes a new migration into ./drizzle
  *   (applied automatically on the next server boot)
  */
-export default isRemoteDatabaseUrl(databaseUrl)
+export default (explicitlyUseDatabaseUrl || isRemoteDatabaseUrl(databaseUrl))
   ? defineConfig({
       schema: "./src/lib/db/schema.ts",
       out: "./drizzle",
