@@ -50,10 +50,12 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      # This is a clean disposable PostgreSQL service. The integration suite
-      # verifies both the six storefront tables and additive auth tables.
-      - name: Create clean test schema
-        run: npm run db:push -- --force
+      # This is a genuinely fresh disposable PostgreSQL service. The explicit
+      # migration command (not application startup) installs the full history.
+      # The integration suite also creates separate fresh and legacy databases
+      # to verify adoption, idempotence, authentication tables and data safety.
+      - name: Migrate clean test schema
+        run: npm run db:migrate
 
       - name: Test against PostgreSQL
         shell: bash

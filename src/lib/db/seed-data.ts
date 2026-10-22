@@ -1,10 +1,8 @@
 /**
  * Initial catalog data for E-Vora (digital goods store).
  *
- * Shared by:
- *  - the automatic first-boot seed / catalog upgrade in
- *    `src/lib/db/index.ts`, and
- *  - the manual `npm run db:seed` script (add missing rows only).
+ * Used by the explicit `npm run db:seed` command (add missing rows only)
+ * and by isolated catalogue/migration tests. Application startup never seeds.
  *
  * Every entry carries both English and Arabic copy so the storefront
  * can switch language without extra translation lookups.

@@ -45,7 +45,7 @@ if (target) {
 
 const skip = target
   ? false
-  : "TEST_DATABASE_URL is not set — start PostgreSQL, run db:push against a *_test database and re-run";
+  : "TEST_DATABASE_URL is not set — start PostgreSQL, run db:migrate against a *_test database and re-run";
 
 const pool = target ? new Pool({ connectionString: target.connectionString, max: 10 }) : null;
 const db: NodePgDatabase<typeof schema> | null = pool

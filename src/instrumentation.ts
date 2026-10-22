@@ -1,14 +1,13 @@
 /**
- * Server startup hook (Next.js instrumentation).
+ * Server startup validation only.
  *
- * `register()` runs once, before the first request is handled. We use it
- * to prepare the database — apply migrations and, on a fresh database,
- * seed the catalog — so a brand-new checkout works with a single
- * `npm run dev`, no manual database commands needed.
+ * Schema migrations are intentionally *not* run at application startup. Run
+ * `npm run db:migrate` as a separate, reviewed deployment step, then seed only
+ * when intentionally requested with `npm run db:seed`.
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    const { ensureDbReady } = await import("./lib/db");
-    await ensureDbReady();
+    const { assertDatabaseConfigured } = await import("./lib/db/config");
+    assertDatabaseConfigured();
   }
 }

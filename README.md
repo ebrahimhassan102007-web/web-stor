@@ -1,172 +1,167 @@
 # E-Vora — Digital Goods & Gaming Store
 
-A hardened, bilingual (EN/AR) digital-goods storefront built with **Next.js 16 (App Router)**, **React 19**, **TypeScript**, **Tailwind CSS v4**, **PostgreSQL + Drizzle ORM** and **Zod**. Game top-ups, gift cards, subscriptions and software keys — delivered instantly on-screen after checkout.
+A bilingual (EN/AR) digital-goods storefront built with **Next.js 16 (App Router)**, **React 19**, **TypeScript**, **Tailwind CSS v4**, **PostgreSQL + Drizzle ORM** and **Zod**. It includes E-Vora branding, game top-ups, gift cards, subscriptions and software keys, with a deliberately unpaid demo checkout until verified payments exist.
 
-> Dark & light themes · full RTL/LTR support · instant code delivery · security-first backend.
+> Dark & light themes · full RTL/LTR support · email/password + six-digit OTP · Google OpenID Connect when configured · security-first backend.
 
 ---
 
 ## Features
 
-- **Home** — hero, trusted-security badges, featured products, category grid
-- **Products** — grid listing with full-text search, category filtering and sorting (newest / price ↑↓ / rating)
-- **Product detail** — large art tile, description, dynamic stock status, quantity selector, add-to-cart
-- **Cart** — add / remove / update quantities with live totals; per-line delivery inputs (Player ID for top-ups, region for gift cards)
-- **Checkout** — localized demo checkout. Development records an explicitly unpaid order only; production returns 503 until a real payment provider can verify charges. Demo orders never reserve stock or deliver generated codes, and the public receipt shows only its reference.
-- **Accounts** — email/password sign-up and sign-in, six-digit email verification, Google OpenID Connect, server-side sessions, and a verified-email profile
-- **EN / عربي** — full bilingual UI (catalog included) with RTL layout and the Cairo font, plus a dark/light theme toggle — both persisted in cookies
+- **Storefront** — E-Vora home, featured products, category grid, search, category filters, sorting and product details.
+- **Cart** — add/remove/update quantities with live totals and per-line delivery inputs (Player ID for top-ups, region for gift cards).
+- **Checkout** — development records an explicitly **unpaid demo order** only. Production returns 503 until a real payment provider can verify charges. Demo orders never decrement stock, clear the cart, or deliver generated codes.
+- **Accounts** — email/password sign-up and sign-in, six-digit email verification, Google OpenID Connect, server-side sessions and a verified-email profile.
+- **Localization and themes** — full English/Arabic UI and catalogue fallback, RTL layout with Cairo, dark/light themes, and cookie-persisted preferences.
 
-## Tech Stack
+## Tech stack
 
-| Layer      | Choice                                        |
-| ---------- | --------------------------------------------- |
-| Framework  | Next.js 16 (App Router, Route Handlers, RSC)  |
-| UI         | React 19 + Tailwind CSS v4 (dark & light themes, RTL-ready) |
-| Database   | PostgreSQL via Drizzle ORM — embedded PGlite for local dev, node-postgres for external DBs |
-| Validation | Zod (shared client + server schemas)           |
-| Fonts      | Geist (Latin) + Cairo (Arabic), self-hosted (zero external requests) |
-
-## Security Architecture
-
-| Threat | Mitigation |
+| Layer | Choice |
 | --- | --- |
-| **SQL injection** | 100% Drizzle ORM query builder — every query is parameterized; no raw SQL string concatenation anywhere. LIKE wildcards in search input are escaped. |
-| **XSS** | React auto-escaping everywhere; no `dangerouslySetInnerHTML`; CSP blocks objects and restricts base/form targets, but currently permits inline/eval scripts for Next.js and is not a strict nonce-based policy. |
-| **CSRF** | Session cookies are `SameSite=Lax`; state-changing Route Handlers validate `Origin`. Production origin checks are pinned to `APP_ORIGIN` and fail closed when it is missing. |
-| **Session forgery** | Cart id is a random UUID, HMAC-SHA256-signed with `SESSION_SECRET`; account sessions use random 256-bit opaque cookies whose SHA-256 digests alone are stored server-side. Cookies are `HttpOnly`, `Secure` (production) and `SameSite=Lax`. |
-| **Password theft** | Email passwords are hashed with scrypt and unique random salts; the application never stores plaintext passwords. |
-| **Verification-code guessing/replay** | Six-digit CSPRNG codes are HMACed with `AUTH_SECRET`, expire after 10 minutes, permit at most five attempts, are single-use, and are subject to a persisted 60-second resend cooldown. |
-| **OAuth request forgery** | Google OpenID Connect uses a one-time state cookie, server-side state/nonce, PKCE, Google JWKS ID-token verification, and a same-origin post-login destination. |
-| **Authentication flooding** | Persistent atomic database rate-limit buckets are keyed by HMACed email values and, when trusted proxy IP headers are configured, IP values; verification attempts and resend cooldowns are also enforced in the database. |
-| **IDOR** | Every cart mutation is scoped to the cart id from the verified session cookie — line-item ids from the URL are always ANDed with the session cart. |
-| **Input abuse** | All bodies and URL params pass Zod schemas (bounded lengths, ranges, formats, control-character rejection) before touching the database. |
-| **Price manipulation** | Prices/totals are computed exclusively from the database inside the checkout transaction — client-supplied prices are never trusted. |
-| **Overselling / races** | Cart additions lock the product row and use one atomic `INSERT … ON CONFLICT DO UPDATE` with a stock/quantity clamp. Demo checkout does not decrement stock; production checkout is disabled until a real payment can be verified. |
-| **Info leakage** | Generic API errors; unexpected details stay server-side. Public order receipts check existence only and show the reference, not customer data, line items, codes or totals. `X-Powered-By` disabled. |
-| **Enumeration** | Order numbers are unguessable (58+ bits from a CSPRNG). |
-| **Abuse / flooding** | Sliding-window rate limits on cart and checkout endpoints use the trusted client IP when proxy headers are configured, otherwise a conservative shared fallback bucket is used. |
-| **Clickjacking / misc.** | `nosniff`, `Referrer-Policy`, restrictive `Permissions-Policy` headers on every response. |
+| Framework | Next.js 16 App Router, React 19, TypeScript |
+| UI | Tailwind CSS v4, Geist + self-hosted Cairo |
+| Database | External PostgreSQL via node-postgres + Drizzle ORM |
+| Validation | Zod (shared client/server schemas) |
+| Authentication | scrypt password hashes, opaque server-side sessions, OTP HMACs, Google OIDC + PKCE |
 
-Money is stored as **integer cents** end-to-end — no floating-point currency math.
+## Security architecture
 
-## Getting Started
+- Drizzle parameterized queries, bounded Zod input, escaped search wildcards and database-computed prices/totals.
+- HMAC-signed cart cookies and random opaque account-session cookies; only session digests are stored. Production cookies are `HttpOnly`, `Secure` and `SameSite=Lax`.
+- Origin checks on state-changing route handlers; production checks are pinned to `APP_ORIGIN` and fail closed when it is missing or malformed.
+- Six-digit CSPRNG verification codes are HMAC-bound, expire after 10 minutes, permit at most five attempts, are single-use and have a persisted resend cooldown. Codes are never displayed or logged.
+- Google OAuth uses one-time state, server-side nonce/state, PKCE, Google JWKS ID-token verification and same-origin return paths.
+- Atomic cart upserts prevent lost increments and clamp to stock/per-line limits. Demo checkout does not consume inventory or claim payment.
+- Public receipts expose only an unguessable order reference, not customer data, totals, line items or delivery codes.
+- Security headers include `nosniff`, a restrictive `Permissions-Policy`, `Referrer-Policy` and a documented CSP. The current CSP still permits Next.js inline/eval scripts; it is not a nonce-based policy.
+- The small in-memory cart/checkout limiter is best effort for one process. Multi-instance deployments need a shared atomic limiter; authentication also has persistent database buckets.
 
-### 1. Install & run — that's it
+Money is stored as **integer cents** end-to-end — never floating-point currency math.
 
-```bash
-npm install
-npm run dev         # http://localhost:3000
-```
+## Getting started (disposable local PostgreSQL)
 
-There is **no database to install and nothing to configure** for local
-development. On first boot the app creates an embedded PostgreSQL database
-([PGlite](https://pglite.dev), running in-process via WebAssembly), applies
-the migrations in `./drizzle/` and seeds the E-Vora digital catalog
-(4 categories, 18 products) automatically. Data persists in the
-`./.pglite/` folder — delete that folder to reset the dev database to a
-fresh seeded state.
+The runtime has **no embedded database and no fallback**. A missing, malformed or non-PostgreSQL `DATABASE_URL` fails closed in development, Preview and production. Application startup validates configuration but **never runs migrations or seeds data**.
 
-If an older physical-goods catalog is present, startup adds missing E-Vora
-digital catalog rows without deleting or rewriting existing categories,
-products, carts, or orders. Review the additive migrations in `./drizzle/`
-before applying them to a production database. If embedded database files are
-ever damaged, the broken folder is preserved as `.pglite.broken-<timestamp>/`
-before a fresh local development database is created.
+1. Install dependencies:
 
-### 2. (Optional) Environment variables
+   ```bash
+   npm ci
+   ```
 
-```bash
-cp .env.example .env   # see the file for details
-```
+2. Create a genuinely disposable local PostgreSQL database (not Neon production), then configure it:
 
-- `SESSION_SECRET` — signs cart-session cookies. Optional in dev (a
-  temporary one is auto-generated; carts reset on restart), **required in
-  production**: `openssl rand -hex 32`.
-- `AUTH_SECRET` — separate, stable 32-byte+ key for email-code HMACs and
-  authentication rate-limit buckets. Required in production; generate with
-  `openssl rand -hex 32`. A temporary development-only key is used when
-  omitted, so pending email codes will not survive a dev-server restart.
-- `APP_ORIGIN` — the exact public origin (scheme + host, no path), such as
-  `https://shop.example.com`. Required in production for fail-closed Origin
-  checks and Google OAuth callback construction. For a Preview deployment,
-  set its own preview origin in that environment.
-- `TRUST_PROXY_IP_HEADERS=true` — only when the hosting reverse proxy strips
-  client-supplied `X-Forwarded-For` and overwrites it with a trusted IP. This
-  enables per-client rate limits; auth also applies persistent per-email
-  limits. Do not enable this behind a proxy that passes user-provided values
-  through unchanged.
-- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` — Google OAuth web-client
-  credentials. Add `${APP_ORIGIN}/api/auth/google/callback` as an authorized
-  redirect URI in Google Cloud Console. The app uses the official Google
-  OpenID Connect authorization-code flow with PKCE; without these values,
-  Google sign-in is unavailable rather than simulated.
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM` —
-  configure a real SMTP delivery account for verification emails. Set
-  `SMTP_SECURE=true` when the provider requires implicit TLS (port 465 uses it
-  by default); port 587 uses STARTTLS. Without a complete SMTP configuration,
-  email registration/sign-in that needs verification fails clearly and no
-  verification code is exposed or logged.
-- `DATABASE_URL` — point the app at an external PostgreSQL (Neon,
-  Supabase, ...) instead of the embedded one. Only **remote** hosts are
-  honoured; a localhost URL falls back to the embedded database.
-  Migrations and the initial seed are applied automatically on boot here
-  too.
-- `DRIZZLE_KIT_DATABASE_URL` — explicit schema-tool target override for
-  `npm run db:push` / `db:generate`, including localhost PostgreSQL. Use only
-  with an intentionally selected disposable/test database; it is separate
-  from runtime database selection and should never target production.
+   ```bash
+   cp .env.example .env
+   # Edit DATABASE_URL, for example:
+   # DATABASE_URL=postgresql://evora:evora@localhost:5432/evora_test
+   ```
 
-### 3. Changing the schema
+3. Apply the reviewed schema history explicitly, optionally add the additive demo catalogue, and start Next.js:
 
-Edit `src/lib/db/schema.ts`, then:
+   ```bash
+   npm run db:migrate
+   npm run db:seed       # optional; safe to repeat, never rewrites existing rows
+   npm run dev           # http://localhost:3000
+   ```
+
+   `db:seed` refuses `NODE_ENV=production` and requires `ALLOW_REMOTE_SEED=YES` for a non-loopback target. It does not run migrations.
+
+4. Set independent secrets before deploying:
+
+   - `SESSION_SECRET` — stable 32-byte+ cart-cookie HMAC key (`openssl rand -hex 32`). Required in production.
+   - `AUTH_SECRET` — separate stable 32-byte+ key for OTP digests and auth rate-limit keys. Required in production; an ephemeral development key is used when omitted.
+   - `APP_ORIGIN` — exact public origin (scheme + host, no path), required for production Origin checks and OAuth callback construction. A Preview deployment needs its own Preview origin.
+   - `TRUST_PROXY_IP_HEADERS=true` — only when the hosting proxy strips client-supplied forwarding headers and writes its own trusted value.
+
+## Database migration strategy
+
+### Fresh disposable database
+
+For a new empty PostgreSQL database, run:
 
 ```bash
-npm run db:generate   # writes a new migration into ./drizzle
-npm run dev           # the migration is applied automatically on boot
+DATABASE_URL=postgresql://user:password@localhost:5432/evora_test npm run db:migrate
 ```
 
-### Scripts
+The command executes `drizzle/0000_init.sql`, `0001_evora-digital.sql` and `0002_authentication.sql` in one transaction, records their exact SHA-256 hashes in `drizzle.__drizzle_migrations`, and verifies the final tables, columns, indexes and foreign keys before committing. Running it again is a no-op. It uses a transaction-scoped advisory lock to prevent concurrent deploy jobs from racing.
+
+Use `npm run db:migrate -- --dry-run` to inspect the plan without creating the migration schema or changing application data.
+
+### Existing storefront schema and catalogue
+
+**Never run the initial migration blindly against an existing database.** The migration command first inspects the public schema and migration history. For a compatible previous `0000_init` storefront with no Drizzle history:
+
+1. **Back up first**, and prove that the backup can be restored. For example, create a custom-format backup and restore it into a new disposable database using your PostgreSQL tooling:
+
+   ```bash
+   pg_dump --format=custom --file=evora-before-migration.dump "$DATABASE_URL"
+   # Create a NEW empty disposable database, then restore into that database:
+   pg_restore --no-owner --no-privileges \
+     --dbname=postgresql://user:password@localhost:5432/evora_restore_test \
+     evora-before-migration.dump
+   ```
+
+   Keep the backup and dump file outside the repository. Test the restore and record row counts/checksums before touching any real deployment.
+
+2. Rehearse on that restored copy:
+
+   ```bash
+   DATABASE_URL=postgresql://user:password@localhost:5432/evora_restore_test \
+     npm run db:migrate -- --dry-run
+   DATABASE_URL=postgresql://user:password@localhost:5432/evora_restore_test \
+     npm run db:migrate -- --adopt-existing
+   ```
+
+   `--adopt-existing` is an explicit confirmation, not an automatic repair switch. The runner requires the complete known storefront tables, columns, indexes and foreign keys. It records compatible `0000_init` as adopted **without replaying its `CREATE TABLE` statements**, then applies the additive digital and authentication migrations. A schema already shaped like all three migrations can similarly be adopted without duplicating objects.
+
+3. Verify the preserved catalogue, orders and accounts, then run the command again to confirm idempotence. Unknown schemas, missing objects, partial migrations, incompatible column types, unexpected history and SQL-hash changes abort before any write. DDL and bookkeeping roll back together on failure. Existing catalogue rows are never deleted or rewritten by migration or seed.
+
+The migration tests create both a fresh database and a legacy `0000_init` database with a customized catalogue row. They assert the row's name, stock and other values survive, authentication tables are added, and repeat runs are unchanged.
+
+### Eventual production migration
+
+Do not migrate production from a development machine or as an application boot side effect. Before an eventual production change, all of the following are required:
+
+- a current backup plus a successfully tested restore and a documented rollback/recovery owner;
+- a reviewed diff of the exact SQL and a successful fresh + restored-copy rehearsal;
+- a maintenance/availability plan and confirmation that the target is correct;
+- an explicit operator command with `--dry-run` reviewed first, then `--adopt-existing` only when untracked legacy history requires it;
+- `ALLOW_REMOTE_MIGRATION=YES` for a remote target, and for `NODE_ENV=production`, both `ALLOW_PRODUCTION_MIGRATION=YES` and `CONFIRM_PRODUCTION_BACKUP=YES`.
+
+No production migration is performed by this repository's checks. Do not point local tests, Preview setup or migration experiments at the live Neon database.
+
+`drizzle-kit push` remains available only for intentionally disposable schema prototyping. It is **not** the supported upgrade mechanism and must not be used to establish production migration history.
+
+## Scripts
 
 | Script | Purpose |
 | --- | --- |
-| `npm run dev` / `build` / `start` | Next.js lifecycle |
-| `npm run db:generate` | Generate a SQL migration from the schema |
-| `npm run db:push` | Push the schema to embedded PGlite, a remote `DATABASE_URL`, or an explicit `DRIZZLE_KIT_DATABASE_URL` target |
-| `npm run db:seed` | Add missing demo-catalog rows only; refuses production and requires explicit opt-in for remote non-production databases |
-| `npm run lint` / `typecheck` / `test` | ESLint / strict TypeScript / security, migration and database tests |
+| `npm run dev` / `build` / `start` | Next.js lifecycle; no schema changes |
+| `npm run db:generate` | Generate a new SQL migration from the Drizzle schema |
+| `npm run db:migrate` | Explicit transactional fresh install or guarded legacy upgrade |
+| `npm run db:seed` | Add missing demo catalogue rows only; never migrates or deletes |
+| `npm run db:push` | Drizzle Kit prototyping on an explicitly selected disposable database only |
+| `npm run lint` / `typecheck` / `test` | ESLint, strict TypeScript and the complete test suite |
 
-The `0002_authentication` migration is strictly additive: it creates only the
-customer-account, session, verification, OAuth-state, and rate-limit tables and
-indexes. It does not alter or delete the existing catalog, carts, or orders.
-As with all production migrations, back up the database and review generated
-SQL before deployment; the runtime applies migrations on boot. To seed a
-remote **non-production** database intentionally, use
-`ALLOW_REMOTE_SEED=YES npm run db:seed`; the script refuses all production
-runs and does not delete existing rows.
+## Tests and CI
 
-### PostgreSQL integration tests
+The Quality workflow starts an isolated PostgreSQL 16 service, runs `npm ci`, lint, typecheck and `npm run db:migrate`, then runs the complete suite against that database. The suite includes:
 
-The Quality workflow starts an isolated PostgreSQL 16 service, applies the
-current Drizzle schema to that clean database, and runs the complete test suite
-against it. The integration suite verifies the six storefront tables plus the
-authentication tables (including `users`), additive seeding, concurrent cart
-updates, stock bounds, and unpaid demo checkout. Its target guard validates
-`TEST_DATABASE_URL` before creating a pool: production is always refused, the
-database name must end in `_test`, and remote targets are refused unless the
-explicit `ALLOW_REMOTE_TEST_DATABASE=YES` opt-in is supplied. The suite
-truncates only its disposable catalog/cart/order fixtures. Never use a
-production or shared database for these tests.
+- real PostgreSQL fresh-install and legacy-schema adoption tests in separate disposable databases;
+- schema compatibility, authentication tables, migration idempotence and data preservation;
+- additive seeding, concurrent cart updates, stock bounds and unpaid demo checkout;
+- configuration fail-closed, test-target network tripwires, authentication, localization-independent security and checkout policies;
+- production build and `npm audit --omit=dev`.
 
-## Database Schema
+Destructive integration tests require `TEST_DATABASE_URL` with a database name ending in `_test`; production is always refused and remote targets require `ALLOW_REMOTE_TEST_DATABASE=YES`. Without a configured PostgreSQL target, PostgreSQL-only tests report an explicit skip rather than connecting elsewhere. PGlite is used only by isolated unit tests, never by the application runtime.
 
-```
-categories 1─∞ products 1─∞ cart_items ∞─1 carts
-                     │
-                     └─∞ order_items ∞─1 orders
-```
+## External authentication providers
 
-Order items snapshot the product name and unit price at purchase time, so order history is immutable even if the catalog changes.
+Google and SMTP are **not live until configured and tested**:
+
+- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` must come from a Google OAuth 2.0 Web application. Register `${APP_ORIGIN}/api/auth/google/callback` as an authorized redirect URI for each deployment origin. Without both values, Google sign-in returns an unavailable response rather than a simulated success.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` and `SMTP_FROM` must form a complete real SMTP configuration. Set `SMTP_SECURE=true` for implicit TLS (normally port 465); port 587 normally uses STARTTLS. Without complete SMTP configuration, verification-dependent email registration/sign-in reports delivery as unavailable and never exposes a code.
 
 ---
 
-**Disclaimer:** demo storefront — no real payments are processed.
+**Payment disclaimer:** this is a demo storefront. No real payments are processed, production checkout is disabled, and demo orders are explicitly unpaid.
