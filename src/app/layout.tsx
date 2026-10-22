@@ -12,13 +12,27 @@ import { getI18n, getTheme } from "@/lib/i18n/server";
 import { dirFor } from "@/lib/i18n/dictionary";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await getI18n();
+  const { locale, t } = await getI18n();
+  const ogLocale = locale === "ar" ? "ar_EG" : "en_US";
   return {
+    applicationName: "E-Vora",
     title: {
       default: t.meta.title,
       template: "%s · E-Vora",
     },
     description: t.meta.description,
+    openGraph: {
+      type: "website",
+      siteName: "E-Vora",
+      title: t.meta.title,
+      description: t.meta.description,
+      locale: ogLocale,
+    },
+    twitter: {
+      card: "summary",
+      title: t.meta.title,
+      description: t.meta.description,
+    },
   };
 }
 
@@ -32,7 +46,6 @@ export default async function RootLayout({
       lang={locale}
       dir={dirFor(locale)}
       data-theme={theme}
-      suppressHydrationWarning
     >
       <body
         className={`${GeistSans.variable} ${GeistMono.variable} bg-mesh min-h-screen antialiased flex flex-col`}

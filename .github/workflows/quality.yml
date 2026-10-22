@@ -1,0 +1,64 @@
+name: Quality checks
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: evora
+          POSTGRES_PASSWORD: evora
+          POSTGRES_DB: evora_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U evora -d evora_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://evora:evora@localhost:5432/evora_test
+      TEST_DATABASE_URL: postgres://evora:evora@localhost:5432/evora_test
+      SESSION_SECRET: ci-only-session-secret-not-used-in-production
+      AUTH_SECRET: ci-only-auth-secret-that-is-long-enough-for-test-runs
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # This is a clean disposable PostgreSQL service. The integration suite
+      # verifies both the six storefront tables and additive auth tables.
+      - name: Create clean test schema
+        run: npm run db:push -- --force
+
+      - name: Test against PostgreSQL
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Production dependency audit
+        run: npm audit --omit=dev

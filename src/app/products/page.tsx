@@ -13,6 +13,17 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: t.meta.productsTitle,
     description: t.meta.productsDescription,
+    openGraph: {
+      title: `${t.meta.productsTitle} · E-Vora`,
+      description: t.meta.productsDescription,
+      siteName: "E-Vora",
+      type: "website",
+    },
+    twitter: {
+      card: "summary",
+      title: `${t.meta.productsTitle} · E-Vora`,
+      description: t.meta.productsDescription,
+    },
   };
 }
 

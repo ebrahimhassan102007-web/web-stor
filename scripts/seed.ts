@@ -1,16 +1,10 @@
 /**
- * Force-reseed the catalog: clears categories/products and re-inserts
- * the initial data from `src/lib/db/seed-data.ts`.
+ * Add any missing E-Vora demo-catalog rows without deleting or rewriting
+ * existing catalog, carts, or orders.
  *
- *   npm run db:seed
- *
- * Note: this is normally NOT needed — a fresh database is created,
- * migrated and seeded automatically the first time the app boots
- * (see `ensureDbReady()` in `src/lib/db/index.ts`). Use this script to
- * deliberately reset the catalog, or to seed a remote database.
- * With the embedded database, stop the dev server first (only one
- * process can open ./.pglite at a time) — or simply delete the
- * `.pglite/` folder and let the next boot rebuild everything.
+ * Remote databases require ALLOW_REMOTE_SEED=YES, and this script always
+ * refuses NODE_ENV=production. Normal application boot seeds an empty
+ * database automatically.
  */
 import "dotenv/config";
 import path from "node:path";
@@ -23,8 +17,7 @@ import { drizzle as drizzlePglite } from "drizzle-orm/pglite";
 import { migrate as migratePglite } from "drizzle-orm/pglite/migrator";
 import { Pool } from "pg";
 import * as schema from "../src/lib/db/schema";
-import { categories, products } from "../src/lib/db/schema";
-import { SEED_CATEGORIES, SEED_PRODUCTS } from "../src/lib/db/seed-data";
+import { seedMissingCatalog } from "../src/lib/db/seed-catalog";
 
 type Database = NodePgDatabase<typeof schema>;
 
@@ -38,65 +31,50 @@ function isRemoteDatabaseUrl(raw?: string): boolean {
   }
 }
 
-async function reseed(db: Database): Promise<void> {
-  console.log("[seed] clearing existing catalog (and dependent carts/orders)...");
-  // Deepest FK children first so product deletes can't be restricted.
-  await db.delete(schema.orderItems);
-  await db.delete(schema.orders);
-  await db.delete(schema.cartItems);
-  await db.delete(products);
-  await db.delete(categories);
-
-  console.log("[seed] inserting categories...");
-  const insertedCategories = await db
-    .insert(categories)
-    .values(SEED_CATEGORIES.map((c) => ({ ...c })))
-    .returning();
-
-  const idBySlug = new Map(insertedCategories.map((c) => [c.slug, c.id]));
-
-  console.log("[seed] inserting products...");
-  await db.insert(products).values(
-    SEED_PRODUCTS.map(({ category, ...p }) => ({
-      ...p,
-      featured: p.featured ?? false,
-      categoryId: idBySlug.get(category)!,
-    })),
-  );
-
-  console.log(
-    `[seed] done — ${insertedCategories.length} categories, ${SEED_PRODUCTS.length} products.`,
-  );
-}
-
 async function main(): Promise<void> {
-  const databaseUrl = process.env.DATABASE_URL;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Refusing to run the catalog seed script in production.");
+  }
 
+  const databaseUrl = process.env.DATABASE_URL;
   if (isRemoteDatabaseUrl(databaseUrl)) {
-    console.log("[seed] target: remote PostgreSQL (DATABASE_URL)");
+    if (process.env.ALLOW_REMOTE_SEED !== "YES") {
+      throw new Error(
+        "Refusing a remote database target. Set ALLOW_REMOTE_SEED=YES only for a disposable non-production database.",
+      );
+    }
+    console.log("[seed] target: explicitly authorized non-production PostgreSQL");
     const pool = new Pool({ connectionString: databaseUrl });
     try {
-      await reseed(drizzleNode({ client: pool, schema }));
+      const result = await seedMissingCatalog(
+        drizzleNode({ client: pool, schema }),
+      );
+      console.log(
+        `[seed] added ${result.categoriesAdded} categories and ${result.productsAdded} products; existing data was preserved.`,
+      );
     } finally {
       await pool.end();
     }
     return;
   }
 
-  console.log("[seed] target: embedded PGlite database (./.pglite)");
+  console.log("[seed] target: local embedded PGlite database (./.pglite)");
   const client = new PGlite(path.join(process.cwd(), ".pglite"));
   try {
     const db = drizzlePglite(client, { schema });
     await migratePglite(db, {
       migrationsFolder: path.join(process.cwd(), "drizzle"),
     });
-    await reseed(db as unknown as Database);
+    const result = await seedMissingCatalog(db as unknown as Database);
+    console.log(
+      `[seed] added ${result.categoriesAdded} categories and ${result.productsAdded} products; existing data was preserved.`,
+    );
   } finally {
     await client.close();
   }
 }
 
 main().catch((err) => {
-  console.error("[seed] failed:", err);
+  console.error("[seed] failed:", err instanceof Error ? err.message : "Unknown error");
   process.exit(1);
 });

@@ -174,6 +174,99 @@ export const orderItems = pgTable(
 );
 
 /* ------------------------------------------------------------------ */
+/* Customer authentication                                              */
+/* ------------------------------------------------------------------ */
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: varchar("email", { length: 254 }).notNull(),
+    displayName: varchar("display_name", { length: 128 }).notNull(),
+    passwordHash: varchar("password_hash", { length: 255 }),
+    googleSub: varchar("google_sub", { length: 255 }),
+    emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("users_email_idx").on(t.email),
+    uniqueIndex("users_google_sub_idx").on(t.googleSub),
+  ],
+);
+
+export const emailVerificationCodes = pgTable(
+  "email_verification_codes",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** HMAC-SHA256 digest only; the six-digit code is never stored. */
+    codeHash: varchar("code_hash", { length: 64 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    attempts: integer("attempts").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("email_verification_codes_expiry_idx").on(t.expiresAt)],
+);
+
+export const accountSessions = pgTable(
+  "account_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** SHA-256 digest of a random 256-bit HttpOnly cookie token. */
+    tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("account_sessions_token_hash_idx").on(t.tokenHash),
+    index("account_sessions_user_idx").on(t.userId),
+    index("account_sessions_expiry_idx").on(t.expiresAt),
+  ],
+);
+
+export const authRateLimits = pgTable(
+  "auth_rate_limits",
+  {
+    /** HMAC of a scoped IP/email bucket; raw identifiers are never persisted. */
+    keyHash: varchar("key_hash", { length: 64 }).primaryKey(),
+    windowStartedAt: timestamp("window_started_at", { withTimezone: true })
+      .notNull(),
+    count: integer("count").notNull().default(1),
+  },
+  (t) => [index("auth_rate_limits_window_idx").on(t.windowStartedAt)],
+);
+
+export const googleOAuthStates = pgTable(
+  "google_oauth_states",
+  {
+    /** Hashed OAuth state; only a short-lived random state leaves the DB. */
+    stateHash: varchar("state_hash", { length: 64 }).primaryKey(),
+    nonce: varchar("nonce", { length: 64 }).notNull(),
+    codeVerifier: varchar("code_verifier", { length: 128 }).notNull(),
+    returnTo: varchar("return_to", { length: 512 }).notNull().default("/account"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("google_oauth_states_expiry_idx").on(t.expiresAt)],
+);
+
+/* ------------------------------------------------------------------ */
 /* Relations                                                           */
 /* ------------------------------------------------------------------ */
 export const categoriesRelations = relations(categories, ({ many }) => ({
@@ -220,3 +313,5 @@ export type Cart = typeof carts.$inferSelect;
 export type CartItem = typeof cartItems.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
+export type User = typeof users.$inferSelect;
+export type AccountSession = typeof accountSessions.$inferSelect;

@@ -27,12 +27,12 @@ const globalForSession = globalThis as unknown as {
 
 function secret(): string {
   const s = process.env.SESSION_SECRET;
-  if (s && s.length >= 16) return s;
+  if (s && s.length >= 32) return s;
 
   // Zero-config local development: fall back to a random per-process secret.
   // Existing cart cookies stop verifying after a restart, which is an
   // acceptable trade-off in dev. Production must always provide a stable
-  // SESSION_SECRET (see .env.example).
+  // 32-character+ SESSION_SECRET (see .env.example).
   if (process.env.NODE_ENV !== "production") {
     let devSecret = globalForSession.__evoraDevSecret;
     if (!devSecret) {
@@ -46,7 +46,7 @@ function secret(): string {
     return devSecret;
   }
 
-  throw new Error("SESSION_SECRET is not configured");
+  throw new Error("SESSION_SECRET must be configured with at least 32 characters");
 }
 
 function sign(value: string): string {

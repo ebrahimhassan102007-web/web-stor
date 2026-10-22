@@ -15,7 +15,7 @@ import { migrate as migratePglite } from "drizzle-orm/pglite/migrator";
 import { eq } from "drizzle-orm";
 import { Pool } from "pg";
 import * as schema from "./schema";
-import { SEED_CATEGORIES, SEED_PRODUCTS } from "./seed-data";
+import { seedMissingCatalog } from "./seed-catalog";
 
 /**
  * Database connection.
@@ -107,10 +107,9 @@ export const db: Database = new Proxy({} as Database, {
 /* ------------------------------------------------------------------ */
 
 /**
- * Slug that only exists in the current (E-Vora digital) catalog. Used to
- * detect databases still holding the legacy physical-goods catalog so it
- * can be swapped automatically — a `git pull` + `npm run dev` is enough
- * to upgrade, with no manual reset needed.
+ * The marker identifies the current E-Vora digital catalog. Seeding is
+ * deliberately additive: old categories, products, carts and orders are
+ * never removed or rewritten automatically during application startup.
  */
 const CATALOG_MARKER_SLUG = "game-topups";
 
@@ -120,45 +119,24 @@ async function seedCatalogIfEmpty(): Promise<void> {
     .from(schema.categories)
     .where(eq(schema.categories.slug, CATALOG_MARKER_SLUG))
     .limit(1);
-  if (marker) return; // current catalog already in place
+  if (marker) return;
 
   const [anyCategory] = await db
     .select({ id: schema.categories.id })
     .from(schema.categories)
     .limit(1);
 
-  await db.transaction(async (tx) => {
-    if (anyCategory) {
-      // Legacy catalog found — clear it (and demo carts/orders that
-      // reference it, deepest FK children first) before reseeding.
-      console.log(
-        "[db] legacy catalog detected — replacing it with the E-Vora digital catalog...",
-      );
-      await tx.delete(schema.orderItems);
-      await tx.delete(schema.orders);
-      await tx.delete(schema.cartItems);
-      await tx.delete(schema.products);
-      await tx.delete(schema.categories);
-    } else {
-      console.log("[db] empty database detected — seeding catalog...");
-    }
-    const insertedCategories = await tx
-      .insert(schema.categories)
-      .values(SEED_CATEGORIES.map((c) => ({ ...c })))
-      .returning();
-
-    const idBySlug = new Map(insertedCategories.map((c) => [c.slug, c.id]));
-
-    await tx.insert(schema.products).values(
-      SEED_PRODUCTS.map(({ category, ...p }) => ({
-        ...p,
-        featured: p.featured ?? false,
-        categoryId: idBySlug.get(category)!,
-      })),
+  if (anyCategory) {
+    console.warn(
+      "[db] existing catalog detected — adding missing E-Vora catalog entries without deleting or changing existing data.",
     );
-  });
+  } else {
+    console.log("[db] empty database detected — seeding E-Vora catalog...");
+  }
+
+  const result = await seedMissingCatalog(db);
   console.log(
-    `[db] seeded ${SEED_CATEGORIES.length} categories, ${SEED_PRODUCTS.length} products.`,
+    `[db] catalog seed checked (${result.categoriesAdded} categories and ${result.productsAdded} products added); existing rows were preserved.`,
   );
 }
 

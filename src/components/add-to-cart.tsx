@@ -54,7 +54,13 @@ export function AddToCart({
         setTimeout(() => setState("idle"), 1800);
       } else {
         setState("error");
-        setMessage(body?.error ?? t.add.errAdd);
+        setMessage(
+          body?.error === "OUT_OF_STOCK"
+            ? t.add.outOfStock
+            : body?.error === "RATE_LIMITED"
+              ? t.add.errRateLimited
+              : t.add.errAdd,
+        );
         setTimeout(() => setState("idle"), 2500);
       }
     } catch {

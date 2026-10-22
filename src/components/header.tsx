@@ -18,13 +18,14 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
     { href: "/", label: t.nav.home },
     { href: "/products", label: t.nav.products },
     { href: "/cart", label: t.nav.cart },
+    { href: "/account", label: t.nav.account },
   ];
 
   return (
     <header className="sticky top-0 z-50 glass border-x-0 border-t-0">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
         {/* Brand */}
-        <Link href="/" className="flex items-center gap-2.5 group shrink-0">
+        <Link href="/" aria-label={`${t.nav.home} — E-Vora`} className="flex items-center gap-2.5 group shrink-0">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-dim text-white text-lg font-black shadow-[0_4px_16px_rgba(239,68,68,0.35)] group-hover:shadow-[0_4px_22px_rgba(239,68,68,0.55)] transition-shadow">
             E
           </span>

@@ -80,6 +80,20 @@ html {
   scroll-behavior: smooth;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 body {
   background: var(--bg-deep);
   color: var(--foreground);
@@ -250,4 +264,101 @@ html[lang="ar"] * {
     radial-gradient(18rem 12rem at 50% 0%, var(--tile-glow), transparent 70%),
     linear-gradient(180deg, var(--tile-from) 0%, var(--tile-to) 100%);
   user-select: none;
+}
+
+/* Authentication motif: a quiet orbit around the E-Vora mark. */
+.auth-orbit {
+  position: relative;
+  width: 5rem;
+  height: 5rem;
+  margin: 0 auto 1.25rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent-red) 32%, transparent);
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent-red) 12%, transparent), transparent 68%);
+}
+
+.auth-orbit::before,
+.auth-orbit::after {
+  content: "";
+  position: absolute;
+  inset: -0.55rem;
+  border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent);
+  border-radius: 50%;
+  transform: rotate(-28deg) scaleY(0.58);
+}
+
+.auth-orbit::after {
+  inset: -0.35rem;
+  transform: rotate(34deg) scaleY(0.7);
+  border-color: color-mix(in srgb, var(--accent-green) 24%, transparent);
+}
+
+.auth-orbit-core {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, var(--accent-red), var(--accent-red-dim));
+  box-shadow: 0 0 24px color-mix(in srgb, var(--accent-red) 30%, transparent);
+  color: white;
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.auth-orbit-dot {
+  position: absolute;
+  inset-block-start: -0.3rem;
+  inset-inline-end: 0.45rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent-green) 70%, transparent);
+  animation: orbit-pulse 2s ease-in-out infinite;
+}
+
+@keyframes orbit-pulse {
+  50% { transform: scale(0.72); opacity: 0.58; }
+}
+
+.otp-inputs {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.55rem;
+  max-width: 24rem;
+  margin-inline: auto;
+}
+
+.otp-cell {
+  min-width: 0;
+  width: 100%;
+  height: 3.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  background: var(--input-bg);
+  color: var(--foreground);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-align: center;
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.otp-cell:focus {
+  border-color: color-mix(in srgb, var(--accent-red) 65%, var(--border-subtle));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-red) 14%, transparent);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 380px) {
+  .otp-inputs { gap: 0.35rem; }
+  .otp-cell { height: 3.1rem; font-size: 1.1rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-orbit-dot { animation: none; }
 }

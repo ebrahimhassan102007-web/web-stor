@@ -25,9 +25,18 @@ export async function generateMetadata(props: {
     getProductBySlug(slug),
   ]);
   if (!row) return { title: t.meta.productNotFound };
+  const title = locName(row.product, locale);
+  const description = locDesc(row.product, locale).slice(0, 160);
   return {
-    title: locName(row.product, locale),
-    description: locDesc(row.product, locale).slice(0, 160),
+    title,
+    description,
+    openGraph: {
+      title: `${title} · E-Vora`,
+      description,
+      siteName: "E-Vora",
+      type: "website",
+    },
+    twitter: { card: "summary", title: `${title} · E-Vora`, description },
   };
 }
 

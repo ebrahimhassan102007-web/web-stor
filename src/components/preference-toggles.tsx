@@ -6,7 +6,7 @@ import { THEME_COOKIE, type Theme } from "@/lib/i18n/dictionary";
 
 /** AR / EN segmented language switch (persisted in a cookie). */
 export function LanguageToggle() {
-  const { locale, setLocale, switching } = useI18n();
+  const { locale, setLocale, switching, t } = useI18n();
 
   const btn = (active: boolean) =>
     `rounded-md px-2.5 py-1 text-xs font-bold transition-colors ${
@@ -21,7 +21,7 @@ export function LanguageToggle() {
         switching ? "opacity-60" : ""
       }`}
       role="group"
-      aria-label="Language"
+      aria-label={t.nav.languageToggle}
     >
       <button
         type="button"

@@ -1,0 +1,453 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { fill } from "@/lib/i18n/dictionary";
+import { useI18n } from "@/components/locale-provider";
+import { normalizeVerificationDigits } from "@/lib/security/digits";
+
+type AuthPanelProps = {
+  initialEmail?: string;
+  initialError?: string;
+  nextPath?: string;
+};
+
+type ApiBody = {
+  ok?: boolean;
+  error?: string;
+  data?: { authenticated?: boolean; verificationRequired?: boolean };
+};
+
+type AuthErrorDictionary = ReturnType<typeof useI18n>["t"]["auth"]["errors"];
+
+function localizeAuthError(code: string | undefined, errors: AuthErrorDictionary) {
+  if (!code) return errors.generic;
+  const mapping: Record<string, string> = {
+    INVALID_BODY: errors.invalidInput,
+    INVALID_INPUT: errors.invalidInput,
+    REQUEST_REJECTED: errors.requestRejected,
+    INVALID_CREDENTIALS: errors.invalidCredentials,
+    RATE_LIMITED: errors.rateLimited,
+    rate_limited: errors.rateLimited,
+    AUTH_NOT_CONFIGURED: errors.authNotConfigured,
+    auth_config: errors.authNotConfigured,
+    EMAIL_NOT_CONFIGURED: errors.emailNotConfigured,
+    EMAIL_DELIVERY_FAILED: errors.emailDeliveryFailed,
+    AUTH_UNAVAILABLE: errors.authUnavailable,
+    CODE_INVALID: errors.codeInvalid,
+    CODE_EXPIRED: errors.codeExpired,
+    CODE_LOCKED: errors.codeLocked,
+    AUTH_REQUIRED: errors.authRequired,
+    google_config: errors.googleConfig,
+    google_unavailable: errors.googleUnavailable,
+    google_cancelled: errors.googleCancelled,
+    google_failed: errors.googleFailed,
+  };
+  return mapping[code] ?? errors.generic;
+}
+
+function destinationPath(path: string | undefined) {
+  return path && path.startsWith("/") && !path.startsWith("//") && !path.includes("\\")
+    ? path
+    : "/account";
+}
+
+export function AuthPanel({
+  initialEmail = "",
+  initialError,
+  nextPath = "/account",
+}: AuthPanelProps) {
+  const router = useRouter();
+  const { locale, t } = useI18n();
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [stage, setStage] = useState<"credentials" | "verification">("credentials");
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState(initialEmail);
+  const [password, setPassword] = useState("");
+  const [code, setCode] = useState<string[]>(["", "", "", "", "", ""]);
+  const [busy, setBusy] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const [errorCode, setErrorCode] = useState(initialError ?? "");
+  const [notice, setNotice] = useState<"verification" | "verified" | "">("");
+  const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = window.setTimeout(() => {
+      setCooldown((current) => Math.max(0, current - 1));
+    }, 1_000);
+    return () => window.clearTimeout(timer);
+  }, [cooldown]);
+
+  function finishSignIn() {
+    router.replace(destinationPath(nextPath));
+    router.refresh();
+  }
+
+  async function submitCredentials(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setErrorCode("");
+    setNotice("");
+
+    const endpoint = mode === "signup" ? "/api/auth/email/register" : "/api/auth/email/login";
+    const payload = {
+      ...(mode === "signup" ? { displayName } : {}),
+      email,
+      password,
+      locale,
+    };
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = (await response.json().catch(() => null)) as ApiBody | null;
+      if (!response.ok || !body?.ok) {
+        setErrorCode(body?.error ?? "UNKNOWN");
+        setBusy(false);
+        return;
+      }
+
+      if (body.data?.authenticated) {
+        finishSignIn();
+        return;
+      }
+
+      setPassword("");
+      setStage("verification");
+      setCode(["", "", "", "", "", ""]);
+      setCooldown(60);
+      setNotice("verification");
+    } catch {
+      setErrorCode("UNKNOWN");
+    }
+    setBusy(false);
+  }
+
+  async function submitCode(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy || !code.every(Boolean)) return;
+    setBusy(true);
+    setErrorCode("");
+    setNotice("");
+
+    try {
+      const response = await fetch("/api/auth/email/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code: code.join("") }),
+      });
+      const body = (await response.json().catch(() => null)) as ApiBody | null;
+      if (!response.ok || !body?.ok) {
+        setErrorCode(body?.error ?? "UNKNOWN");
+        setBusy(false);
+        return;
+      }
+      setNotice("verified");
+      finishSignIn();
+    } catch {
+      setErrorCode("UNKNOWN");
+      setBusy(false);
+    }
+  }
+
+  async function resendCode() {
+    if (busy || cooldown > 0) return;
+    setBusy(true);
+    setErrorCode("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/auth/email/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, locale }),
+      });
+      const body = (await response.json().catch(() => null)) as ApiBody | null;
+      if (!response.ok || !body?.ok) {
+        setErrorCode(body?.error ?? "UNKNOWN");
+        setBusy(false);
+        return;
+      }
+      setCooldown(60);
+      setNotice("verification");
+    } catch {
+      setErrorCode("UNKNOWN");
+    }
+    setBusy(false);
+  }
+
+  function updateCode(index: number, rawValue: string) {
+    const digits = normalizeVerificationDigits(rawValue)
+      .replace(/\D/g, "")
+      .slice(0, 6 - index);
+    setCode((current) => {
+      const next = [...current];
+      if (!digits) {
+        next[index] = "";
+        return next;
+      }
+      [...digits].forEach((digit, offset) => {
+        next[index + offset] = digit;
+      });
+      return next;
+    });
+    if (digits) inputRefs.current[Math.min(index + digits.length, 5)]?.focus();
+  }
+
+  function pasteCode(event: React.ClipboardEvent<HTMLDivElement>) {
+    const pasted = normalizeVerificationDigits(event.clipboardData.getData("text"))
+      .replace(/\D/g, "")
+      .slice(0, 6);
+    if (!pasted) return;
+    event.preventDefault();
+    setCode(Array.from({ length: 6 }, (_, index) => pasted[index] ?? ""));
+    inputRefs.current[Math.min(pasted.length, 5)]?.focus();
+  }
+
+  function handleCodeKey(event: React.KeyboardEvent<HTMLInputElement>, index: number) {
+    if (event.key === "Backspace" && !code[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    } else if (event.key === "ArrowLeft" && index > 0) {
+      event.preventDefault();
+      inputRefs.current[index - 1]?.focus();
+    } else if (event.key === "ArrowRight" && index < 5) {
+      event.preventDefault();
+      inputRefs.current[index + 1]?.focus();
+    }
+  }
+
+  return (
+    <div className="mx-auto flex min-h-[calc(100vh-17rem)] max-w-lg items-center px-4 py-12 sm:px-6">
+      <section className="glass-card relative w-full overflow-hidden p-6 sm:p-9">
+        <div className="auth-orbit" aria-hidden="true">
+          <span className="auth-orbit-core">E</span>
+          <span className="auth-orbit-dot" />
+        </div>
+
+        <div className="relative z-10 text-center">
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-primary">E-Vora</p>
+          <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
+            {stage === "verification"
+              ? t.auth.verificationTitle
+              : mode === "signin"
+                ? t.auth.signInTitle
+                : t.auth.signUpTitle}
+          </h1>
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">
+            {stage === "verification"
+              ? fill(t.auth.verificationSubtitle, { email })
+              : mode === "signin"
+                ? t.auth.signInSubtitle
+                : t.auth.signUpSubtitle}
+          </p>
+        </div>
+
+        {errorCode && (
+          <p role="alert" className="mt-6 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary">
+            {localizeAuthError(errorCode, t.auth.errors)}
+          </p>
+        )}
+        {notice && (
+          <p role="status" className="mt-6 rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
+            {notice === "verified" ? t.auth.successVerify : t.auth.checkInbox}
+          </p>
+        )}
+
+        {stage === "credentials" ? (
+          <>
+            <div className="mt-7 grid grid-cols-2 rounded-xl border border-edge bg-raised/60 p-1" role="tablist" aria-label={t.auth.signInTab}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === "signin"}
+                onClick={() => {
+                  setMode("signin");
+                  setErrorCode("");
+                  setNotice("");
+                }}
+                className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${mode === "signin" ? "bg-primary text-white" : "text-muted hover:text-foreground"}`}
+              >
+                {t.auth.signInTab}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === "signup"}
+                onClick={() => {
+                  setMode("signup");
+                  setErrorCode("");
+                  setNotice("");
+                }}
+                className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${mode === "signup" ? "bg-primary text-white" : "text-muted hover:text-foreground"}`}
+              >
+                {t.auth.signUpTab}
+              </button>
+            </div>
+
+            <a
+              href={`/api/auth/google/start?next=${encodeURIComponent(destinationPath(nextPath))}`}
+              className="btn-ghost mt-5 w-full py-3"
+            >
+              <GoogleMark />
+              {t.auth.googleButton}
+            </a>
+
+            <div className="my-5 flex items-center gap-3 text-xs text-muted">
+              <span className="h-px flex-1 bg-edge" />
+              <span>{t.auth.divider}</span>
+              <span className="h-px flex-1 bg-edge" />
+            </div>
+
+            <form onSubmit={submitCredentials} className="space-y-4" noValidate>
+              {mode === "signup" && (
+                <div>
+                  <label htmlFor="auth-name" className="mb-1.5 block text-sm font-medium">
+                    {t.auth.fullName}
+                  </label>
+                  <input
+                    id="auth-name"
+                    type="text"
+                    name="name"
+                    autoComplete="name"
+                    required
+                    minLength={2}
+                    maxLength={128}
+                    placeholder={t.auth.namePlaceholder}
+                    value={displayName}
+                    onChange={(event) => setDisplayName(event.target.value)}
+                    className="input-dark"
+                  />
+                </div>
+              )}
+              <div>
+                <label htmlFor="auth-email" className="mb-1.5 block text-sm font-medium">
+                  {t.auth.email}
+                </label>
+                <input
+                  id="auth-email"
+                  type="email"
+                  name="email"
+                  autoComplete="email"
+                  required
+                  maxLength={254}
+                  placeholder={t.auth.emailPlaceholder}
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  dir="ltr"
+                  className="input-dark"
+                />
+              </div>
+              <div>
+                <label htmlFor="auth-password" className="mb-1.5 block text-sm font-medium">
+                  {t.auth.password}
+                </label>
+                <input
+                  id="auth-password"
+                  type="password"
+                  name="password"
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                  required
+                  minLength={mode === "signup" ? 12 : 1}
+                  maxLength={128}
+                  placeholder={t.auth.passwordPlaceholder}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  dir="ltr"
+                  className="input-dark"
+                />
+                {mode === "signup" && (
+                  <p className="mt-1.5 text-xs text-muted">{t.auth.passwordHint}</p>
+                )}
+              </div>
+              <button type="submit" disabled={busy} className="btn-primary w-full py-3 text-base">
+                {busy
+                  ? t.auth.working
+                  : mode === "signup"
+                    ? t.auth.signUpButton
+                    : t.auth.signInButton}
+              </button>
+            </form>
+          </>
+        ) : (
+          <>
+            <form onSubmit={submitCode} className="mt-7" noValidate>
+              <fieldset>
+                <legend className="mb-3 text-center text-sm font-semibold">{t.auth.codeLabel}</legend>
+                <div className="otp-inputs" onPaste={pasteCode} dir="ltr">
+                  {Array.from({ length: 6 }, (_, index) => (
+                    <input
+                      // Six stable, individually accessible one-time-code cells.
+                      key={index}
+                      ref={(element) => {
+                        inputRefs.current[index] = element;
+                      }}
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete={index === 0 ? "one-time-code" : "off"}
+                      pattern="[0-9]*"
+                      maxLength={1}
+                      value={code[index] ?? ""}
+                      aria-label={fill(t.auth.digitLabel, { index: index + 1 })}
+                      onChange={(event) => updateCode(index, event.target.value)}
+                      onKeyDown={(event) => handleCodeKey(event, index)}
+                      onFocus={(event) => event.currentTarget.select()}
+                      className="otp-cell"
+                    />
+                  ))}
+                </div>
+              </fieldset>
+              <button type="submit" disabled={busy || !code.every(Boolean)} className="btn-primary mt-6 w-full py-3 text-base">
+                {busy ? t.auth.verifying : t.auth.verifyButton}
+              </button>
+            </form>
+
+            <button
+              type="button"
+              onClick={resendCode}
+              disabled={busy || cooldown > 0}
+              className="btn-ghost mt-3 w-full"
+            >
+              {cooldown > 0
+                ? fill(t.auth.resendCountdown, { seconds: cooldown })
+                : t.auth.resendButton}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStage("credentials");
+                setMode("signin");
+                setCode(["", "", "", "", "", ""]);
+                setErrorCode("");
+                setNotice("");
+                setCooldown(0);
+              }}
+              className="mt-5 w-full text-center text-sm font-medium text-muted hover:text-foreground"
+            >
+              {t.auth.changeEmail}
+            </button>
+          </>
+        )}
+
+        <p className="mt-7 text-center text-xs text-muted">
+          <Link href="/" className="hover:text-primary">E-Vora</Link>
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function GoogleMark() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 48 48" className="h-5 w-5">
+      <path fill="#FFC107" d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5h6.6c3.9-3.6 6.1-8.9 6.1-14.9Z" />
+      <path fill="#FF3D00" d="M24 44c5.5 0 10.2-1.8 13.6-4.8l-6.6-5c-1.8 1.2-4.1 1.9-7 1.9-5.3 0-9.8-3.6-11.4-8.5H5.8v5.2A20 20 0 0 0 24 44Z" />
+      <path fill="#4CAF50" d="M12.6 27.6a12 12 0 0 1 0-7.2v-5.2H5.8a20 20 0 0 0 0 17.6l6.8-5.2Z" />
+      <path fill="#1976D2" d="M24 12c3 0 5.6 1 7.7 3.1l5.8-5.8C34 5.9 29.4 4 24 4A20 20 0 0 0 5.8 15.2l6.8 5.2C14.2 15.5 18.7 12 24 12Z" />
+    </svg>
+  );
+}

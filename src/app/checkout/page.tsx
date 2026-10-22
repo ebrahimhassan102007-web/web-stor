@@ -88,8 +88,25 @@ export default function CheckoutPage() {
         );
         return;
       }
-      if (body?.details) setFieldErrors(body.details);
-      setFormError(body?.error ?? t.checkout.errGeneric);
+      if (body?.error === "CHECKOUT_DISABLED") {
+        setFormError(t.checkout.disabled);
+      } else if (body?.error === "RATE_LIMITED") {
+        setFormError(t.checkout.errRateLimited);
+      } else if (body?.error === "INSUFFICIENT_STOCK") {
+        const name = body?.details?.productName?.[0] ?? "";
+        setFormError(fill(t.checkout.errStock, { name }));
+      } else if (body?.error === "CART_EMPTY") {
+        setFormError(t.checkout.nothingText);
+      } else {
+        const details = body?.details as Record<string, string[]> | undefined;
+        if (details) {
+          const localized: Record<string, string[]> = { ...details };
+          if (details.customerName) localized.customerName = [t.checkout.errName];
+          if (details.email) localized.email = [t.checkout.errEmail];
+          setFieldErrors(localized);
+        }
+        setFormError(t.checkout.errGeneric);
+      }
       setSubmitting(false);
     } catch {
       setFormError(t.checkout.errNetwork);
