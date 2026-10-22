@@ -9,6 +9,7 @@ const NAV = [
   { href: "/", label: "Home" },
   { href: "/products", label: "Products" },
   { href: "/cart", label: "Cart" },
+  { href: "/login", label: "Sign in" },
 ];
 
 export function Header() {
