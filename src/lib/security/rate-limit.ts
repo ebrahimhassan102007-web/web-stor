@@ -1,11 +1,14 @@
 import "server-only";
+import { getClientKey } from "./client-ip";
 
 /**
  * Minimal in-memory sliding-window rate limiter.
  *
- * Best-effort abuse mitigation for a single-instance deployment. For
- * multi-instance production traffic, back this with Redis or an edge
- * rate-limiting service instead.
+ * KNOWN LIMITATION — not a production boundary: the counter lives in this
+ * process only, so multiple instances (or a restart) each keep their own
+ * buckets. A multi-instance deployment needs a shared atomic limiter (Redis,
+ * a database, or an edge/WAF rate-limiting service); configure that before
+ * relying on these limits.
  */
 type Window = { count: number; resetAt: number };
 
@@ -37,7 +40,15 @@ export function rateLimit(
   return true;
 }
 
+/**
+ * Rate-limit identity for a request.
+ *
+ * `X-Forwarded-For` is only honoured when `TRUST_PROXY_IP_HEADERS=true` marks
+ * a deployment whose proxy overwrites that header. Otherwise forwarding
+ * headers are ignored and all clients share one conservative bucket, so a
+ * spoofed header cannot be used to dodge limits or to pin abuse on someone
+ * else's address.
+ */
 export function clientKey(req: Request): string {
-  const fwd = req.headers.get("x-forwarded-for");
-  return fwd ? fwd.split(",")[0].trim() : "local";
+  return getClientKey(req, process.env.TRUST_PROXY_IP_HEADERS === "true");
 }

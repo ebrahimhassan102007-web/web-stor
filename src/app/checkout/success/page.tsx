@@ -1,26 +1,29 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getOrderByNumber } from "@/lib/catalog";
-import { formatCents } from "@/lib/money";
+import { orderExistsByNumber } from "@/lib/catalog";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = { title: "Order Confirmed" };
+export const metadata: Metadata = { title: "Demo Order Record" };
 
 type SearchParams = Promise<{ order?: string | string[] }>;
 
+/**
+ * Public, anonymous order confirmation.
+ *
+ * Anyone holding the reference can open this page, so it deliberately shows
+ * only the reference itself (after confirming it exists) — never the customer
+ * name, email, address, order contents or totals. The heading states plainly
+ * that this is a recorded demo order: nothing was paid or confirmed, no email
+ * was sent and no stock was reserved.
+ */
 export default async function OrderSuccessPage(props: {
   searchParams: SearchParams;
 }) {
   const { order: rawOrder } = await props.searchParams;
   const orderNumber = Array.isArray(rawOrder) ? rawOrder[0] : rawOrder;
-  if (!orderNumber) notFound();
-
-  const result = await getOrderByNumber(orderNumber);
-  if (!result) notFound();
-
-  const { order, items } = result;
+  if (!orderNumber || !(await orderExistsByNumber(orderNumber))) notFound();
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
@@ -34,74 +37,27 @@ export default async function OrderSuccessPage(props: {
             ✓
           </span>
           <h1 className="mt-5 text-3xl font-bold tracking-tight">
-            Order <span className="text-success">Confirmed</span>
+            Demo order <span className="text-success">recorded</span>
           </h1>
           <p className="mt-2 text-sm text-muted">
-            Thank you, {order.customerName}. A confirmation was sent to{" "}
-            <span className="text-foreground">{order.email}</span>.
+            This order is not paid or confirmed: no payment was processed, no
+            stock was reserved, and no confirmation email was sent.
           </p>
           <p className="mt-4 inline-block rounded-lg border border-edge bg-raised/60 px-4 py-2 font-mono text-sm">
-            {order.orderNumber}
+            {orderNumber}
           </p>
         </div>
 
         <div className="px-6 py-8 sm:px-10">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-            Items
+            Order privacy
           </h2>
-          <ul className="mt-3 divide-y divide-edge">
-            {items.map((item) => (
-              <li key={item.id} className="flex justify-between gap-3 py-3 text-sm">
-                <span>
-                  {item.productName}{" "}
-                  <span className="text-muted">×{item.quantity}</span>
-                </span>
-                <span className="font-medium tabular-nums">
-                  {formatCents(item.unitPriceCents * item.quantity)}
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          <dl className="mt-4 space-y-2 border-t border-edge pt-4 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-muted">Subtotal</dt>
-              <dd className="tabular-nums">{formatCents(order.subtotalCents)}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-muted">Shipping</dt>
-              <dd className="tabular-nums">
-                {order.shippingCents === 0 ? (
-                  <span className="text-success">Free</span>
-                ) : (
-                  formatCents(order.shippingCents)
-                )}
-              </dd>
-            </div>
-            <div className="flex justify-between pt-2 text-base font-bold">
-              <dt>Total</dt>
-              <dd className="tabular-nums">{formatCents(order.totalCents)}</dd>
-            </div>
-          </dl>
-
-          <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-muted">
-            Shipping to
-          </h2>
-          <address className="mt-2 text-sm not-italic text-muted leading-relaxed">
-            <span className="text-foreground">{order.customerName}</span>
-            <br />
-            {order.addressLine1}
-            {order.addressLine2 && (
-              <>
-                <br />
-                {order.addressLine2}
-              </>
-            )}
-            <br />
-            {order.city}, {order.postalCode}
-            <br />
-            {order.country}
-          </address>
+          <p className="mt-3 text-sm text-muted leading-relaxed">
+            For privacy, this public page shows only your order reference.
+            Customer details, delivery address, items and totals are not
+            displayed here, and this reference alone does not grant access to
+            them.
+          </p>
 
           <div className="mt-8 flex flex-col sm:flex-row gap-3">
             <Link href="/products" className="btn-primary flex-1">

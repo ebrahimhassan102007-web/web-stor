@@ -10,13 +10,14 @@
     "db:server": "tsx scripts/db-server.ts",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx scripts/seed.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "dotenv": "^18.0.4",
     "drizzle-orm": "^0.45.3",
     "geist": "^1.7.2",
-    "next": "16.3.6",
+    "next": "16.4.2",
     "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -32,7 +33,8 @@
     "drizzle-kit": "^0.31.11",
     "embedded-postgres": "^18.4.0-beta.17",
     "eslint": "^9",
-    "eslint-config-next": "16.3.6",
+    "eslint-config-next": "16.4.2",
+    "pg-connection-string": "^2.14.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5"

@@ -1,47 +1,41 @@
 import type { NextRequest } from "next/server";
-import { randomBytes } from "node:crypto";
-import { eq, and, gte, sql } from "drizzle-orm";
-import {
-  db,
-  carts,
-  cartItems,
-  products,
-  orders,
-  orderItems,
-} from "@/lib/db";
-import {
-  getExistingCartId,
-  clearCartCookie,
-} from "@/lib/security/session";
+import { db } from "@/lib/db";
+import { getExistingCartId } from "@/lib/security/session";
 import { verifySameOrigin } from "@/lib/security/csrf";
 import { rateLimit, clientKey } from "@/lib/security/rate-limit";
 import { checkoutSchema } from "@/lib/validation";
-import { shippingFor } from "@/lib/money";
+import { recordDemoOrder } from "@/lib/db/demo-order";
+import {
+  CHECKOUT_DISABLED_MESSAGE,
+  CHECKOUT_DISABLED_STATUS,
+  resolveCheckoutMode,
+} from "@/lib/checkout-policy";
 import { jsonOk, jsonError, handleUnexpected } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
-function newOrderNumber(): string {
-  // WS-XXXXXXXXXX — unguessable, uppercase, no ambiguous chars.
-  const alphabet = "ABCDEFGHJKMNPQRSTVWXYZ23456789";
-  const bytes = randomBytes(10);
-  let s = "";
-  for (const b of bytes) s += alphabet[b % alphabet.length];
-  return `WS-${s}`;
-}
-
 /**
  * POST /api/checkout
  *
- * Creates an order from the session cart inside a single transaction:
- *  - prices and totals are computed exclusively from the database (the
- *    client can never dictate a price),
- *  - stock is decremented atomically with a `stock >= qty` guard so two
- *    simultaneous checkouts can never oversell,
- *  - the cart is destroyed and the session cookie cleared on success.
+ * Production fails closed: this application has no payment provider, so it
+ * cannot verify payment. Until a verified integration exists, production
+ * returns 503 as the **first** statement of the handler — before the request
+ * body is read, before the cart is loaded and before any order row, stock
+ * update or cart deletion could happen.
+ *
+ * Outside production the same endpoint records an explicitly unpaid demo order
+ * (`status = demo-unpaid`) for manual storefront testing:
+ *  - prices/totals are computed exclusively from the database,
+ *  - stock is never decremented and the cart is never destroyed,
+ *  - the receipt shows the reference only and states that nothing was paid.
  */
 export async function POST(req: NextRequest) {
   try {
+    // Fail-closed production guard. Keep this first: no other work may run.
+    if (resolveCheckoutMode() === "disabled") {
+      return jsonError(CHECKOUT_DISABLED_MESSAGE, CHECKOUT_DISABLED_STATUS);
+    }
+
     if (!verifySameOrigin(req)) return jsonError("Request rejected.", 403);
     if (!rateLimit(`checkout:${clientKey(req)}`, 10, 60_000)) {
       return jsonError("Too many requests. Please slow down.", 429);
@@ -62,111 +56,30 @@ export async function POST(req: NextRequest) {
         parsed.error.flatten().fieldErrors,
       );
     }
-    const shipping = parsed.data;
 
     const cartId = await getExistingCartId();
     if (!cartId) return jsonError("Your cart is empty.", 400);
 
-    type CheckoutResult =
-      | { error: string }
-      | { order: { orderNumber: string; totalCents: number } };
-
-    const result = await db.transaction(async (tx): Promise<CheckoutResult> => {
-      // Load cart lines with authoritative prices, locking product rows.
-      const lines = await tx
-        .select({
-          productId: cartItems.productId,
-          quantity: cartItems.quantity,
-          name: products.name,
-          priceCents: products.priceCents,
-          stock: products.stock,
-        })
-        .from(cartItems)
-        .innerJoin(products, eq(cartItems.productId, products.id))
-        .where(eq(cartItems.cartId, cartId))
-        .for("update");
-
-      if (lines.length === 0) {
-        return { error: "Your cart is empty." };
-      }
-
-      for (const line of lines) {
-        if (line.quantity > line.stock) {
-          return {
-            error: `Insufficient stock for "${line.name}". Please adjust your cart.`,
-          };
-        }
-      }
-
-      const subtotalCents = lines.reduce(
-        (s, l) => s + l.priceCents * l.quantity,
-        0,
-      );
-      const shippingCents = shippingFor(subtotalCents);
-      const totalCents = subtotalCents + shippingCents;
-
-      // Atomic stock decrement, guarded against underflow.
-      for (const line of lines) {
-        const updated = await tx
-          .update(products)
-          .set({ stock: sql`${products.stock} - ${line.quantity}` })
-          .where(
-            and(
-              eq(products.id, line.productId),
-              gte(products.stock, line.quantity),
-            ),
-          )
-          .returning({ id: products.id });
-        if (updated.length === 0) {
-          throw new Error(`stock-conflict:${line.productId}`);
-        }
-      }
-
-      const [order] = await tx
-        .insert(orders)
-        .values({
-          orderNumber: newOrderNumber(),
-          status: "confirmed",
-          customerName: shipping.customerName,
-          email: shipping.email,
-          addressLine1: shipping.addressLine1,
-          addressLine2: shipping.addressLine2,
-          city: shipping.city,
-          postalCode: shipping.postalCode,
-          country: shipping.country,
-          subtotalCents,
-          shippingCents,
-          totalCents,
-        })
-        .returning({ id: orders.id, orderNumber: orders.orderNumber });
-
-      await tx.insert(orderItems).values(
-        lines.map((l) => ({
-          orderId: order.id,
-          productId: l.productId,
-          productName: l.name,
-          unitPriceCents: l.priceCents,
-          quantity: l.quantity,
-        })),
-      );
-
-      // Destroy the cart (cascade removes its items).
-      await tx.delete(carts).where(eq(carts.id, cartId));
-
-      return { order: { orderNumber: order.orderNumber, totalCents } };
+    const result = await recordDemoOrder(db, {
+      cartId,
+      shipping: parsed.data,
     });
 
-    if ("error" in result) return jsonError(result.error, 409);
-
-    await clearCartCookie();
-    return jsonOk(result.order, { status: 201 });
-  } catch (err) {
-    if (err instanceof Error && err.message.startsWith("stock-conflict:")) {
+    if (result.status === "empty") {
+      return jsonError("Your cart is empty.", 400);
+    }
+    if (result.status === "insufficient-stock") {
       return jsonError(
-        "An item in your cart just sold out. Please review your cart.",
+        `Insufficient stock for "${result.productName}". Please adjust your cart.`,
         409,
       );
     }
+
+    return jsonOk(
+      { orderNumber: result.orderNumber, totalCents: result.totalCents },
+      { status: 201 },
+    );
+  } catch (err) {
     return handleUnexpected("checkout", err);
   }
 }
