@@ -5,26 +5,10 @@ import { ProductCard } from "@/components/product-card";
 export const dynamic = "force-dynamic";
 
 const TRUST_BADGES = [
-  {
-    icon: "🔒",
-    title: "Encrypted Checkout",
-    text: "Every session runs over TLS with HttpOnly, signed cookies.",
-  },
-  {
-    icon: "🛡️",
-    title: "Hardened by Design",
-    text: "Strict input validation and parameterized queries everywhere.",
-  },
-  {
-    icon: "🚚",
-    title: "Free Shipping $100+",
-    text: "Fast, tracked delivery on every order over one hundred dollars.",
-  },
-  {
-    icon: "↩️",
-    title: "30-Day Returns",
-    text: "Changed your mind? Send it back within thirty days.",
-  },
+  { icon: "🔒", title: "Privacy-conscious", text: "Signed HttpOnly sessions and no marketing trackers." },
+  { icon: "🛡️", title: "Secure by design", text: "Inputs are validated on the server and database queries are parameterized." },
+  { icon: "📦", title: "Live catalogue", text: "Prices, availability and product details come from the store database." },
+  { icon: "🧪", title: "Honest demo", text: "Checkout remains a demo until real payments can be verified." },
 ];
 
 export default async function HomePage() {

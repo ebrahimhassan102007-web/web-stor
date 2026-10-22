@@ -175,3 +175,26 @@ Order items snapshot the product name and unit price at purchase time, so order 
 ---
 
 **Disclaimer:** demo storefront — no real payments are processed and no email is sent.
+
+
+## Google sign-in and customer profile
+
+Google sign-in uses OpenID Connect, a one-time OAuth state value, PKCE, a
+server-side client secret and a signed HttpOnly account cookie. Google identity
+is matched by its stable `sub` value; only a Google profile with a verified
+email is accepted. Customers can save their name, phone and shipping address;
+the email stays tied to their Google identity.
+
+For the Preview deployment:
+
+1. Create a Google OAuth client of type **Web application**.
+2. Add the exact Preview origin to authorized JavaScript origins and add this
+   authorized redirect URI: `https://YOUR-PREVIEW-HOST/api/auth/google/callback`.
+3. Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to Vercel's **Preview**
+   environment only, scoped to the test branch. Never commit the secret.
+4. Apply the additive `users` table from `src/lib/db/schema.ts` to the
+   **vercel-preview** PostgreSQL branch before testing sign-in. Do not run
+   schema changes against Production.
+
+This feature does not enable payment processing. Checkout remains outside the
+scope of this phase.
