@@ -14,32 +14,6 @@ import {
 import { relations } from "drizzle-orm";
 
 /* ------------------------------------------------------------------ */
-/* Customer accounts (Google OpenID Connect)                            */
-/* ------------------------------------------------------------------ */
-export const users = pgTable(
-  "users",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    googleSub: varchar("google_sub", { length: 256 }).notNull(),
-    email: varchar("email", { length: 254 }).notNull(),
-    name: varchar("name", { length: 128 }).notNull(),
-    avatarUrl: text("avatar_url").notNull().default(""),
-    phone: varchar("phone", { length: 32 }).notNull().default(""),
-    addressLine1: varchar("address_line1", { length: 256 }).notNull().default(""),
-    addressLine2: varchar("address_line2", { length: 256 }).notNull().default(""),
-    city: varchar("city", { length: 128 }).notNull().default(""),
-    postalCode: varchar("postal_code", { length: 32 }).notNull().default(""),
-    country: varchar("country", { length: 128 }).notNull().default(""),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    uniqueIndex("users_google_sub_idx").on(t.googleSub),
-    uniqueIndex("users_email_idx").on(t.email),
-  ],
-);
-
-/* ------------------------------------------------------------------ */
 /* Categories                                                          */
 /* ------------------------------------------------------------------ */
 export const categories = pgTable(
@@ -215,4 +189,3 @@ export type Cart = typeof carts.$inferSelect;
 export type CartItem = typeof cartItems.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
-export type User = typeof users.$inferSelect;

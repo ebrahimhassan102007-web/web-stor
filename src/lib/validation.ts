@@ -44,23 +44,6 @@ export const checkoutSchema = z.object({
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
 
-/* ------------------------ Account profile ------------------------- */
-const profileText = (max: number) =>
-  z.string().trim().max(max)
-    .regex(/^[^\\u0000-\\u001f\\u007f]*$/, "Invalid characters");
-
-export const accountProfileSchema = z.object({
-  name: safeText(2, 128),
-  phone: z.string().trim().max(32).regex(/^[+0-9().\\s-]*$/, "Enter a valid phone number"),
-  addressLine1: profileText(256),
-  addressLine2: profileText(256),
-  city: profileText(128),
-  postalCode: profileText(32),
-  country: profileText(128),
-});
-
-export type AccountProfileInput = z.infer<typeof accountProfileSchema>;
-
 /* ------------------------ Catalog queries ------------------------ */
 export const productQuerySchema = z.object({
   q: z.string().trim().max(100).optional().default(""),
