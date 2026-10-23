@@ -29,7 +29,8 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
     { href: "/products", label: t.nav.products, icon: "▦" },
     { href: "/products?category=game-topups", label: isArabic ? "شحن الألعاب" : "Game top-ups", icon: "⚡" },
     { href: "/products?category=gift-cards", label: isArabic ? "بطاقات الهدايا" : "Gift cards", icon: "▤" },
-    { href: "/products?category=ai-subscriptions", label: isArabic ? "اشتراكات الذكاء الاصطناعي" : "AI subscriptions", icon: "✦" },
+    { href: "/products?category=subscriptions", label: isArabic ? "الاشتراكات" : "Subscriptions", icon: "✦" },
+    { href: "/products?category=software-keys", label: isArabic ? "مفاتيح البرامج والألعاب" : "Software & game keys", icon: "⌘" },
     { href: "/cart", label: t.nav.cart, icon: "🛒" },
     { href: "/account", label: t.nav.account, icon: "◉" },
   ];
