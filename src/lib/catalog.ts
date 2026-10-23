@@ -134,13 +134,7 @@ function getPreviewFilteredProducts(q: string, category: string, sort: "newest" 
       };
     });
 
-  const showcase = await getPreviewOnlyRows(rows.map((row) => row.product.slug));
-  const matchingShowcase = showcase.filter((row) => {
-    const matchesCategory = !category || row.categorySlug === category;
-    const searchText = [row.product.name, row.product.nameAr, row.product.description, row.product.descriptionAr].join(" ").toLocaleLowerCase();
-    return matchesCategory && (!q || searchText.includes(q.toLocaleLowerCase()));
-  });
-  return { rows: [...rows, ...matchingShowcase].slice(0, 60), applied: { q, category, sort } };
+  return { rows, applied: { q, category, sort } };
 }
 
 function getPreviewProductBySlug(slug: string) {
@@ -286,7 +280,13 @@ export async function getFilteredProducts(rawFilters: ProductFilters) {
     .orderBy(...orderBy)
     .limit(60);
 
-  return { rows, applied: { q, category, sort } };
+  const showcase = await getPreviewOnlyRows(rows.map((row) => row.product.slug));
+  const matchingShowcase = showcase.filter((row) => {
+    const matchesCategory = !category || row.categorySlug === category;
+    const searchText = [row.product.name, row.product.nameAr, row.product.description, row.product.descriptionAr].join(" ").toLocaleLowerCase();
+    return matchesCategory && (!q || searchText.includes(q.toLocaleLowerCase()));
+  });
+  return { rows: [...rows, ...matchingShowcase].slice(0, 60), applied: { q, category, sort } };
   } catch (error) {
     if (isMissingDatabaseRelation(error)) return getPreviewFilteredProducts(q, category, sort);
     throw error;
