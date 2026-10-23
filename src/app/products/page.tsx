@@ -73,6 +73,8 @@ export default async function ProductsPage(props: {
         </p>
       </div>
 
+      <div className="mb-6 rounded-2xl border border-amber-500/25 bg-amber-500/[0.07] px-4 py-3 text-sm leading-6 text-muted"><strong className="text-foreground">{locale === "ar" ? "كتالوج للمعاينة فقط" : "Demo catalogue only"}.</strong>{" "}{locale === "ar" ? "المنتجات والأسعار المعروضة للتوضيح؛ الشراء والدفع وتسليم الأكواد غير مفعّلين." : "Products and prices are illustrative. Purchasing, payment and code delivery are disabled."}</div>
+
       <Suspense>
         <ProductFilters
           categories={categories.map((c) => ({
