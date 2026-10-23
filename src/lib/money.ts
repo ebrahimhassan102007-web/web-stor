@@ -23,3 +23,14 @@ function formatterFor(locale: Locale): Intl.NumberFormat {
 export function formatCents(cents: number, locale: Locale = "en"): string {
   return formatterFor(locale).format(cents / 100);
 }
+
+/** Indicative display-only USD/EGP rate; update before live commercial use. */
+export const USD_TO_EGP_PREVIEW_RATE = 55.3;
+
+export function formatEgpFromUsdCents(cents: number, locale: Locale = "en"): string {
+  return new Intl.NumberFormat(locale === "ar" ? "ar-EG-u-nu-latn" : "en-US", {
+    style: "currency",
+    currency: "EGP",
+    maximumFractionDigits: 0,
+  }).format((cents / 100) * USD_TO_EGP_PREVIEW_RATE);
+}
