@@ -110,8 +110,9 @@ export default async function ProductDetailPage(props: { params: Params }) {
           </p>
 
           <div className="mt-6 flex items-center gap-3 flex-wrap">
-            <span className="text-4xl font-extrabold tracking-tight">
-              {formatCents(product.priceCents, locale)}
+            <span className="flex flex-col">
+              <strong className="text-4xl font-extrabold tracking-tight">{formatCents(product.priceCents, locale)}</strong>
+              <small className="mt-1 text-base font-semibold text-muted">{formatEgpFromUsdCents(product.priceCents, locale)}</small>
             </span>
             <span className="badge-green">{t.product.instantDelivery}</span>
           </div>
