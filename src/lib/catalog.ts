@@ -8,15 +8,34 @@ import { productQuerySchema, slugSchema, orderNumberSchema } from "@/lib/validat
 /**
  * Catalogue data access.
  *
- * When DATABASE_URL is not configured yet, the public storefront can display
- * a read-only catalogue preview backed by the same source data used by the
- * explicit seed script. This is not a database, does not persist user data,
- * and must never be used for carts, checkout, auth, orders, or fulfilment.
- * Database-backed operations continue to fail closed until DATABASE_URL is set.
+ * If DATABASE_URL is not configured, or the connected database is missing its
+ * catalogue tables (Postgres 42P01), public pages use a read-only preview from
+ * the same source data as the explicit seed script. This preview does not
+ * persist data and must never be used for carts, checkout, auth, orders, or
+ * fulfilment. Other database errors still surface normally.
  */
 
 const hasDatabase = () => Boolean(process.env.DATABASE_URL?.trim());
 const previewCreatedAt = new Date("2026-01-01T00:00:00.000Z");
+
+/**
+ * Postgres error 42P01 means a referenced table/view is missing.
+ * Use the preview for this schema-not-ready condition only. Connectivity,
+ * permission and other query failures should not be disguised as success.
+ */
+function isMissingDatabaseRelation(error: unknown): boolean {
+  const visited = new Set<object>();
+  let current: unknown = error;
+
+  while (current && typeof current === "object" && !visited.has(current)) {
+    visited.add(current);
+    const candidate = current as { code?: unknown; cause?: unknown };
+    if (candidate.code === "42P01") return true;
+    current = candidate.cause;
+  }
+
+  return false;
+}
 
 const previewCategories: Category[] = SEED_CATEGORIES.map((category, index) => ({
   ...category,
@@ -44,6 +63,54 @@ function findPreviewCategory(slug: string) {
   return previewCategories.find((category) => category.slug === slug);
 }
 
+function getPreviewCategoriesWithCounts() {
+  return previewCategories.map((category) => ({
+    id: category.id,
+    slug: category.slug,
+    name: category.name,
+    nameAr: category.nameAr,
+    description: category.description,
+    descriptionAr: category.descriptionAr,
+    icon: category.icon,
+    productCount: previewProducts.filter((product) => product.categoryId === category.id).length,
+  }));
+}
+
+function getPreviewFilteredProducts(q: string, category: string, sort: "newest" | "price-asc" | "price-desc" | "rating") {
+  const rows = filterPreviewProducts(q, category)
+    .sort((a, b) => {
+      if (sort === "price-asc") return a.priceCents - b.priceCents;
+      if (sort === "price-desc") return b.priceCents - a.priceCents;
+      if (sort === "rating") return Number(b.featured) - Number(a.featured) || b.id - a.id;
+      return b.id - a.id;
+    })
+    .slice(0, 60)
+    .map((product) => {
+      const productCategory = previewCategories.find((item) => item.id === product.categoryId);
+      return {
+        product,
+        categoryName: productCategory?.name ?? "",
+        categoryNameAr: productCategory?.nameAr ?? "",
+        categorySlug: productCategory?.slug ?? "",
+      };
+    });
+
+  return { rows, applied: { q, category, sort } };
+}
+
+function getPreviewProductBySlug(slug: string) {
+  const product = previewProducts.find((item) => item.slug === slug);
+  if (!product) return null;
+  const category = previewCategories.find((item) => item.id === product.categoryId);
+  if (!category) return null;
+  return {
+    product,
+    categoryName: category.name,
+    categoryNameAr: category.nameAr,
+    categorySlug: category.slug,
+  };
+}
+
 function filterPreviewProducts(q: string, category: string) {
   const normalizedQuery = q.toLocaleLowerCase();
   return previewProducts.filter((product) => {
@@ -61,51 +128,54 @@ function filterPreviewProducts(q: string, category: string) {
 
 export async function getCategories() {
   if (!hasDatabase()) return previewCategories;
-  return db.select().from(categories).orderBy(asc(categories.id));
+  try {
+    return await db.select().from(categories).orderBy(asc(categories.id));
+  } catch (error) {
+    if (isMissingDatabaseRelation(error)) return previewCategories;
+    throw error;
+  }
 }
 
 export async function getCategoriesWithCounts() {
-  if (!hasDatabase()) {
-    return previewCategories.map((category) => ({
-      id: category.id,
-      slug: category.slug,
-      name: category.name,
-      nameAr: category.nameAr,
-      description: category.description,
-      descriptionAr: category.descriptionAr,
-      icon: category.icon,
-      productCount: previewProducts.filter((product) => product.categoryId === category.id).length,
-    }));
-  }
+  if (!hasDatabase()) return getPreviewCategoriesWithCounts();
 
-  return db
-    .select({
-      id: categories.id,
-      slug: categories.slug,
-      name: categories.name,
-      nameAr: categories.nameAr,
-      description: categories.description,
-      descriptionAr: categories.descriptionAr,
-      icon: categories.icon,
-      productCount: sql<number>`count(${products.id})::int`,
-    })
-    .from(categories)
-    .leftJoin(products, eq(products.categoryId, categories.id))
-    .groupBy(categories.id)
-    .orderBy(asc(categories.id));
+  try {
+    return await db
+      .select({
+        id: categories.id,
+        slug: categories.slug,
+        name: categories.name,
+        nameAr: categories.nameAr,
+        description: categories.description,
+        descriptionAr: categories.descriptionAr,
+        icon: categories.icon,
+        productCount: sql<number>`count(${products.id})::int`,
+      })
+      .from(categories)
+      .leftJoin(products, eq(products.categoryId, categories.id))
+      .groupBy(categories.id)
+      .orderBy(asc(categories.id));
+  } catch (error) {
+    if (isMissingDatabaseRelation(error)) return getPreviewCategoriesWithCounts();
+    throw error;
+  }
 }
 
 export async function getFeaturedProducts(limit = 8) {
-  if (!hasDatabase()) {
-    return previewProducts.filter((product) => product.featured).slice(0, limit);
-  }
+  const preview = () => previewProducts.filter((product) => product.featured).slice(0, limit);
+  if (!hasDatabase()) return preview();
 
-  return db
-    .select()
-    .from(products)
-    .where(eq(products.featured, true))
-    .orderBy(desc(products.rating))
-    .limit(limit);
+  try {
+    return await db
+      .select()
+      .from(products)
+      .where(eq(products.featured, true))
+      .orderBy(desc(products.rating))
+      .limit(limit);
+  } catch (error) {
+    if (isMissingDatabaseRelation(error)) return preview();
+    throw error;
+  }
 }
 
 export type ProductFilters = {
@@ -128,27 +198,9 @@ export async function getFilteredProducts(rawFilters: ProductFilters) {
     ? parsed.data
     : { q: "", category: "", sort: "newest" as const };
 
-  if (!hasDatabase()) {
-    const previewRows = filterPreviewProducts(q, category)
-      .sort((a, b) => {
-        if (sort === "price-asc") return a.priceCents - b.priceCents;
-        if (sort === "price-desc") return b.priceCents - a.priceCents;
-        if (sort === "rating") return Number(b.featured) - Number(a.featured) || b.id - a.id;
-        return b.id - a.id;
-      })
-      .slice(0, 60)
-      .map((product) => {
-        const productCategory = previewCategories.find((item) => item.id === product.categoryId);
-        return {
-          product,
-          categoryName: productCategory?.name ?? "",
-          categoryNameAr: productCategory?.nameAr ?? "",
-          categorySlug: productCategory?.slug ?? "",
-        };
-      });
-    return { rows: previewRows, applied: { q, category, sort } };
-  }
+  if (!hasDatabase()) return getPreviewFilteredProducts(q, category, sort);
 
+  try {
   const conditions = [];
   if (q) {
     // ilike is parameterized; escape LIKE wildcards in user input.
@@ -188,63 +240,70 @@ export async function getFilteredProducts(rawFilters: ProductFilters) {
     .limit(60);
 
   return { rows, applied: { q, category, sort } };
+  } catch (error) {
+    if (isMissingDatabaseRelation(error)) return getPreviewFilteredProducts(q, category, sort);
+    throw error;
+  }
 }
 
 export async function getProductBySlug(rawSlug: string) {
   const parsed = slugSchema.safeParse(rawSlug);
   if (!parsed.success) return null;
 
-  if (!hasDatabase()) {
-    const product = previewProducts.find((item) => item.slug === parsed.data);
-    if (!product) return null;
-    const category = previewCategories.find((item) => item.id === product.categoryId);
-    if (!category) return null;
-    return {
-      product,
-      categoryName: category.name,
-      categoryNameAr: category.nameAr,
-      categorySlug: category.slug,
-    };
+  if (!hasDatabase()) return getPreviewProductBySlug(parsed.data);
+
+  try {
+    const [row] = await db
+      .select({
+        product: products,
+        categoryName: categories.name,
+        categoryNameAr: categories.nameAr,
+        categorySlug: categories.slug,
+      })
+      .from(products)
+      .innerJoin(categories, eq(products.categoryId, categories.id))
+      .where(eq(products.slug, parsed.data))
+      .limit(1);
+
+    return row ?? null;
+  } catch (error) {
+    if (isMissingDatabaseRelation(error)) return getPreviewProductBySlug(parsed.data);
+    throw error;
   }
-
-  const [row] = await db
-    .select({
-      product: products,
-      categoryName: categories.name,
-      categoryNameAr: categories.nameAr,
-      categorySlug: categories.slug,
-    })
-    .from(products)
-    .innerJoin(categories, eq(products.categoryId, categories.id))
-    .where(eq(products.slug, parsed.data))
-    .limit(1);
-
-  return row ?? null;
 }
 
 export async function getRelatedProducts(categoryId: number, excludeId: number, limit = 4) {
-  if (!hasDatabase()) {
-    return previewProducts
-      .filter((product) => product.categoryId === categoryId && product.id !== excludeId)
-      .slice(0, limit);
-  }
+  const preview = () => previewProducts
+    .filter((product) => product.categoryId === categoryId && product.id !== excludeId)
+    .slice(0, limit);
+  if (!hasDatabase()) return preview();
 
-  return db
-    .select()
-    .from(products)
-    .where(and(eq(products.categoryId, categoryId), sql`${products.id} <> ${excludeId}`))
-    .orderBy(desc(products.rating))
-    .limit(limit);
+  try {
+    return await db
+      .select()
+      .from(products)
+      .where(and(eq(products.categoryId, categoryId), sql`${products.id} <> ${excludeId}`))
+      .orderBy(desc(products.rating))
+      .limit(limit);
+  } catch (error) {
+    if (isMissingDatabaseRelation(error)) return preview();
+    throw error;
+  }
 }
 
 export async function orderExistsByNumber(rawNumber: string): Promise<boolean> {
   const parsed = orderNumberSchema.safeParse(rawNumber);
   if (!parsed.success || !hasDatabase()) return false;
 
-  const [order] = await db
-    .select({ id: orders.id })
-    .from(orders)
-    .where(eq(orders.orderNumber, parsed.data))
-    .limit(1);
-  return Boolean(order);
+  try {
+    const [order] = await db
+      .select({ id: orders.id })
+      .from(orders)
+      .where(eq(orders.orderNumber, parsed.data))
+      .limit(1);
+    return Boolean(order);
+  } catch (error) {
+    if (isMissingDatabaseRelation(error)) return false;
+    throw error;
+  }
 }
