@@ -49,15 +49,22 @@ export default async function AccountPage() {
         </div>
       </div>
 
+      <section className="relative mb-7 overflow-hidden rounded-3xl border border-primary/25 bg-gradient-to-br from-[#181b2a] via-[#251b2a] to-[#111827] p-6 text-white shadow-xl sm:p-8">
+        <div aria-hidden className="absolute -end-12 -top-20 h-64 w-64 rounded-full bg-rose-500/20 blur-3xl" />
+        <div className="relative flex flex-wrap items-end justify-between gap-5">
+          <div>
+            <p className="text-sm font-semibold text-white/70">{ar ? "رصيد محفظتك" : "Your wallet balance"}</p>
+            <p className="mt-2 text-4xl font-black tabular-nums sm:text-5xl">$0.00</p>
+            <p className="mt-2 text-sm text-white/60">≈ EGP 0 · {words.demo}</p>
+            <p className="mt-3 max-w-xl text-xs leading-6 text-white/55">{ar ? "رصيد تجريبي للعرض فقط، لا يمثل أموالاً حقيقية ولا يمكن سحبه أو استخدامه للشراء." : "Demo balance only. It is not real money and cannot be withdrawn or used for purchases."}</p>
+          </div>
+          <Link href="/account/wallet" className="inline-flex min-h-11 items-center rounded-xl bg-rose-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-rose-400">{ar ? "تفاصيل المحفظة" : "Wallet details"} <span className="ms-2">→</span></Link>
+        </div>
+      </section>
+
       <AccountNav locale={locale} active="/account" />
 
       <div className="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <section className="glass-card card-glow-green p-5">
-          <div className="flex items-center justify-between"><p className="text-sm text-muted">{words.wallet}</p><span className="text-xl">▣</span></div>
-          <p className="mt-3 text-3xl font-extrabold tabular-nums">$0.00</p>
-          <p className="mt-1 text-sm font-semibold text-muted">≈ EGP 0</p>
-          <span className="mt-4 inline-flex badge-neutral">{words.demo}</span>
-        </section>
         <section className="glass-card p-5">
           <div className="flex items-center justify-between"><p className="text-sm text-muted">{words.orders}</p><span className="text-xl">▤</span></div>
           <p className="mt-3 text-3xl font-extrabold tabular-nums">0</p>
