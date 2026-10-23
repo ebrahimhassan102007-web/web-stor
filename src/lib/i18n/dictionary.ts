@@ -216,6 +216,7 @@ const en = {
     priceAsc: "Price: Low to High",
     priceDesc: "Price: High to Low",
     rating: "Featured first",
+    clear: "Clear filters",
     all: "All",
   },
   product: {
@@ -523,6 +524,7 @@ const ar: Dict = {
     priceAsc: "السعر: من الأقل للأعلى",
     priceDesc: "السعر: من الأعلى للأقل",
     rating: "المميزة أولاً",
+    clear: "مسح الفلاتر",
     all: "الكل",
   },
   product: {
