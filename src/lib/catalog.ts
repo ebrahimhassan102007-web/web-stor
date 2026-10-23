@@ -81,6 +81,9 @@ const PREVIEW_ONLY_PRODUCT_SLUGS = new Set([
   "chatgpt-pro-1mo",
   "free-fire-110-diamonds",
   "free-fire-530-diamonds",
+  "claude-pro-1mo",
+  "pubg-325-uc",
+  "pubg-660-uc",
 ]);
 
 /**
