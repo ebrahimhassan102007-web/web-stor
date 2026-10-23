@@ -6,6 +6,7 @@ import "@fontsource-variable/cairo"; // Arabic (used when lang="ar")
 import "./globals.css";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
+import { FooterVisibility } from "@/components/footer-visibility";
 import { CartProvider } from "@/components/cart-provider";
 import { LocaleProvider } from "@/components/locale-provider";
 import { getI18n, getTheme } from "@/lib/i18n/server";
@@ -54,7 +55,7 @@ export default async function RootLayout({
           <CartProvider>
             <Header initialTheme={theme} />
             <main className="flex-1">{children}</main>
-            <Footer />
+            <FooterVisibility><Footer /></FooterVisibility>
           </CartProvider>
         </LocaleProvider>
       </body>
