@@ -89,7 +89,7 @@ const PREVIEW_ONLY_PRODUCT_SLUGS = new Set([
  * read-only and never inserted into the database or accepted by checkout.
  */
 async function getPreviewOnlyRows(existingSlugs: string[] = []) {
-  if (process.env.VERCEL_ENV !== "preview") return [];
+
   const existing = new Set(existingSlugs);
   const categoriesInDb = await db.select().from(categories);
   return previewProducts
@@ -212,7 +212,7 @@ export async function getFeaturedProducts(limit = 8) {
       .orderBy(desc(products.rating))
       .limit(limit);
     const showcase = await getPreviewOnlyRows(existing.map((product) => product.slug));
-    return [...existing, ...showcase.filter((row) => row.product.featured).map((row) => row.product)].slice(0, limit);
+    return [...showcase.filter((row) => row.product.featured).map((row) => row.product), ...existing].slice(0, limit);
   } catch (error) {
     if (isMissingDatabaseRelation(error)) return preview();
     throw error;
