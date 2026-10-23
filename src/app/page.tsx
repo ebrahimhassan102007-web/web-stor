@@ -77,15 +77,15 @@ export default async function HomePage() {
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-dim text-lg font-black text-white shadow-lg shadow-primary/20">E</span>
                   <div className="min-w-0">
                     <p className="font-bold tracking-tight">E-Vora</p>
-                    <p className="mt-0.5 line-clamp-1 text-xs text-muted">{t.home.featuredSub}</p>
+                    <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted">{t.home.previewSub}</p>
                   </div>
                 </div>
                 <span className="badge-neutral max-w-28 shrink-0 truncate text-[10px] sm:max-w-40">{t.hero.badge}</span>
               </div>
               <div className="mt-4 flex items-end justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">{t.home.featuredTitle}</p>
-                  <h2 className="mt-1 text-2xl font-extrabold tracking-tight"><span className="text-primary">{t.home.featuredAccent}</span></h2>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">{t.home.previewTitle}</p>
+                  <h2 className="mt-1 text-2xl font-extrabold tracking-tight"><span className="text-primary">{t.home.previewAccent}</span></h2>
                 </div>
                 <Link href="/products" className="shrink-0 text-sm font-semibold text-primary transition-colors hover:text-foreground">
                   {t.home.viewAll} <span aria-hidden className="inline-block rtl:-scale-x-100">→</span>
@@ -123,23 +123,23 @@ export default async function HomePage() {
       </section>
 
       {/* Trust badges */}
-      <section aria-label="E-Vora" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section aria-label="E-Vora" className="mt-6 grid gap-3 sm:mt-8 sm:grid-cols-2 lg:grid-cols-4">
         {t.badges.map((b) => (
-          <div key={b.title} className="glass-card card-glow-green p-5">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl" aria-hidden>
+          <div key={b.title} className="glass-card card-glow-green group p-5 transition-transform duration-300 hover:-translate-y-1 sm:p-6">
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-edge bg-raised/80 text-xl" aria-hidden>
                 {b.icon}
               </span>
-              <h2 className="font-semibold">{b.title}</h2>
+              <h2 className="pt-1 font-semibold leading-snug">{b.title}</h2>
             </div>
-            <p className="mt-2 text-sm text-muted leading-relaxed">{b.text}</p>
+            <p className="mt-4 text-sm leading-relaxed text-muted">{b.text}</p>
           </div>
         ))}
       </section>
 
       {/* Featured products */}
-      <section className="mt-20">
-        <div className="mb-8 flex items-end justify-between">
+      <section id="featured-products" className="mt-16 scroll-mt-24 sm:mt-20">
+        <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
               {t.home.featuredTitle}{" "}
@@ -149,9 +149,9 @@ export default async function HomePage() {
           </div>
           <Link
             href="/products"
-            className="hidden sm:block text-sm font-medium text-primary hover:underline underline-offset-4"
+            className="btn-ghost inline-flex min-h-10 items-center gap-2 self-start px-4 py-2 sm:self-auto"
           >
-            {t.home.viewAll}{" "}
+            {t.home.viewAll}
             <span aria-hidden className="inline-block rtl:-scale-x-100">→</span>
           </Link>
         </div>
@@ -163,28 +163,31 @@ export default async function HomePage() {
       </section>
 
       {/* Category grid */}
-      <section className="mt-20">
-        <h2 className="mb-8 text-2xl sm:text-3xl font-bold tracking-tight">
+      <section className="mt-16 sm:mt-20">
+        <h2 className="mb-6 text-2xl font-bold tracking-tight sm:mb-8 sm:text-3xl">
           {t.home.catTitle}{" "}
           <span className="text-success">{t.home.catAccent}</span>
         </h2>
-        <div className="grid gap-5 grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {categories.map((c) => (
             <Link
               key={c.id}
               href={`/products?category=${encodeURIComponent(c.slug)}`}
-              className="glass-card card-glow-red group p-5 sm:p-6"
+              className="glass-card card-glow-red group flex min-h-56 h-full flex-col p-5 transition-transform duration-300 hover:-translate-y-1 sm:p-6"
             >
-              <span className="text-3xl" aria-hidden>
-                {c.icon}
-              </span>
-              <h3 className="mt-3 font-semibold group-hover:text-primary transition-colors">
+              <div className="flex items-start justify-between gap-3">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-edge bg-raised/80 text-2xl" aria-hidden>
+                  {c.icon}
+                </span>
+                <span aria-hidden className="mt-1 inline-flex h-8 w-8 items-center justify-center rounded-full border border-edge text-muted transition-colors group-hover:border-primary/40 group-hover:text-primary rtl:-scale-x-100">→</span>
+              </div>
+              <h3 className="mt-4 font-semibold transition-colors group-hover:text-primary">
                 {locName(c, locale)}
               </h3>
-              <p className="mt-1 hidden sm:block text-sm text-muted leading-relaxed">
+              <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted">
                 {locDesc(c, locale)}
               </p>
-              <p className="mt-3 text-xs font-medium text-muted">
+              <p className="mt-auto pt-4 text-xs font-semibold text-muted">
                 {c.productCount === 1
                   ? t.home.productsCountOne
                   : fill(t.home.productsCount, { count: c.productCount })}
@@ -209,7 +212,7 @@ export default async function HomePage() {
             <p className="mx-auto mt-3 max-w-2xl text-sm sm:text-base text-muted leading-relaxed">
               {t.home.bannerText}
             </p>
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-2 font-mono text-xs">
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs font-semibold">
               {t.home.bannerChips.map((chip) => (
                 <span key={chip} className="badge-neutral">
                   {chip}

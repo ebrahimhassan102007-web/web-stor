@@ -18,7 +18,6 @@ export function ProductCard({
   categoryName?: string;
 }) {
   const t = dictionaries[locale];
-  const inCatalogue = product.stock > 0;
 
   return (
     <Link href={`/products/${product.slug}`}
@@ -31,7 +30,7 @@ export function ProductCard({
       <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
         <div className="flex min-h-6 items-center justify-between gap-2">
           {categoryName ? <span className="badge-neutral max-w-[58%] truncate">{categoryName}</span> : <span aria-hidden className="h-6" />}
-          {inCatalogue ? <span className="badge-green shrink-0">{t.card.inStock}</span> : <span className="badge-red shrink-0">{t.card.outOfStock}</span>}
+          <span className="badge-neutral shrink-0">{t.card.previewOnly}</span>
         </div>
         <h3 className="line-clamp-2 min-h-[3rem] font-semibold leading-snug transition-colors group-hover:text-primary">{locName(product, locale)}</h3>
         <p className="line-clamp-2 min-h-[2.75rem] text-sm leading-relaxed text-muted">{locDesc(product, locale)}</p>
