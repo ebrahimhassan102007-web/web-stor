@@ -6,7 +6,6 @@ import {
   getRelatedProducts,
 } from "@/lib/catalog";
 import { formatCents } from "@/lib/money";
-import { Stars } from "@/components/stars";
 import { AddToCart } from "@/components/add-to-cart";
 import { ProductCard } from "@/components/product-card";
 import { getI18n } from "@/lib/i18n/server";
@@ -56,7 +55,6 @@ export default async function ProductDetailPage(props: { params: Params }) {
   const related = await getRelatedProducts(product.categoryId, product.id, 4);
 
   const inStock = product.stock > 0;
-  const low = inStock && product.stock <= 10;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
@@ -84,7 +82,7 @@ export default async function ProductDetailPage(props: { params: Params }) {
         {/* Art */}
         <div className="glass-card overflow-hidden">
           <div className="product-art aspect-square text-[9rem] sm:text-[11rem]">
-            <span aria-hidden>{product.icon}</span>
+            <span aria-hidden className="product-art-mark">{product.icon}</span>
           </div>
         </div>
 
@@ -95,9 +93,7 @@ export default async function ProductDetailPage(props: { params: Params }) {
             {inStock ? (
               <span className="badge-green">
                 <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                {low
-                  ? fill(t.product.codesLeft, { count: product.stock })
-                  : fill(t.product.codesAvailable, { count: product.stock })}
+                {t.card.inStock}
               </span>
             ) : (
               <span className="badge-red">{t.card.outOfStock}</span>
@@ -108,10 +104,6 @@ export default async function ProductDetailPage(props: { params: Params }) {
           <h1 className="mt-4 text-3xl sm:text-4xl font-bold tracking-tight leading-tight">
             {locName(product, locale)}
           </h1>
-
-          <div className="mt-3">
-            <Stars rating={Number(product.rating)} count={product.reviewCount} locale={locale} />
-          </div>
 
           <p className="mt-5 text-muted leading-relaxed">
             {locDesc(product, locale)}

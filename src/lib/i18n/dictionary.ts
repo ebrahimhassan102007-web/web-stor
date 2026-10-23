@@ -215,7 +215,7 @@ const en = {
     newest: "Newest",
     priceAsc: "Price: Low to High",
     priceDesc: "Price: High to Low",
-    rating: "Top Rated",
+    rating: "Featured first",
     all: "All",
   },
   product: {
@@ -230,7 +230,7 @@ const en = {
     playerIdLabel: "Player ID / Account ID",
     playerIdPlaceholder: "e.g. 5123456789",
     playerIdHint:
-      "We credit this account directly — double-check your in-game ID (no password needed).",
+      "This field is for the demo preview only. Never enter your password; real top-ups are not active in this version.",
     regionLabel: "Account region",
     regionHint: "Gift-card codes only redeem on accounts of the same region.",
     officialNote: "Review requirements before continuing",
@@ -260,7 +260,7 @@ const en = {
     itemsCountOne: "1 item",
     loading: "Loading your cart…",
     emptyTitle: "Your cart is empty",
-    emptyText: "Browse top-ups, cards and keys — your code is one checkout away.",
+    emptyText: "Explore digital product listings, then review your cart in this demo. Checkout is unpaid and no codes or top-ups are delivered.",
     browse: "Browse Products",
     each: "each",
     remove: "Remove {name}",
@@ -333,7 +333,7 @@ const en = {
       "E-Vora is a catalogue for digital products such as game top-ups, gift cards, subscriptions and software keys. This preview does not process real payments or deliver codes.",
     shop: "Shop",
     allProducts: "All Products",
-    topRated: "Top Rated",
+    topRated: "Featured products",
     trust: "Why E-Vora",
     trustItems: [
       "Product details and region guidance",
@@ -521,7 +521,7 @@ const ar: Dict = {
     newest: "الأحدث",
     priceAsc: "السعر: من الأقل للأعلى",
     priceDesc: "السعر: من الأعلى للأقل",
-    rating: "الأعلى تقييماً",
+    rating: "المميزة أولاً",
     all: "الكل",
   },
   product: {
@@ -536,7 +536,7 @@ const ar: Dict = {
     playerIdLabel: "آي دي اللاعب / الحساب",
     playerIdPlaceholder: "مثال: 5123456789",
     playerIdHint:
-      "سيتم الشحن مباشرة إلى هذا الحساب — تأكد من الآي دي جيداً (لست بحاجة لكلمة المرور).",
+      "هذا الحقل للمعاينة التجريبية فقط. لا تدخل كلمة المرور؛ الشحن الفعلي غير مفعّل في هذه النسخة.",
     regionLabel: "منطقة الحساب",
     regionHint: "أكواد بطاقات الهدايا تعمل فقط على حسابات نفس المنطقة.",
     officialNote: "راجع المتطلبات قبل المتابعة",
@@ -566,7 +566,7 @@ const ar: Dict = {
     itemsCountOne: "منتج واحد",
     loading: "جارٍ تحميل السلة…",
     emptyTitle: "سلتك فارغة",
-    emptyText: "تصفح الشحنات والبطاقات والمفاتيح — كودك على بُعد طلب واحد.",
+    emptyText: "تصفح المنتجات الرقمية وراجع سلتك في هذه المعاينة. إتمام الطلب تجريبي وغير مدفوع، ولا يتم تسليم أكواد أو تنفيذ شحن.",
     browse: "تصفح المنتجات",
     each: "للواحد",
     remove: "حذف {name}",
@@ -638,7 +638,7 @@ const ar: Dict = {
       "E-Vora كتالوج للمنتجات الرقمية مثل شحن الألعاب وبطاقات الهدايا والاشتراكات ومفاتيح البرامج. هذه النسخة لا تعالج مدفوعات حقيقية ولا تسلّم أكوادًا.",
     shop: "تسوق",
     allProducts: "كل المنتجات",
-    topRated: "الأعلى تقييماً",
+    topRated: "منتجات مميزة",
     trust: "ليه E-Vora؟",
     trustItems: [
       "تفاصيل المنتجات ومتطلبات المنطقة",

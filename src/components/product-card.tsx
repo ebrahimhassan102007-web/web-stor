@@ -3,11 +3,10 @@ import type { Product } from "@/lib/db/schema";
 import { formatCents } from "@/lib/money";
 import {
   dictionaries,
-  fill,
+  locDesc,
   locName,
   type Locale,
 } from "@/lib/i18n/dictionary";
-import { Stars } from "./stars";
 
 export function ProductCard({
   product,
@@ -19,49 +18,27 @@ export function ProductCard({
   categoryName?: string;
 }) {
   const t = dictionaries[locale];
-  const inStock = product.stock > 0;
-  const low = inStock && product.stock <= 10;
+  const inCatalogue = product.stock > 0;
 
   return (
-    <Link
-      href={`/products/${product.slug}`}
-      className="glass-card card-glow-red group flex flex-col overflow-hidden"
-    >
-      <div className="product-art aspect-[4/3] text-6xl transition-transform duration-300 group-hover:scale-[1.03]">
-        <span aria-hidden>{product.icon}</span>
+    <Link href={`/products/${product.slug}`}
+      className="glass-card card-glow-red group flex h-full flex-col overflow-hidden transition-transform duration-300 hover:-translate-y-1">
+      <div className="product-art relative isolate flex aspect-[4/3] items-center justify-center text-6xl">
+        {product.featured && <span className="badge-red absolute start-4 top-4 z-10 text-xs">{t.product.featured}</span>}
+        <span aria-hidden className="product-art-mark">{product.icon}</span>
+        <span aria-hidden className="absolute bottom-4 end-4 z-10 rounded-full border border-edge/80 bg-base/60 px-2.5 py-1 font-mono text-[9px] font-semibold tracking-[0.18em] text-muted backdrop-blur">E-VORA</span>
       </div>
-
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <div className="flex items-center justify-between gap-2">
-          {categoryName ? (
-            <span className="badge-neutral">{categoryName}</span>
-          ) : (
-            <span />
-          )}
-          {inStock ? (
-            <span className="badge-green">
-              {low
-                ? fill(t.card.onlyLeft, { count: product.stock })
-                : t.card.inStock}
-            </span>
-          ) : (
-            <span className="badge-red">{t.card.outOfStock}</span>
-          )}
+      <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
+        <div className="flex min-h-6 items-center justify-between gap-2">
+          {categoryName ? <span className="badge-neutral max-w-[58%] truncate">{categoryName}</span> : <span aria-hidden className="h-6" />}
+          {inCatalogue ? <span className="badge-green shrink-0">{t.card.inStock}</span> : <span className="badge-red shrink-0">{t.card.outOfStock}</span>}
         </div>
-
-        <h3 className="font-semibold leading-snug group-hover:text-primary transition-colors">
-          {locName(product, locale)}
-        </h3>
-
-        <Stars rating={Number(product.rating)} count={product.reviewCount} locale={locale} />
-
-        <div className="mt-auto flex items-center justify-between pt-2">
-          <span className="text-lg font-bold">
-            {formatCents(product.priceCents, locale)}
-          </span>
-          <span className="text-xs font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
-            {t.card.viewDetails}{" "}
-            <span aria-hidden className="inline-block rtl:-scale-x-100">→</span>
+        <h3 className="line-clamp-2 min-h-[3rem] font-semibold leading-snug transition-colors group-hover:text-primary">{locName(product, locale)}</h3>
+        <p className="line-clamp-2 min-h-[2.75rem] text-sm leading-relaxed text-muted">{locDesc(product, locale)}</p>
+        <div className="mt-auto flex items-end justify-between gap-3 border-t border-edge pt-4">
+          <span className="text-lg font-extrabold tabular-nums">{formatCents(product.priceCents, locale)}</span>
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary transition-colors group-hover:text-foreground">
+            {t.card.viewDetails}<span aria-hidden className="inline-block rtl:-scale-x-100">→</span>
           </span>
         </div>
       </div>

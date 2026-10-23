@@ -82,7 +82,7 @@ export async function getFilteredProducts(rawFilters: ProductFilters) {
     newest: [desc(products.createdAt), desc(products.id)],
     "price-asc": [asc(products.priceCents)],
     "price-desc": [desc(products.priceCents)],
-    rating: [desc(products.rating), desc(products.reviewCount)],
+    rating: [desc(products.featured), desc(products.createdAt)],
   }[sort];
 
   const rows = await db
