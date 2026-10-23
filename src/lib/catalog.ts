@@ -1,19 +1,83 @@
 import "server-only";
 import { db, categories, products, orders } from "@/lib/db";
+import type { Category, Product } from "@/lib/db/schema";
+import { SEED_CATEGORIES, SEED_PRODUCTS } from "@/lib/db/seed-data";
 import { and, asc, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { productQuerySchema, slugSchema, orderNumberSchema } from "@/lib/validation";
 
 /**
- * Catalog data access. Every function validates its inputs with Zod before
- * they reach Drizzle, and Drizzle parameterizes everything — user input is
- * never concatenated into SQL.
+ * Catalogue data access.
+ *
+ * When DATABASE_URL is not configured yet, the public storefront can display
+ * a read-only catalogue preview backed by the same source data used by the
+ * explicit seed script. This is not a database, does not persist user data,
+ * and must never be used for carts, checkout, auth, orders, or fulfilment.
+ * Database-backed operations continue to fail closed until DATABASE_URL is set.
  */
 
+const hasDatabase = () => Boolean(process.env.DATABASE_URL?.trim());
+const previewCreatedAt = new Date("2026-01-01T00:00:00.000Z");
+
+const previewCategories: Category[] = SEED_CATEGORIES.map((category, index) => ({
+  ...category,
+  id: index + 1,
+  createdAt: previewCreatedAt,
+}));
+
+const previewCategoryIdBySlug = new Map(
+  previewCategories.map((category) => [category.slug, category.id]),
+);
+
+const previewProducts: Product[] = SEED_PRODUCTS.map((product, index) => ({
+  ...product,
+  id: index + 1,
+  categoryId: previewCategoryIdBySlug.get(product.category) ?? 1,
+  // Preview stock is intentionally zero: seed quantities are not live inventory.
+  stock: 0,
+  rating: "0.0",
+  reviewCount: 0,
+  featured: product.featured ?? false,
+  createdAt: previewCreatedAt,
+}));
+
+function findPreviewCategory(slug: string) {
+  return previewCategories.find((category) => category.slug === slug);
+}
+
+function filterPreviewProducts(q: string, category: string) {
+  const normalizedQuery = q.toLocaleLowerCase();
+  return previewProducts.filter((product) => {
+    const matchesCategory =
+      !category || findPreviewCategory(category)?.id === product.categoryId;
+    const searchText = [
+      product.name,
+      product.nameAr,
+      product.description,
+      product.descriptionAr,
+    ].join(" ").toLocaleLowerCase();
+    return matchesCategory && (!normalizedQuery || searchText.includes(normalizedQuery));
+  });
+}
+
 export async function getCategories() {
+  if (!hasDatabase()) return previewCategories;
   return db.select().from(categories).orderBy(asc(categories.id));
 }
 
 export async function getCategoriesWithCounts() {
+  if (!hasDatabase()) {
+    return previewCategories.map((category) => ({
+      id: category.id,
+      slug: category.slug,
+      name: category.name,
+      nameAr: category.nameAr,
+      description: category.description,
+      descriptionAr: category.descriptionAr,
+      icon: category.icon,
+      productCount: previewProducts.filter((product) => product.categoryId === category.id).length,
+    }));
+  }
+
   return db
     .select({
       id: categories.id,
@@ -32,6 +96,10 @@ export async function getCategoriesWithCounts() {
 }
 
 export async function getFeaturedProducts(limit = 8) {
+  if (!hasDatabase()) {
+    return previewProducts.filter((product) => product.featured).slice(0, limit);
+  }
+
   return db
     .select()
     .from(products)
@@ -59,6 +127,27 @@ export async function getFilteredProducts(rawFilters: ProductFilters) {
   const { q, category, sort } = parsed.success
     ? parsed.data
     : { q: "", category: "", sort: "newest" as const };
+
+  if (!hasDatabase()) {
+    const previewRows = filterPreviewProducts(q, category)
+      .sort((a, b) => {
+        if (sort === "price-asc") return a.priceCents - b.priceCents;
+        if (sort === "price-desc") return b.priceCents - a.priceCents;
+        if (sort === "rating") return Number(b.featured) - Number(a.featured) || b.id - a.id;
+        return b.id - a.id;
+      })
+      .slice(0, 60)
+      .map((product) => {
+        const productCategory = previewCategories.find((item) => item.id === product.categoryId);
+        return {
+          product,
+          categoryName: productCategory?.name ?? "",
+          categoryNameAr: productCategory?.nameAr ?? "",
+          categorySlug: productCategory?.slug ?? "",
+        };
+      });
+    return { rows: previewRows, applied: { q, category, sort } };
+  }
 
   const conditions = [];
   if (q) {
@@ -105,6 +194,19 @@ export async function getProductBySlug(rawSlug: string) {
   const parsed = slugSchema.safeParse(rawSlug);
   if (!parsed.success) return null;
 
+  if (!hasDatabase()) {
+    const product = previewProducts.find((item) => item.slug === parsed.data);
+    if (!product) return null;
+    const category = previewCategories.find((item) => item.id === product.categoryId);
+    if (!category) return null;
+    return {
+      product,
+      categoryName: category.name,
+      categoryNameAr: category.nameAr,
+      categorySlug: category.slug,
+    };
+  }
+
   const [row] = await db
     .select({
       product: products,
@@ -121,6 +223,12 @@ export async function getProductBySlug(rawSlug: string) {
 }
 
 export async function getRelatedProducts(categoryId: number, excludeId: number, limit = 4) {
+  if (!hasDatabase()) {
+    return previewProducts
+      .filter((product) => product.categoryId === categoryId && product.id !== excludeId)
+      .slice(0, limit);
+  }
+
   return db
     .select()
     .from(products)
@@ -131,7 +239,7 @@ export async function getRelatedProducts(categoryId: number, excludeId: number, 
 
 export async function orderExistsByNumber(rawNumber: string): Promise<boolean> {
   const parsed = orderNumberSchema.safeParse(rawNumber);
-  if (!parsed.success) return false;
+  if (!parsed.success || !hasDatabase()) return false;
 
   const [order] = await db
     .select({ id: orders.id })
