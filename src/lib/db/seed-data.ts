@@ -347,7 +347,7 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     featured: true,
   },
   {
-    slug: "chatgpt-plus-1mo",
+    slug: "chatgpt-pro-1mo",
     name: "ChatGPT Pro — 1 Month",
     nameAr: "اشتراك ChatGPT Pro — شهر",
     description: "Demo catalogue listing for a one-month ChatGPT Plus plan. Availability, eligibility and activation are not verified; no OpenAI subscription is issued in this preview.",
