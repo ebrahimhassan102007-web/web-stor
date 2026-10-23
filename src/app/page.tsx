@@ -1,17 +1,12 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { getCategoriesWithCounts, getFeaturedProducts } from "@/lib/catalog";
 import { ProductCard } from "@/components/product-card";
 import { getI18n } from "@/lib/i18n/server";
-import { getCurrentAccountUser } from "@/lib/security/account-session";
 import { locName } from "@/lib/i18n/dictionary";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const user = await getCurrentAccountUser();
-  if (!user) redirect("/login?next=%2F");
-
   const [{ locale, t }, categories, featured] = await Promise.all([
     getI18n(),
     getCategoriesWithCounts(),
