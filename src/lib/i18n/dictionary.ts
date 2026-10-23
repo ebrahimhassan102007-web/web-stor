@@ -247,6 +247,7 @@ const en = {
     added: "✓ Added to cart",
     addToCart: "Add to Cart",
     outOfStock: "Out of Stock",
+    playerIdRequired: "Enter your Player ID to continue.",
     decrease: "Decrease quantity",
     increase: "Increase quantity",
     errAdd: "Could not add to cart.",
@@ -553,6 +554,7 @@ const ar: Dict = {
     added: "✓ تمت الإضافة للسلة",
     addToCart: "أضف إلى السلة",
     outOfStock: "نفدت الكمية",
+    playerIdRequired: "أدخل آي دي اللاعب للمتابعة."
     decrease: "إنقاص الكمية",
     increase: "زيادة الكمية",
     errAdd: "تعذرت الإضافة إلى السلة.",

@@ -39,8 +39,13 @@ export function AddToCart({
 
   async function add() {
     if (!inStock || state === "busy") return;
-    setState("busy");
     setMessage("");
+    if (inputType === "player-id" && !playerId.trim()) {
+      setState("error");
+      setMessage(t.add.playerIdRequired);
+      return;
+    }
+    setState("busy");
     try {
       const res = await fetch("/api/cart/items", {
         method: "POST",
@@ -85,8 +90,16 @@ export function AddToCart({
             inputMode="numeric"
             autoComplete="off"
             maxLength={64}
+            required
+            aria-invalid={state === "error" && !playerId.trim()}
             value={playerId}
-            onChange={(e) => setPlayerId(e.target.value)}
+            onChange={(e) => {
+              setPlayerId(e.target.value);
+              if (state === "error") {
+                setState("idle");
+                setMessage("");
+              }
+            }}
             placeholder={t.product.playerIdPlaceholder}
             className="input-dark"
           />
