@@ -313,9 +313,8 @@ export async function getProductBySlug(rawSlug: string) {
       .limit(1);
 
     if (row) return row;
-    const [showcase] = await getPreviewOnlyRows();
-    const previewMatch = showcase ? await getPreviewOnlyRows().then((items) => items.find((item) => item.product.slug === parsed.data)) : undefined;
-    return previewMatch ?? null;
+    const showcase = await getPreviewOnlyRows();
+    return showcase.find((item) => item.product.slug === parsed.data) ?? null;
   } catch (error) {
     if (isMissingDatabaseRelation(error)) return getPreviewProductBySlug(parsed.data);
     throw error;
