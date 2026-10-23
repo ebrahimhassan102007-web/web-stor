@@ -4,28 +4,33 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useCart } from "./cart-provider";
+import { useI18n } from "./locale-provider";
+import { LanguageToggle, ThemeToggle } from "./preference-toggles";
+import { fill, type Theme } from "@/lib/i18n/dictionary";
 
-const NAV = [
-  { href: "/", label: "Home" },
-  { href: "/products", label: "Products" },
-  { href: "/cart", label: "Cart" },
-];
-
-export function Header() {
+export function Header({ initialTheme }: { initialTheme: Theme }) {
   const pathname = usePathname();
   const { count } = useCart();
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
+
+  const NAV = [
+    { href: "/", label: t.nav.home },
+    { href: "/products", label: t.nav.products },
+    { href: "/cart", label: t.nav.cart },
+    { href: "/account", label: t.nav.account },
+  ];
 
   return (
     <header className="sticky top-0 z-50 glass border-x-0 border-t-0">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
         {/* Brand */}
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 border border-primary/30 text-primary font-bold group-hover:shadow-[0_0_16px_rgba(239,68,68,0.4)] transition-shadow">
-            W
+        <Link href="/" aria-label={`${t.nav.home} — E-Vora`} className="flex items-center gap-2.5 group shrink-0">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-dim text-white text-lg font-black shadow-[0_4px_16px_rgba(239,68,68,0.35)] group-hover:shadow-[0_4px_22px_rgba(239,68,68,0.55)] transition-shadow">
+            E
           </span>
-          <span className="text-lg font-bold tracking-tight">
-            Web<span className="text-primary">Stor</span>
+          <span className="text-lg font-extrabold tracking-tight">
+            E<span className="text-primary">-Vora</span>
           </span>
         </Link>
 
@@ -43,7 +48,7 @@ export function Header() {
                 className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                   active
                     ? "text-primary bg-primary/10"
-                    : "text-muted hover:text-foreground hover:bg-white/5"
+                    : "text-muted hover:text-foreground hover:bg-hover"
                 }`}
               >
                 {item.label}
@@ -52,16 +57,19 @@ export function Header() {
           })}
         </nav>
 
-        <div className="flex items-center gap-3">
-          <span className="hidden sm:inline-flex badge-green">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <span className="hidden lg:inline-flex badge-green">
             <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-            Secure
+            {t.nav.secure}
           </span>
+
+          <LanguageToggle />
+          <ThemeToggle initialTheme={initialTheme} />
 
           {/* Cart */}
           <Link
             href="/cart"
-            aria-label={`Cart, ${count} items`}
+            aria-label={fill(t.nav.cartAria, { count })}
             className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-edge bg-raised/60 hover:border-primary/40 transition-colors"
           >
             <svg
@@ -78,7 +86,7 @@ export function Header() {
               />
             </svg>
             {count > 0 && (
-              <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-bold text-white">
+              <span className="absolute -end-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-bold text-white">
                 {count > 99 ? "99+" : count}
               </span>
             )}
@@ -87,7 +95,7 @@ export function Header() {
           {/* Mobile menu toggle */}
           <button
             type="button"
-            aria-label="Toggle menu"
+            aria-label={t.nav.menuToggle}
             aria-expanded={open}
             onClick={() => setOpen((v) => !v)}
             className="md:hidden flex h-10 w-10 items-center justify-center rounded-lg border border-edge bg-raised/60"
@@ -125,7 +133,7 @@ export function Header() {
               key={item.href}
               href={item.href}
               onClick={() => setOpen(false)}
-              className="block rounded-lg px-4 py-2.5 text-sm font-medium text-muted hover:text-foreground hover:bg-white/5"
+              className="block rounded-lg px-4 py-2.5 text-sm font-medium text-muted hover:text-foreground hover:bg-hover"
             >
               {item.label}
             </Link>

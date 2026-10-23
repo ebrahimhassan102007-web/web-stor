@@ -1,4 +1,5 @@
 import "server-only";
+import { trustedClientIp, UNTRUSTED_PROXY_KEY } from "@/lib/security/client-ip";
 
 /**
  * Minimal in-memory sliding-window rate limiter.
@@ -38,6 +39,8 @@ export function rateLimit(
 }
 
 export function clientKey(req: Request): string {
-  const fwd = req.headers.get("x-forwarded-for");
-  return fwd ? fwd.split(",")[0].trim() : "local";
+  return (
+    trustedClientIp(req, process.env.TRUST_PROXY_IP_HEADERS === "true") ??
+    UNTRUSTED_PROXY_KEY
+  );
 }

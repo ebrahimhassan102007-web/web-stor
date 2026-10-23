@@ -40,7 +40,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local dev database
-.pgdata/
+# Optional local PGlite files used only by isolated tests (never runtime)
+.pglite/
 .env
 !.env.example

@@ -1,20 +1,61 @@
 @import "tailwindcss";
 
 /* ------------------------------------------------------------------ */
-/* WebStor dark theme — deep blacks, red primary, green success        */
+/* E-Vora theme tokens — deep-black dark mode + clean light mode.      */
+/* The active theme is chosen by `data-theme` on <html> (cookie-driven, */
+/* see src/app/layout.tsx). Defaults to dark.                          */
 /* ------------------------------------------------------------------ */
-:root {
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
   --bg-deep: #050505;
   --bg-base: #0a0a0a;
   --bg-raised: #111111;
   --bg-card: #141414;
   --border-subtle: #1f1f1f;
+  --border-strong: rgba(255, 255, 255, 0.22);
   --foreground: #e7e7e7;
   --muted: #8a8a8a;
   --accent-red: #ef4444;
   --accent-red-dim: #b91c1c;
   --accent-green: #22c55e;
   --accent-green-dim: #15803d;
+  --glass-bg: rgba(8, 8, 8, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --hover-fill: rgba(255, 255, 255, 0.05);
+  --card-shadow: none;
+  --input-bg: rgba(10, 10, 10, 0.8);
+  --glow-red: rgba(239, 68, 68, 0.07);
+  --glow-green: rgba(34, 197, 94, 0.05);
+  --tile-from: #161616;
+  --tile-to: #0d0d0d;
+  --tile-glow: rgba(239, 68, 68, 0.08);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg-deep: #f4f5f7;
+  --bg-base: #eceef1;
+  --bg-raised: #ffffff;
+  --bg-card: #ffffff;
+  --border-subtle: #e2e5ea;
+  --border-strong: rgba(15, 23, 42, 0.25);
+  --foreground: #16181d;
+  --muted: #5f6b7a;
+  --accent-red: #d92d20;
+  --accent-red-dim: #b42318;
+  --accent-green: #12805c;
+  --accent-green-dim: #0b6e4f;
+  --glass-bg: rgba(255, 255, 255, 0.78);
+  --glass-border: rgba(15, 23, 42, 0.08);
+  --hover-fill: rgba(15, 23, 42, 0.05);
+  --card-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 10px 24px rgba(16, 24, 40, 0.05);
+  --input-bg: #ffffff;
+  --glow-red: rgba(239, 68, 68, 0.05);
+  --glow-green: rgba(34, 197, 94, 0.04);
+  --tile-from: #f2f4f7;
+  --tile-to: #e6eaf0;
+  --tile-glow: rgba(239, 68, 68, 0.06);
 }
 
 @theme inline {
@@ -23,6 +64,8 @@
   --color-raised: var(--bg-raised);
   --color-card: var(--bg-card);
   --color-edge: var(--border-subtle);
+  --color-strong: var(--border-strong);
+  --color-hover: var(--hover-fill);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-primary: var(--accent-red);
@@ -34,8 +77,21 @@
 }
 
 html {
-  color-scheme: dark;
   scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 body {
@@ -43,13 +99,22 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 250ms ease, color 250ms ease;
+}
+
+/* Arabic: Cairo font, and letter-spacing must never split joined script. */
+html[lang="ar"] body {
+  font-family: "Cairo Variable", var(--font-sans), system-ui, sans-serif;
+}
+html[lang="ar"] * {
+  letter-spacing: normal !important;
 }
 
 /* Subtle red/green ambient glow at the top of the page */
 .bg-mesh {
   background:
-    radial-gradient(60rem 30rem at 15% -10%, rgba(239, 68, 68, 0.07), transparent 60%),
-    radial-gradient(50rem 26rem at 85% -10%, rgba(34, 197, 94, 0.05), transparent 60%),
+    radial-gradient(60rem 30rem at 15% -10%, var(--glow-red), transparent 60%),
+    radial-gradient(50rem 26rem at 85% -10%, var(--glow-green), transparent 60%),
     var(--bg-deep);
 }
 
@@ -57,18 +122,19 @@ body {
 /* Reusable component utilities                                        */
 /* ------------------------------------------------------------------ */
 @utility glass {
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--glass-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
 }
 
 @utility glass-card {
-  background: rgba(17, 17, 17, 0.6);
+  background: color-mix(in srgb, var(--bg-card) 88%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
   border-radius: 1rem;
+  box-shadow: var(--card-shadow);
   transition:
     border-color 200ms ease,
     box-shadow 200ms ease,
@@ -101,7 +167,7 @@ body {
   padding: 0.65rem 1.25rem;
   transition: background 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
   &:hover {
-    background: #dc2626;
+    background: var(--accent-red-dim);
     box-shadow: 0 0 20px rgba(239, 68, 68, 0.35);
   }
   &:disabled {
@@ -117,7 +183,7 @@ body {
   gap: 0.5rem;
   border-radius: 0.65rem;
   border: 1px solid var(--border-subtle);
-  background: rgba(17, 17, 17, 0.6);
+  background: color-mix(in srgb, var(--bg-card) 70%, transparent);
   color: var(--foreground);
   font-weight: 500;
   padding: 0.65rem 1.25rem;
@@ -136,7 +202,7 @@ body {
   width: 100%;
   border-radius: 0.65rem;
   border: 1px solid var(--border-subtle);
-  background: rgba(10, 10, 10, 0.8);
+  background: var(--input-bg);
   color: var(--foreground);
   padding: 0.65rem 0.9rem;
   outline: none;
@@ -182,20 +248,117 @@ body {
   gap: 0.35rem;
   border-radius: 999px;
   border: 1px solid var(--border-subtle);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--hover-fill);
   color: var(--muted);
   font-size: 0.75rem;
   font-weight: 600;
   padding: 0.25rem 0.7rem;
 }
 
-/* Product art tile (emoji-based imagery on a dark gradient) */
+/* Product art tile (emoji-based imagery on a themed gradient) */
 @utility product-art {
   display: flex;
   align-items: center;
   justify-content: center;
   background:
-    radial-gradient(18rem 12rem at 50% 0%, rgba(239, 68, 68, 0.08), transparent 70%),
-    linear-gradient(180deg, #161616 0%, #0d0d0d 100%);
+    radial-gradient(18rem 12rem at 50% 0%, var(--tile-glow), transparent 70%),
+    linear-gradient(180deg, var(--tile-from) 0%, var(--tile-to) 100%);
   user-select: none;
+}
+
+/* Authentication motif: a quiet orbit around the E-Vora mark. */
+.auth-orbit {
+  position: relative;
+  width: 5rem;
+  height: 5rem;
+  margin: 0 auto 1.25rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent-red) 32%, transparent);
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent-red) 12%, transparent), transparent 68%);
+}
+
+.auth-orbit::before,
+.auth-orbit::after {
+  content: "";
+  position: absolute;
+  inset: -0.55rem;
+  border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent);
+  border-radius: 50%;
+  transform: rotate(-28deg) scaleY(0.58);
+}
+
+.auth-orbit::after {
+  inset: -0.35rem;
+  transform: rotate(34deg) scaleY(0.7);
+  border-color: color-mix(in srgb, var(--accent-green) 24%, transparent);
+}
+
+.auth-orbit-core {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, var(--accent-red), var(--accent-red-dim));
+  box-shadow: 0 0 24px color-mix(in srgb, var(--accent-red) 30%, transparent);
+  color: white;
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.auth-orbit-dot {
+  position: absolute;
+  inset-block-start: -0.3rem;
+  inset-inline-end: 0.45rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent-green) 70%, transparent);
+  animation: orbit-pulse 2s ease-in-out infinite;
+}
+
+@keyframes orbit-pulse {
+  50% { transform: scale(0.72); opacity: 0.58; }
+}
+
+.otp-inputs {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.55rem;
+  max-width: 24rem;
+  margin-inline: auto;
+}
+
+.otp-cell {
+  min-width: 0;
+  width: 100%;
+  height: 3.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  background: var(--input-bg);
+  color: var(--foreground);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-align: center;
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.otp-cell:focus {
+  border-color: color-mix(in srgb, var(--accent-red) 65%, var(--border-subtle));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-red) 14%, transparent);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 380px) {
+  .otp-inputs { gap: 0.35rem; }
+  .otp-cell { height: 3.1rem; font-size: 1.1rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-orbit-dot { animation: none; }
 }

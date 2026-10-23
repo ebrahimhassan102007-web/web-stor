@@ -9,7 +9,9 @@ import { NextResponse } from "next/server";
  */
 
 export function jsonOk<T>(data: T, init?: ResponseInit) {
-  return NextResponse.json({ ok: true as const, data }, init);
+  const headers = new Headers(init?.headers);
+  headers.set("Cache-Control", "no-store");
+  return NextResponse.json({ ok: true as const, data }, { ...init, headers });
 }
 
 export function jsonError(
@@ -19,7 +21,7 @@ export function jsonError(
 ) {
   return NextResponse.json(
     { ok: false as const, error: message, ...(details ? { details } : {}) },
-    { status },
+    { status, headers: { "Cache-Control": "no-store" } },
   );
 }
 

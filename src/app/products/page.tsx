@@ -3,13 +3,29 @@ import { Suspense } from "react";
 import { getCategories, getFilteredProducts } from "@/lib/catalog";
 import { ProductCard } from "@/components/product-card";
 import { ProductFilters } from "@/components/product-filters";
+import { getI18n } from "@/lib/i18n/server";
+import { fill, locName } from "@/lib/i18n/dictionary";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Products",
-  description: "Browse the full WebStor catalog — electronics, security gear, fashion, gaming and more.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+    title: t.meta.productsTitle,
+    description: t.meta.productsDescription,
+    openGraph: {
+      title: `${t.meta.productsTitle} · E-Vora`,
+      description: t.meta.productsDescription,
+      siteName: "E-Vora",
+      type: "website",
+    },
+    twitter: {
+      card: "summary",
+      title: `${t.meta.productsTitle} · E-Vora`,
+      description: t.meta.productsDescription,
+    },
+  };
+}
 
 type SearchParams = Promise<{
   q?: string | string[];
@@ -21,7 +37,8 @@ export default async function ProductsPage(props: {
   searchParams: SearchParams;
 }) {
   const searchParams = await props.searchParams;
-  const [{ rows, applied }, categories] = await Promise.all([
+  const [{ locale, t }, { rows, applied }, categories] = await Promise.all([
+    getI18n(),
     getFilteredProducts(searchParams),
     getCategories(),
   ]);
@@ -34,19 +51,23 @@ export default async function ProductsPage(props: {
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
           {activeCategory ? (
             <>
-              {activeCategory.icon} {activeCategory.name}
+              {activeCategory.icon} {locName(activeCategory, locale)}
             </>
           ) : (
             <>
-              All <span className="text-primary">Products</span>
+              {t.products.allTitle}{" "}
+              <span className="text-primary">{t.products.allAccent}</span>
             </>
           )}
         </h1>
         <p className="mt-2 text-sm text-muted">
-          {rows.length} {rows.length === 1 ? "product" : "products"}
+          {rows.length === 1
+            ? t.products.countOne
+            : fill(t.products.count, { count: rows.length })}
           {applied.q && (
             <>
-              {" "}matching <span className="text-foreground font-medium">“{applied.q}”</span>
+              {" "}
+              {fill(t.products.matching, { q: applied.q })}
             </>
           )}
         </p>
@@ -56,7 +77,7 @@ export default async function ProductsPage(props: {
         <ProductFilters
           categories={categories.map((c) => ({
             slug: c.slug,
-            name: c.name,
+            name: locName(c, locale),
             icon: c.icon,
           }))}
           applied={applied}
@@ -66,18 +87,20 @@ export default async function ProductsPage(props: {
       {rows.length === 0 ? (
         <div className="glass-card mt-8 p-12 text-center">
           <p className="text-4xl" aria-hidden>🔍</p>
-          <h2 className="mt-4 text-lg font-semibold">No products found</h2>
-          <p className="mt-1 text-sm text-muted">
-            Try a different search term or clear the filters.
-          </p>
+          <h2 className="mt-4 text-lg font-semibold">{t.products.emptyTitle}</h2>
+          <p className="mt-1 text-sm text-muted">{t.products.emptyText}</p>
         </div>
       ) : (
         <div className="mt-8 grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {rows.map(({ product, categoryName }) => (
+          {rows.map(({ product, categoryName, categoryNameAr }) => (
             <ProductCard
               key={product.id}
               product={product}
-              categoryName={categoryName}
+              locale={locale}
+              categoryName={locName(
+                { name: categoryName, nameAr: categoryNameAr },
+                locale,
+              )}
             />
           ))}
         </div>
