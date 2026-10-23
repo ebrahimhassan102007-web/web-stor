@@ -69,6 +69,18 @@ export function ProductFilters({
           <option value="price-desc">{t.filters.priceDesc}</option>
           <option value="rating">{t.filters.rating}</option>
         </select>
+        {(applied.q || applied.category || applied.sort !== "newest") && (
+          <button
+            type="button"
+            onClick={() => {
+              setQ("");
+              pushParams({ q: "", category: "", sort: "newest" });
+            }}
+            className="btn-ghost min-h-11 w-full px-4 text-sm sm:w-auto"
+          >
+            {t.filters.clear}
+          </button>
+        )}
       </div>
 
       {/* Category pills */}

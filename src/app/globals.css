@@ -111,6 +111,14 @@ html[lang="ar"] * {
 }
 
 /* Subtle red/green ambient glow at the top of the page */
+.hero-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--foreground) 5%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--foreground) 5%, transparent) 1px, transparent 1px);
+  background-size: 30px 30px;
+  mask-image: radial-gradient(ellipse at center, #000 0%, transparent 78%);
+}
+
 .bg-mesh {
   background:
     radial-gradient(60rem 30rem at 15% -10%, var(--glow-red), transparent 60%),
@@ -257,6 +265,9 @@ html[lang="ar"] * {
 
 /* Product art tile (emoji-based imagery on a themed gradient) */
 @utility product-art {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -264,6 +275,49 @@ html[lang="ar"] * {
     radial-gradient(18rem 12rem at 50% 0%, var(--tile-glow), transparent 70%),
     linear-gradient(180deg, var(--tile-from) 0%, var(--tile-to) 100%);
   user-select: none;
+
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    inset: 14%;
+    border: 1px solid color-mix(in srgb, var(--accent-red) 22%, transparent);
+    border-radius: 50%;
+    transform: rotate(-24deg) scaleY(0.62);
+    pointer-events: none;
+  }
+
+  &::after {
+    inset: 22% 10%;
+    border-color: color-mix(in srgb, var(--accent-green) 20%, transparent);
+    transform: rotate(31deg) scaleY(0.72);
+  }
+}
+
+.product-art-mark {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 1.5em;
+  aspect-ratio: 1;
+  border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent);
+  border-radius: 0.34em;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--bg-raised) 92%, white 8%), var(--bg-card));
+  box-shadow:
+    0 18px 40px color-mix(in srgb, var(--bg-deep) 50%, transparent),
+    inset 0 1px color-mix(in srgb, white 8%, transparent);
+  line-height: 1;
+  transform: rotate(-4deg);
+  transition: transform 240ms ease, box-shadow 240ms ease;
+}
+
+.group:hover .product-art-mark {
+  transform: translateY(-3px) rotate(0deg);
+  box-shadow:
+    0 22px 45px color-mix(in srgb, var(--bg-deep) 60%, transparent),
+    inset 0 1px color-mix(in srgb, white 10%, transparent);
 }
 
 /* Authentication motif: a quiet orbit around the E-Vora mark. */
@@ -361,4 +415,13 @@ html[lang="ar"] * {
 
 @media (prefers-reduced-motion: reduce) {
   .auth-orbit-dot { animation: none; }
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  .product-art-mark,
+  .group:hover .product-art-mark {
+    transition: none;
+    transform: none;
+  }
 }

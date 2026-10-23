@@ -16,32 +16,32 @@ export const SEED_CATEGORIES = [
     name: "Game Top-Ups",
     nameAr: "شحن الألعاب",
     icon: "⚡",
-    description: "Instant in-game currency credited straight to your Player ID.",
-    descriptionAr: "عملات ألعاب فورية تُضاف مباشرة إلى حسابك عبر الآي دي.",
+    description: "Browse game top-up listings and review requirements for each package. This preview does not process payment or deliver in-game currency.",
+    descriptionAr: "تصفح منتجات شحن الألعاب وراجع متطلبات كل باقة. هذه المعاينة لا تعالج مدفوعات ولا تنفذ شحنًا فعليًا داخل الألعاب.",
   },
   {
     slug: "gift-cards",
     name: "Gift Cards",
     nameAr: "بطاقات الهدايا",
     icon: "🎁",
-    description: "Official store credit for Steam, PlayStation, Xbox and more.",
-    descriptionAr: "رصيد رسمي لمتاجر ستيم وبلايستيشن وإكس بوكس والمزيد.",
+    description: "Browse gift-card listings and review store and region requirements. This preview does not issue redeemable codes.",
+    descriptionAr: "تصفح بطاقات الهدايا وراجع متطلبات المتجر والمنطقة. هذه المعاينة لا تصدر أكوادًا قابلة للاستبدال.",
   },
   {
     slug: "subscriptions",
     name: "Subscriptions",
     nameAr: "اشتراكات",
     icon: "🌟",
-    description: "Premium memberships for gaming, music and streaming.",
-    descriptionAr: "عضويات مدفوعة للألعاب والموسيقى والبث الترفيهي.",
+    description: "Browse subscription listings and check plan length, platform and account requirements. This preview does not activate subscriptions.",
+    descriptionAr: "تصفح الاشتراكات وراجع مدة الخطة والمنصة ومتطلبات الحساب. هذه المعاينة لا تُفعّل أي اشتراك.",
   },
   {
     slug: "software-keys",
     name: "Software & Game Keys",
     nameAr: "مفاتيح البرامج والألعاب",
     icon: "🔑",
-    description: "Genuine activation keys for Windows, Office and PC games.",
-    descriptionAr: "مفاتيح تفعيل أصلية لويندوز وأوفيس وألعاب الكمبيوتر.",
+    description: "Browse software and PC-game key listings. License type, region and activation eligibility need confirmation; this preview issues no keys.",
+    descriptionAr: "تصفح مفاتيح البرامج وألعاب الكمبيوتر. يجب التأكد من نوع الترخيص والمنطقة وصلاحية التفعيل؛ هذه المعاينة لا تصدر مفاتيح.",
   },
 ] as const;
 
@@ -68,10 +68,8 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     slug: "pubg-660-uc",
     name: "PUBG Mobile — 660 UC",
     nameAr: "شدات ببجي موبايل — 660 شدة",
-    description:
-      "Top up 660 Unknown Cash (UC) directly to your PUBG Mobile account via Player ID. No login required — the UC lands in your account within minutes of checkout.",
-    descriptionAr:
-      "اشحن 660 شدة (UC) مباشرة إلى حسابك في ببجي موبايل عبر الآي دي فقط، بدون الحاجة لتسجيل الدخول. تصل الشدات إلى حسابك خلال دقائق من إتمام الطلب.",
+    description: "Catalogue preview for a 660 UC PUBG Mobile top-up. This version does not process payment or add UC to an account; confirm the supported region and Player ID requirements before any real purchase.",
+    descriptionAr: "معاينة كتالوج لحزمة 660 شدة في PUBG Mobile. هذه النسخة لا تستقبل مدفوعات ولا تضيف شدات للحساب؛ تحقق من المنطقة المدعومة ومتطلبات آي دي اللاعب قبل أي شراء فعلي.",
     priceCents: 999,
     category: "game-topups",
     stock: 2400,
@@ -84,10 +82,8 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     slug: "pubg-1800-uc",
     name: "PUBG Mobile — 1800 UC",
     nameAr: "شدات ببجي موبايل — 1800 شدة",
-    description:
-      "The Royale Pass favourite: 1800 UC credited to your Player ID, enough for elite passes, crates and skins. Official top-up channels only — zero ban risk.",
-    descriptionAr:
-      "الحزمة المثالية للرويال باس: 1800 شدة تُضاف إلى الآي دي الخاص بك، تكفي للباسات والصناديق والسكنات. شحن رسمي بالكامل — بدون أي مخاطرة بالبان.",
+    description: "Catalogue preview for 1,800 UC in PUBG Mobile. This version does not process payment or add UC to an account; confirm the supported region and Player ID requirements before any real purchase.",
+    descriptionAr: "معاينة كتالوج لحزمة 1800 شدة في PUBG Mobile. هذه النسخة لا تستقبل مدفوعات ولا تضيف شدات للحساب؛ تحقق من المنطقة المدعومة ومتطلبات آي دي اللاعب قبل أي شراء فعلي.",
     priceCents: 2499,
     category: "game-topups",
     stock: 1650,
@@ -101,10 +97,8 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     slug: "valorant-4750-vp",
     name: "Valorant — 4750 Points (VP)",
     nameAr: "نقاط فالورانت — 4750 نقطة",
-    description:
-      "4750 Valorant Points added via your Riot ID. Unlock premium skin bundles, battle passes and Night Market deals — credited in minutes, region-safe delivery.",
-    descriptionAr:
-      "4750 نقطة فالورانت تُضاف عبر Riot ID الخاص بك. افتح حزم السكنات والباتل باس وعروض النايت ماركت — شحن سريع وآمن على حسابك خلال دقائق.",
+    description: "Catalogue preview for 4,750 Valorant Points (VP). Region compatibility and delivery are not verified in this demo, and points are not credited to a live account.",
+    descriptionAr: "معاينة كتالوج لـ 4750 نقطة Valorant (VP). توافق المنطقة والتسليم غير متحقق منهما في هذه النسخة التجريبية، ولن تتم إضافة النقاط إلى حساب فعلي.",
     priceCents: 4999,
     category: "game-topups",
     stock: 980,
@@ -118,10 +112,8 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     slug: "fc-2800-points",
     name: "EA FC Points — 2800",
     nameAr: "نقاط EA FC — 2800 نقطة",
-    description:
-      "2800 FC Points for Ultimate Team packs and Draft entries, delivered to your EA account ID. Build your dream squad faster with official, instant points.",
-    descriptionAr:
-      "2800 نقطة FC لحزم الألتميت تيم والدرافت، تُسلَّم إلى حساب EA الخاص بك. كوِّن فريق أحلامك أسرع مع نقاط رسمية وفورية.",
+    description: "Catalogue preview for 2,800 EA SPORTS FC Points. This demo does not process payment or credit points to an EA account; check platform and region compatibility before a real purchase.",
+    descriptionAr: "معاينة كتالوج لـ 2800 نقطة EA SPORTS FC. هذه النسخة لا تعالج مدفوعات ولا تضيف نقاطًا إلى حساب EA؛ تحقق من توافق المنصة والمنطقة قبل أي شراء فعلي.",
     priceCents: 2499,
     category: "game-topups",
     stock: 1430,
@@ -134,10 +126,8 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     slug: "robux-800",
     name: "Roblox — 800 Robux",
     nameAr: "روبوكس — 800",
-    description:
-      "800 Robux credited to your Roblox username. Spend on avatar items, game passes and in-game boosts across millions of experiences — no password needed.",
-    descriptionAr:
-      "800 روبوكس تُضاف إلى اسم المستخدم الخاص بك في روبلوكس. استخدمها لشراء الملابس والجيم باس والمزايا داخل آلاف الألعاب — بدون كلمة مرور.",
+    description: "Catalogue preview for 800 Robux. This demo does not deliver Robux or connect to a Roblox account; never share your password to request a top-up.",
+    descriptionAr: "معاينة كتالوج لـ 800 Robux. هذه النسخة لا تسلّم روبوكس ولا تتصل بحساب Roblox؛ لا تشارك كلمة مرورك لطلب الشحن.",
     priceCents: 999,
     category: "game-topups",
     stock: 3100,
@@ -152,10 +142,8 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     slug: "steam-wallet-20",
     name: "Steam Wallet Card — $20",
     nameAr: "بطاقة ستيم والت — 20 دولار",
-    description:
-      "Official $20 Steam Wallet code delivered instantly after checkout. Redeem it for games, DLC, in-game items and hardware on the Steam store.",
-    descriptionAr:
-      "كود ستيم والت رسمي بقيمة 20 دولار يصلك فوراً بعد الشراء. استبدله لشراء الألعاب والإضافات والعناصر داخل متجر ستيم.",
+    description: "Catalogue preview for a $20 Steam Wallet card. Code availability and redemption-region compatibility are not verified; this demo does not issue a code.",
+    descriptionAr: "معاينة كتالوج لبطاقة Steam Wallet بقيمة 20 دولارًا. توفر الكود وتوافق منطقة الاستبدال غير متحقق منهما؛ هذه النسخة لا تصدر كودًا.",
     priceCents: 2000,
     category: "gift-cards",
     stock: 860,
@@ -169,10 +157,8 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     slug: "ps-store-50",
     name: "PlayStation Store Card — $50",
     nameAr: "بطاقة بلايستيشن ستور — 50 دولار",
-    description:
-      "Top up your PlayStation wallet with $50 of official store credit. Games, add-ons, PS Plus and more — the code appears on-screen the second you check out.",
-    descriptionAr:
-      "اشحن محفظة بلايستيشن بـ 50 دولار رصيد رسمي. ألعاب وإضافات واشتراك PS Plus — يظهر لك الكود على الشاشة لحظة إتمام الطلب.",
+    description: "Catalogue preview for a $50 PlayStation Store card. Region compatibility and code availability are not verified; this demo does not issue a code or add wallet funds.",
+    descriptionAr: "معاينة كتالوج لبطاقة PlayStation Store بقيمة 50 دولارًا. توافق المنطقة وتوفر الكود غير متحقق منهما؛ هذه النسخة لا تصدر كودًا ولا تضيف رصيدًا للمحفظة.",
     priceCents: 5000,
     category: "gift-cards",
     stock: 0,
@@ -185,10 +171,8 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     slug: "xbox-gift-25",
     name: "Xbox Gift Card — $25",
     nameAr: "بطاقة هدايا إكس بوكس — 25 دولار",
-    description:
-      "$25 Xbox & Microsoft Store balance for games, movies, apps and Game Pass.Works on Xbox consoles and Windows PCs — instant code, no fees, no expiry.",
-    descriptionAr:
-      "رصيد 25 دولار لمتجر إكس بوكس ومايكروسوفت لشراء الألعاب والأفلام والتطبيقات والجيم باس. يعمل على أجهزة إكس بوكس والويندوز — كود فوري بدون رسوم أو تاريخ انتهاء.",
+    description: "Catalogue preview for a $25 Xbox / Microsoft Store gift card. Platform, region and code availability require confirmation; no redeemable code is issued by this demo.",
+    descriptionAr: "معاينة كتالوج لبطاقة هدايا Xbox / Microsoft Store بقيمة 25 دولارًا. يجب التأكد من المنصة والمنطقة وتوفر الكود؛ هذه النسخة لا تصدر كودًا قابلًا للاستبدال.",
     priceCents: 2500,
     category: "gift-cards",
     stock: 720,
@@ -201,10 +185,8 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     slug: "google-play-10",
     name: "Google Play Card — $10",
     nameAr: "بطاقة جوجل بلاي — 10 دولار",
-    description:
-      "Official $10 Google Play balance for apps, games, movies and books on Android. Pick your account region at purchase — delivery is instant and guaranteed.",
-    descriptionAr:
-      "رصيد جوجل بلاي رسمي 10 دولارات للتطبيقات والألعاب والأفلام والكتب على أندرويد. اختر منطقة حسابك عند الشراء — التسليم فوري ومضمون.",
+    description: "Catalogue preview for a $10 Google Play card. Account-region compatibility and code availability are not verified, and this demo does not add balance to Google Play.",
+    descriptionAr: "معاينة كتالوج لبطاقة Google Play بقيمة 10 دولارات. توافق منطقة الحساب وتوفر الكود غير متحقق منهما، وهذه النسخة لا تضيف رصيدًا إلى Google Play.",
     priceCents: 1000,
     category: "gift-cards",
     stock: 1950,
@@ -217,10 +199,8 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     slug: "apple-gift-15",
     name: "Apple Gift Card — $15",
     nameAr: "بطاقة هدايا آبل — 15 دولار",
-    description:
-      "$15 Apple balance for the App Store, iTunes, iCloud+ and subscriptions like Apple Music. One code for everything Apple — delivered in seconds.",
-    descriptionAr:
-      "رصيد آبل 15 دولار للآب ستور وآيتيونز وآيكلاود بلس واشتراكات مثل آبل ميوزك. كود واحد لكل منتجات آبل — يصلك خلال ثوانٍ.",
+    description: "Catalogue preview for a $15 Apple Gift Card. Redemption region and code availability are not verified; this demo does not deliver a code or add Apple balance.",
+    descriptionAr: "معاينة كتالوج لبطاقة Apple Gift Card بقيمة 15 دولارًا. منطقة الاستبدال وتوفر الكود غير متحقق منهما؛ هذه النسخة لا تسلّم كودًا ولا تضيف رصيد Apple.",
     priceCents: 1500,
     category: "gift-cards",
     stock: 1340,
@@ -235,10 +215,8 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     slug: "discord-nitro-1mo",
     name: "Discord Nitro — 1 Month",
     nameAr: "ديسكورد نيترو — شهر",
-    description:
-      "One month of Discord Nitro: animated avatar, custom emoji everywhere, HD streaming, bigger uploads and 2 server boosts. Gift link delivered instantly.",
-    descriptionAr:
-      "شهر كامل من ديسكورد نيترو: صورة متحركة وإيموجي مخصصة في كل السيرفرات وبث عالي الجودة ورفع ملفات أكبر وبوستين للسيرفرات. يصلك رابط التفعيل فوراً.",
+    description: "Catalogue preview for a one-month Discord Nitro plan. Eligibility and activation are not verified here; no gift link or subscription is issued by this demo.",
+    descriptionAr: "معاينة كتالوج لاشتراك Discord Nitro لمدة شهر. الأهلية والتفعيل غير متحقق منهما هنا؛ هذه النسخة لا تصدر رابط هدية ولا تُفعّل اشتراكًا.",
     priceCents: 999,
     category: "subscriptions",
     stock: 480,
@@ -252,10 +230,8 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     slug: "spotify-premium-3mo",
     name: "Spotify Premium — 3 Months",
     nameAr: "سبوتيفاي بريميوم — 3 شهور",
-    description:
-      "Three months of ad-free music, offline downloads and high-quality audio. Delivered as an official redeemable code you apply to your own account.",
-    descriptionAr:
-      "ثلاثة شهور من الموسيقى بدون إعلانات مع التحميل للاستماع أوفلاين وجودة صوت عالية. يصلك الكود رسمي لتفعيله على حسابك الشخصي.",
+    description: "Catalogue preview for three months of Spotify Premium. Region eligibility and activation method are not verified; this demo does not issue a redeemable code.",
+    descriptionAr: "معاينة كتالوج لثلاثة أشهر من Spotify Premium. توافق المنطقة وطريقة التفعيل غير متحقق منهما؛ هذه النسخة لا تصدر كودًا قابلًا للاستبدال.",
     priceCents: 3499,
     category: "subscriptions",
     stock: 390,
@@ -268,10 +244,8 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     slug: "netflix-premium-1mo",
     name: "Netflix Premium — 1 Month (4K)",
     nameAr: "نتفليكس بريميوم — شهر (4K)",
-    description:
-      "One month of Netflix Premium with 4K Ultra HD + HDR streaming on 4 devices. Activation code delivered instantly — start watching tonight.",
-    descriptionAr:
-      "شهر من نتفليكس بريميوم بجودة 4K وHDR على 4 أجهزة في نفس الوقت. يصلك كود التفعيل فوراً — ابدأ المشاهدة الليلة.",
+    description: "Catalogue preview for a one-month Netflix Premium plan. Availability, account eligibility and activation are not verified; this demo does not activate a subscription.",
+    descriptionAr: "معاينة كتالوج لاشتراك Netflix Premium لمدة شهر. التوفر وأهلية الحساب والتفعيل غير متحقق منها؛ هذه النسخة لا تُفعّل اشتراكًا.",
     priceCents: 2299,
     category: "subscriptions",
     stock: 260,
@@ -284,10 +258,8 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     slug: "gamepass-ultimate-3mo",
     name: "Xbox Game Pass Ultimate — 3 Months",
     nameAr: "إكس بوكس جيم باس ألتميت — 3 شهور",
-    description:
-      "Three months of Game Pass Ultimate: 100s of games on console, PC and cloud, EA Play included, plus online multiplayer. One code, instant activation.",
-    descriptionAr:
-      "ثلاثة شهور من جيم باس ألتميت: مئات الألعاب على الكونسول والبي سي والكلاود، مع EA Play واللعب الجماعي أونلاين. كود واحد وتفعيل فوري.",
+    description: "Catalogue preview for three months of Xbox Game Pass Ultimate. Platform and region eligibility are not verified; this demo does not provide or activate a subscription code.",
+    descriptionAr: "معاينة كتالوج لثلاثة أشهر من Xbox Game Pass Ultimate. توافق المنصة والمنطقة غير متحقق منه؛ هذه النسخة لا توفر ولا تُفعّل كود اشتراك.",
     priceCents: 5499,
     category: "subscriptions",
     stock: 540,
@@ -303,10 +275,8 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     slug: "windows-11-pro-key",
     name: "Windows 11 Pro — Activation Key",
     nameAr: "مفتاح تفعيل ويندوز 11 برو",
-    description:
-      "Genuine Windows 11 Professional OEM activation key for 1 PC, lifetime validity. BitLocker, Remote Desktop and all Pro features — key shown instantly after checkout.",
-    descriptionAr:
-      "مفتاح تفعيل ويندوز 11 بروفيشنال أصلي لجهاز واحد بصلاحية مدى الحياة. جميع مزايا النسخة الاحترافية مثل BitLocker وسطح المكتب البعيد — يظهر المفتاح فوراً بعد الشراء.",
+    description: "Catalogue preview for a Windows 11 Pro activation-key listing. License type, legitimacy, activation eligibility and validity are not verified by this demo.",
+    descriptionAr: "معاينة كتالوج لمنتج مفتاح تفعيل Windows 11 Pro. نوع الترخيص وأصالته وصلاحية التفعيل ومدته غير متحقق منها في هذه النسخة.",
     priceCents: 2499,
     category: "software-keys",
     stock: 630,
@@ -320,10 +290,8 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     slug: "office-2021-pro-key",
     name: "Microsoft Office 2021 Pro Plus — Key",
     nameAr: "مفتاح أوفيس 2021 برو بلس",
-    description:
-      "Lifetime Office 2021 Professional Plus key: Word, Excel, PowerPoint, Outlook and more on 1 PC. No subscription — pay once, use forever.",
-    descriptionAr:
-      "مفتاح أوفيس 2021 بروفيشنال بلس مدى الحياة: وورد وإكسل وباوربوينت وآوتلوك والمزيد على جهاز واحد. بدون اشتراك — ادفع مرة واحدة واستخدمه للأبد.",
+    description: "Catalogue preview for a Microsoft Office 2021 Professional Plus key listing. License type, device limits, legitimacy and activation eligibility are not verified here.",
+    descriptionAr: "معاينة كتالوج لمفتاح Microsoft Office 2021 Professional Plus. نوع الترخيص وعدد الأجهزة وأصالة المفتاح وصلاحية التفعيل غير متحقق منها هنا.",
     priceCents: 3499,
     category: "software-keys",
     stock: 455,
@@ -336,10 +304,8 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     slug: "minecraft-java-bedrock-key",
     name: "Minecraft: Java & Bedrock — PC Key",
     nameAr: "ماينكرافت: جافا وبيدروك — نسخة PC",
-    description:
-      "Both editions in one key: Minecraft Java Edition and Bedrock for Windows. Official Microsoft redemption, yours forever — delivered in seconds.",
-    descriptionAr:
-      "نسختان في مفتاح واحد: ماينكرافت جافا وبيدروك للويندوز. تفعيل رسمي عبر مايكروسوفت وملكية دائمة — التسليم خلال ثوانٍ.",
+    description: "Catalogue preview for a Minecraft Java & Bedrock PC key. Platform, region, licensing and redemption eligibility are not verified; no key is issued here.",
+    descriptionAr: "معاينة كتالوج لمفتاح Minecraft Java & Bedrock للكمبيوتر. المنصة والمنطقة والترخيص وصلاحية الاستبدال غير متحقق منها؛ هذه النسخة لا تصدر مفتاحًا.",
     priceCents: 2999,
     category: "software-keys",
     stock: 340,
@@ -352,10 +318,8 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     slug: "elden-ring-steam-key",
     name: "Elden Ring — Steam Key",
     nameAr: "إلدن رينج — مفتاح ستيم",
-    description:
-      "FromSoftware's award-winning epic as a global Steam key. Rise, Tarnished — your journey through the Lands Between starts the moment you check out.",
-    descriptionAr:
-      "ملحمة FromSoftware الحائزة على الجوائز كمفتاح ستيم عالمي. انطلق في رحلتك عبر الأراضي الواقعة بين العوالم لحظة إتمام الشراء.",
+    description: "Catalogue preview for an Elden Ring Steam key. Region, platform availability, license provenance and redemption eligibility are not verified in this demo.",
+    descriptionAr: "معاينة كتالوج لمفتاح Elden Ring على Steam. المنطقة والتوفر على المنصة ومصدر الترخيص وصلاحية الاستبدال غير متحقق منها في هذه النسخة.",
     priceCents: 3999,
     category: "software-keys",
     stock: 8,
@@ -364,5 +328,66 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     icon: "💍",
     inputType: "none",
     featured: true,
+  },
+
+  /* ------------------------- E-Vora demo picks ------------------------- */
+  {
+    slug: "gemini-pro-1mo",
+    name: "Google Gemini Pro — 1 Month",
+    nameAr: "اشتراك Google Gemini Pro — شهر",
+    description: "Demo catalogue listing for a one-month Gemini Pro plan. Availability, eligibility and activation are not verified; no subscription is issued in this preview.",
+    descriptionAr: "منتج تجريبي لاشتراك Gemini Pro لمدة شهر. التوفر والأهلية والتفعيل غير متحقق منها؛ لا يتم إصدار اشتراك فعلي في المعاينة.",
+    priceCents: 1999,
+    category: "subscriptions",
+    stock: 0,
+    rating: "0.0",
+    reviewCount: 0,
+    icon: "✦",
+    inputType: "none",
+    featured: true,
+  },
+  {
+    slug: "chatgpt-pro-1mo",
+    name: "ChatGPT Pro — 1 Month",
+    nameAr: "اشتراك ChatGPT Pro — شهر",
+    description: "Demo catalogue listing for a one-month ChatGPT Plus plan. Availability, eligibility and activation are not verified; no OpenAI subscription is issued in this preview.",
+    descriptionAr: "منتج تجريبي لاشتراك ChatGPT Plus لمدة شهر. التوفر والأهلية والتفعيل غير متحقق منها؛ لا يتم إصدار اشتراك OpenAI فعلي في المعاينة.",
+    priceCents: 20000,
+    category: "subscriptions",
+    stock: 0,
+    rating: "0.0",
+    reviewCount: 0,
+    icon: "✳",
+    inputType: "none",
+    featured: true,
+  },
+  {
+    slug: "free-fire-110-diamonds",
+    name: "Free Fire — 110 Diamonds",
+    nameAr: "شحن فري فاير — 110 جوهرة",
+    description: "Demo catalogue listing for 110 Free Fire diamonds. Player ID, region compatibility and delivery are not verified; no diamonds are credited in this preview.",
+    descriptionAr: "منتج تجريبي لشحن 110 جوهرة فري فاير. آي دي اللاعب وتوافق المنطقة والتسليم غير متحقق منها؛ لا تتم إضافة جواهر فعلية في المعاينة.",
+    priceCents: 199,
+    category: "game-topups",
+    stock: 0,
+    rating: "0.0",
+    reviewCount: 0,
+    icon: "💎",
+    inputType: "player-id",
+    featured: true,
+  },
+  {
+    slug: "free-fire-530-diamonds",
+    name: "Free Fire — 530 Diamonds",
+    nameAr: "شحن فري فاير — 530 جوهرة",
+    description: "Demo catalogue listing for 530 Free Fire diamonds. Player ID, region compatibility and delivery are not verified; no diamonds are credited in this preview.",
+    descriptionAr: "منتج تجريبي لشحن 530 جوهرة. آي دي اللاعب وتوافق المنطقة والتسليم غير متحقق منها؛ لا تتم إضافة جواهر فعلية في المعاينة.",
+    priceCents: 899,
+    category: "game-topups",
+    stock: 0,
+    rating: "0.0",
+    reviewCount: 0,
+    icon: "🔥",
+    inputType: "player-id",
   },
 ];
