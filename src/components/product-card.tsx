@@ -22,10 +22,20 @@ export function ProductCard({
   return (
     <Link href={`/products/${product.slug}`}
       className="glass-card card-glow-red group flex h-full flex-col overflow-hidden transition-transform duration-300 hover:-translate-y-1">
-      <div className="product-art relative isolate flex aspect-[4/3] items-center justify-center text-6xl">
+      <div className="relative isolate flex aspect-[4/3] items-center justify-center overflow-hidden bg-gradient-to-br from-[#171827] via-[#20223b] to-[#101018] text-white">
+        <div aria-hidden className="absolute -end-8 -top-12 h-48 w-48 rounded-full bg-rose-500/20 blur-3xl" />
+        <div aria-hidden className="absolute -bottom-16 -start-8 h-44 w-44 rounded-full bg-violet-500/25 blur-3xl" />
         {product.featured && <span className="badge-red absolute start-4 top-4 z-10 text-xs">{t.product.featured}</span>}
-        <span aria-hidden className="product-art-mark">{product.icon}</span>
-        <span aria-hidden className="absolute bottom-4 end-4 z-10 rounded-full border border-edge/80 bg-base/60 px-2.5 py-1 font-mono text-[9px] font-semibold tracking-[0.18em] text-muted backdrop-blur">E-VORA</span>
+        <div className="relative z-10 flex flex-col items-center gap-2 text-center">
+          <span className="grid h-20 w-20 place-items-center rounded-[1.6rem] border border-white/15 bg-white/10 text-5xl shadow-2xl backdrop-blur">
+            {product.slug.startsWith("pubg") ? "🪂" : product.slug.startsWith("free-fire") ? "🔥" : product.slug.startsWith("chatgpt") ? "✳" : product.slug.startsWith("gemini") ? "✦" : product.slug.startsWith("claude") ? "✺" : product.icon}
+          </span>
+          <span className="text-sm font-black tracking-[0.2em] text-white/90">
+            {product.slug.startsWith("pubg") ? "PUBG MOBILE" : product.slug.startsWith("free-fire") ? "FREE FIRE" : product.slug.startsWith("chatgpt") ? "CHATGPT PRO" : product.slug.startsWith("gemini") ? "GEMINI PRO" : product.slug.startsWith("claude") ? "CLAUDE PRO" : "E‑VORA"}
+          </span>
+          <span className="text-[10px] font-medium tracking-widest text-white/55">{product.slug.startsWith("pubg") || product.slug.startsWith("free-fire") ? "GAME TOP-UP" : "DIGITAL SERVICE"}</span>
+        </div>
+        <span aria-hidden className="absolute bottom-4 end-4 z-10 rounded-full border border-white/15 bg-black/25 px-2.5 py-1 font-mono text-[9px] font-semibold tracking-[0.18em] text-white/60 backdrop-blur">E‑VORA</span>
       </div>
       <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
         <div className="flex min-h-6 items-center justify-between gap-2">
