@@ -52,12 +52,12 @@ export type RegionCode = (typeof REGION_CODES)[number];
 
 const en = {
   meta: {
-    title: "E-Vora — Digital Goods, Game Top-Ups & Instant Codes",
+    title: "E-Vora — Digital Goods Catalogue & Game Top-Ups",
     description:
-      "E-Vora is your instant store for game top-ups, gift cards, subscriptions and software keys. Official codes, delivered in seconds.",
+      "E-Vora is a digital-goods catalogue for game top-ups, gift cards, subscriptions and software keys. This preview does not process real payments or deliver codes.",
     productsTitle: "Products",
     productsDescription:
-      "Browse the E-Vora catalog — game top-ups, gift cards, subscriptions and genuine software keys with instant delivery.",
+      "Browse the E-Vora catalogue of game top-ups, gift cards, subscriptions and software keys. Displayed availability is informational; checkout is demo-only.",
     successTitle: "Demo order recorded",
     productNotFound: "Product not found",
     loginTitle: "Sign in or create an account",
@@ -144,7 +144,7 @@ const en = {
   hero: {
     badge: "Digital catalogue · demo checkout",
     titleTop: "Game top-ups & digital codes,",
-    titleAccent: "delivered in seconds.",
+    titleAccent: "browse with clarity.",
     sub: "E-Vora brings game top-ups, gift cards, subscriptions and software keys together in one catalogue. This preview is for browsing and testing only: no real payment, code delivery or stock reservation takes place.",
     ctaBrowse: "Browse Products",
     ctaTopups: "⚡ Game Top-Ups",
@@ -358,12 +358,12 @@ export type Dict = typeof en;
 
 const ar: Dict = {
   meta: {
-    title: "E-Vora — منتجات رقمية وشحن ألعاب وأكواد فورية",
+    title: "E-Vora — كتالوج منتجات رقمية وشحن ألعاب",
     description:
-      "E-Vora متجرك الفوري لشحن الألعاب وبطاقات الهدايا والاشتراكات ومفاتيح البرامج. أكواد رسمية توصلك في ثوانٍ.",
+      "E-Vora كتالوج للمنتجات الرقمية وشحن الألعاب وبطاقات الهدايا والاشتراكات ومفاتيح البرامج. هذه النسخة لا تعالج مدفوعات حقيقية ولا تسلّم أكوادًا.",
     productsTitle: "المنتجات",
     productsDescription:
-      "تصفح كتالوج E-Vora — شحن ألعاب وبطاقات هدايا واشتراكات ومفاتيح برامج أصلية بتسليم فوري.",
+      "تصفح كتالوج E-Vora لشحن الألعاب وبطاقات الهدايا والاشتراكات ومفاتيح البرامج. الكميات المعروضة للمعلومات فقط، وإتمام الطلب تجريبي.",
     successTitle: "تم تسجيل الطلب التجريبي",
     productNotFound: "المنتج غير موجود",
     loginTitle: "تسجيل الدخول أو إنشاء حساب",
@@ -450,7 +450,7 @@ const ar: Dict = {
   hero: {
     badge: "كتالوج رقمي · الطلب تجريبي",
     titleTop: "شحن الألعاب والمنتجات الرقمية،",
-    titleAccent: "يصلك كودك في ثوانٍ.",
+    titleAccent: "تصفح بخطوات أوضح.",
     sub: "يجمع E-Vora شحن الألعاب وبطاقات الهدايا والاشتراكات ومفاتيح البرامج في كتالوج واحد. هذه النسخة للعرض والاختبار فقط: لا تُعالج دفعات حقيقية ولا تُسلّم أكوادًا ولا تحجز المخزون.",
     ctaBrowse: "تصفح المنتجات",
     ctaTopups: "⚡ شحن الألعاب",
