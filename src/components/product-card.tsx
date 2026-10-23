@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Product } from "@/lib/db/schema";
-import { formatCents } from "@/lib/money";
+import { formatCents, formatEgpFromUsdCents } from "@/lib/money";
 import {
   dictionaries,
   locDesc,
@@ -35,7 +35,7 @@ export function ProductCard({
         <h3 className="line-clamp-2 min-h-[3rem] font-semibold leading-snug transition-colors group-hover:text-primary">{locName(product, locale)}</h3>
         <p className="line-clamp-2 min-h-[2.75rem] text-sm leading-relaxed text-muted">{locDesc(product, locale)}</p>
         <div className="mt-auto flex items-end justify-between gap-3 border-t border-edge pt-4">
-          <span className="text-lg font-extrabold tabular-nums">{formatCents(product.priceCents, locale)}</span>
+          <span className="flex flex-col"><strong className="text-lg font-extrabold tabular-nums">{formatCents(product.priceCents, locale)}</strong><small className="mt-0.5 text-xs font-medium text-muted tabular-nums">{formatEgpFromUsdCents(product.priceCents, locale)}</small></span>
           <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary transition-colors group-hover:text-foreground">
             {t.card.viewDetails}<span aria-hidden className="inline-block rtl:-scale-x-100">→</span>
           </span>
