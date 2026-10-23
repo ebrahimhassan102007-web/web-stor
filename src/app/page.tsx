@@ -29,6 +29,70 @@ export default async function HomePage() {
           <p className="mx-auto mt-6 max-w-xl text-base sm:text-lg text-muted leading-relaxed">
             {t.hero.sub}
           </p>
+
+          {/* Homepage search: make product discovery available immediately. */}
+          <form
+            action="/products"
+            method="get"
+            role="search"
+            className="mx-auto mt-8 flex w-full max-w-2xl items-center gap-2 rounded-2xl border border-edge bg-raised/80 p-1.5 text-start shadow-lg shadow-black/5 transition-colors focus-within:border-primary/50"
+          >
+            <label htmlFor="home-product-search" className="sr-only">
+              {t.filters.searchAria}
+            </label>
+            <svg
+              aria-hidden="true"
+              className="ms-3 h-5 w-5 shrink-0 text-muted"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.8}
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path strokeLinecap="round" d="m20 20-4-4" />
+            </svg>
+            <input
+              id="home-product-search"
+              type="search"
+              name="q"
+              autoComplete="off"
+              placeholder={t.filters.searchPlaceholder}
+              className="min-w-0 flex-1 bg-transparent px-1 py-3 text-sm text-foreground outline-none placeholder:text-muted"
+            />
+            <button type="submit" className="btn-primary min-h-11 shrink-0 px-4 sm:px-6">
+              {t.filters.search}
+              <svg
+                aria-hidden="true"
+                className="h-4 w-4 rtl:-scale-x-100"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14m-6-6 6 6-6 6" />
+              </svg>
+            </button>
+          </form>
+
+          {/* Quick category links are drawn from the live catalogue. */}
+          {categories.length > 0 && (
+            <nav
+              aria-label={t.home.catTitle + " " + t.home.catAccent}
+              className="mx-auto mt-4 flex max-w-3xl flex-wrap items-center justify-center gap-2"
+            >
+              {categories.slice(0, 4).map((category) => (
+                <Link
+                  key={category.id}
+                  href={"/products?category=" + encodeURIComponent(category.slug)}
+                  className="inline-flex items-center gap-2 rounded-full border border-edge bg-card/70 px-3.5 py-2 text-xs font-medium text-muted transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:text-foreground"
+                >
+                  <span aria-hidden="true">{category.icon}</span>
+                  {locName(category, locale)}
+                </Link>
+              ))}
+            </nav>
+          )}
+
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link href="/products" className="btn-primary w-full sm:w-auto px-8 py-3 text-base">
               {t.hero.ctaBrowse}
