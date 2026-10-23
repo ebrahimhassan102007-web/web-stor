@@ -78,7 +78,7 @@ function getPreviewCategoriesWithCounts() {
 
 const PREVIEW_ONLY_PRODUCT_SLUGS = new Set([
   "gemini-pro-1mo",
-  "chatgpt-plus-1mo",
+  "chatgpt-pro-1mo",
   "free-fire-110-diamonds",
   "free-fire-530-diamonds",
 ]);
