@@ -76,6 +76,45 @@ function getPreviewCategoriesWithCounts() {
   }));
 }
 
+const PREVIEW_ONLY_PRODUCT_SLUGS = new Set([
+  "gemini-pro-1mo",
+  "chatgpt-plus-1mo",
+  "free-fire-110-diamonds",
+  "free-fire-530-diamonds",
+]);
+
+/**
+ * Keep showcase listings visible on Vercel Preview even when Preview is
+ * connected to an already-seeded database. These rows are synthetic,
+ * read-only and never inserted into the database or accepted by checkout.
+ */
+async function getPreviewOnlyRows(existingSlugs: string[] = []) {
+  if (process.env.VERCEL_ENV !== "preview") return [];
+  const existing = new Set(existingSlugs);
+  const categoriesInDb = await db.select().from(categories);
+  return previewProducts
+    .filter((product) => PREVIEW_ONLY_PRODUCT_SLUGS.has(product.slug) && !existing.has(product.slug))
+    .flatMap((product) => {
+      const seed = SEED_PRODUCTS.find((item) => item.slug === product.slug);
+      const category = categoriesInDb.find((item) => item.slug === seed?.category);
+      if (!category) return [];
+      const previewProduct = {
+        ...product,
+        id: 1_000_000 + product.id,
+        categoryId: category.id,
+        stock: 0,
+        rating: "0.0",
+        reviewCount: 0,
+      };
+      return [{
+        product: previewProduct,
+        categoryName: category.name,
+        categoryNameAr: category.nameAr,
+        categorySlug: category.slug,
+      }];
+    });
+}
+
 function getPreviewFilteredProducts(q: string, category: string, sort: "newest" | "price-asc" | "price-desc" | "rating") {
   const rows = filterPreviewProducts(q, category)
     .sort((a, b) => {
@@ -95,7 +134,13 @@ function getPreviewFilteredProducts(q: string, category: string, sort: "newest" 
       };
     });
 
-  return { rows, applied: { q, category, sort } };
+  const showcase = await getPreviewOnlyRows(rows.map((row) => row.product.slug));
+  const matchingShowcase = showcase.filter((row) => {
+    const matchesCategory = !category || row.categorySlug === category;
+    const searchText = [row.product.name, row.product.nameAr, row.product.description, row.product.descriptionAr].join(" ").toLocaleLowerCase();
+    return matchesCategory && (!q || searchText.includes(q.toLocaleLowerCase()));
+  });
+  return { rows: [...rows, ...matchingShowcase].slice(0, 60), applied: { q, category, sort } };
 }
 
 function getPreviewProductBySlug(slug: string) {
@@ -166,12 +211,14 @@ export async function getFeaturedProducts(limit = 8) {
   if (!hasDatabase()) return preview();
 
   try {
-    return await db
+    const existing = await db
       .select()
       .from(products)
       .where(eq(products.featured, true))
       .orderBy(desc(products.rating))
       .limit(limit);
+    const showcase = await getPreviewOnlyRows(existing.map((product) => product.slug));
+    return [...existing, ...showcase.filter((row) => row.product.featured).map((row) => row.product)].slice(0, limit);
   } catch (error) {
     if (isMissingDatabaseRelation(error)) return preview();
     throw error;
@@ -265,7 +312,10 @@ export async function getProductBySlug(rawSlug: string) {
       .where(eq(products.slug, parsed.data))
       .limit(1);
 
-    return row ?? null;
+    if (row) return row;
+    const [showcase] = await getPreviewOnlyRows();
+    const previewMatch = showcase ? await getPreviewOnlyRows().then((items) => items.find((item) => item.product.slug === parsed.data)) : undefined;
+    return previewMatch ?? null;
   } catch (error) {
     if (isMissingDatabaseRelation(error)) return getPreviewProductBySlug(parsed.data);
     throw error;
