@@ -5,7 +5,7 @@ import {
   getProductBySlug,
   getRelatedProducts,
 } from "@/lib/catalog";
-import { formatCents } from "@/lib/money";
+import { formatCents, formatEgpFromUsdCents } from "@/lib/money";
 import { AddToCart } from "@/components/add-to-cart";
 import { ProductCard } from "@/components/product-card";
 import { getI18n } from "@/lib/i18n/server";
