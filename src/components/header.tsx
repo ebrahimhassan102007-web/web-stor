@@ -50,7 +50,9 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
           </span>
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <LanguageToggle />
+          <ThemeToggle initialTheme={initialTheme} />
           <Link
             href="/cart"
             aria-label={fill(t.nav.cartAria, { count })}
@@ -128,16 +130,7 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
               })}
             </nav>
 
-            <div className="space-y-4 border-t border-edge p-5">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm text-muted">{isArabic ? "اللغة" : "Language"}</span>
-                <LanguageToggle />
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm text-muted">{isArabic ? "المظهر" : "Appearance"}</span>
-                <ThemeToggle initialTheme={initialTheme} />
-              </div>
-            </div>
+
           </aside>
         </>
       )}
