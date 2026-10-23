@@ -556,7 +556,7 @@ const ar: Dict = {
     added: "✓ تمت الإضافة للسلة",
     addToCart: "أضف إلى السلة",
     outOfStock: "نفدت الكمية",
-    playerIdRequired: "أدخل آي دي اللاعب للمتابعة."
+    playerIdRequired: "أدخل آي دي اللاعب للمتابعة.",
     decrease: "إنقاص الكمية",
     increase: "زيادة الكمية",
     errAdd: "تعذرت الإضافة إلى السلة.",
