@@ -32,7 +32,12 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
     { href: "/products?category=subscriptions", label: isArabic ? "الاشتراكات" : "Subscriptions", icon: "✦" },
     { href: "/products?category=software-keys", label: isArabic ? "مفاتيح البرامج والألعاب" : "Software & game keys", icon: "⌘" },
     { href: "/cart", label: t.nav.cart, icon: "🛒" },
-    { href: "/account", label: isArabic ? "لوحة التحكم" : "Dashboard", icon: "◉" },\n    { href: "/account/wallet", label: isArabic ? "المحفظة والإيداع" : "Wallet & deposits", icon: "▣" },\n    { href: "/account/orders", label: isArabic ? "طلباتي" : "My orders", icon: "▤" },\n    { href: "/faq", label: isArabic ? "الأسئلة الشائعة" : "Help center", icon: "?" },\n    { href: "/contact", label: isArabic ? "تواصل معنا" : "Contact us", icon: "✉" },\n    { href: "/about", label: isArabic ? "عن E‑Vora" : "About E‑Vora", icon: "ⓘ" },
+    { href: "/account", label: isArabic ? "لوحة التحكم" : "Dashboard", icon: "◉" },
+    { href: "/account/wallet", label: isArabic ? "المحفظة والإيداع" : "Wallet & deposits", icon: "▣" },
+    { href: "/account/orders", label: isArabic ? "طلباتي" : "My orders", icon: "▤" },
+    { href: "/faq", label: isArabic ? "الأسئلة الشائعة" : "Help center", icon: "?" },
+    { href: "/contact", label: isArabic ? "تواصل معنا" : "Contact us", icon: "✉" },
+    { href: "/about", label: isArabic ? "عن E‑Vora" : "About E‑Vora", icon: "ⓘ" },
   ];
 
   const closeLabel = isArabic ? "إغلاق القائمة" : "Close menu";
