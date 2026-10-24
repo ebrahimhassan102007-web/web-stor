@@ -52,14 +52,22 @@ export default async function HomePage() {
 
       <section className="mt-5 grid gap-3 sm:grid-cols-3">
         {[
-          { icon: "⚡", title: ar ? "شحن ألعاب" : "Game top-ups", text: ar ? "اكتشف باقات الشحن المتاحة في الكتالوج." : "Explore top-up options in the catalogue." },
-          { icon: "🎁", title: ar ? "بطاقات رقمية" : "Digital gift cards", text: ar ? "بطاقات وهدايا رقمية في مكان واحد." : "Digital cards and gifts in one place." },
-          { icon: "✦", title: ar ? "اشتراكات وبرامج" : "Subscriptions & software", text: ar ? "تصفح الخدمات والاشتراكات الرقمية." : "Browse digital services and subscriptions." },
+          { href: "/products?category=game-topups", icon: "⚡", title: ar ? "شحن ألعاب" : "Game top-ups", text: ar ? "اكتشف باقات الشحن المتاحة في الكتالوج." : "Explore top-up options in the catalogue." },
+          { href: "/products?category=gift-cards", icon: "🎁", title: ar ? "بطاقات رقمية" : "Digital gift cards", text: ar ? "بطاقات وهدايا رقمية في مكان واحد." : "Digital cards and gifts in one place." },
+          { href: "/products?category=subscriptions", icon: "✦", title: ar ? "اشتراكات وبرامج" : "Subscriptions & software", text: ar ? "تصفح الخدمات والاشتراكات الرقمية." : "Browse digital services and subscriptions." },
         ].map((item) => (
-          <div key={item.title} className="glass-card flex items-center gap-4 rounded-2xl p-4 sm:p-5">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-2xl">{item.icon}</span>
-            <div><h2 className="font-bold">{item.title}</h2><p className="mt-1 text-xs leading-5 text-muted">{item.text}</p></div>
-          </div>
+          <Link
+            key={item.title}
+            href={item.href}
+            className="glass-card group flex min-h-24 items-center gap-4 rounded-2xl p-4 transition hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:p-5"
+          >
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-2xl transition-transform group-hover:scale-110">{item.icon}</span>
+            <div className="min-w-0 flex-1">
+              <h2 className="font-bold transition-colors group-hover:text-primary">{item.title}</h2>
+              <p className="mt-1 text-xs leading-5 text-muted">{item.text}</p>
+            </div>
+            <span aria-hidden="true" className="shrink-0 text-muted transition-transform group-hover:translate-x-[-2px] rtl:group-hover:translate-x-[2px]">{ar ? "‹" : "›"}</span>
+          </Link>
         ))}
       </section>
 
