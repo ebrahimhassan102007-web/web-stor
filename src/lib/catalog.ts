@@ -8,11 +8,12 @@ import { productQuerySchema, slugSchema, orderNumberSchema } from "@/lib/validat
 /**
  * Catalogue data access.
  *
- * If DATABASE_URL is not configured, or the connected database is missing its
- * catalogue tables (Postgres 42P01), public pages use a read-only preview from
- * the same source data as the explicit seed script. This preview does not
- * persist data and must never be used for carts, checkout, auth, orders, or
- * fulfilment. Other database errors still surface normally.
+ * If DATABASE_URL is not configured, the connected database is missing its
+ * catalogue tables (Postgres 42P01), or its catalogue has not been seeded yet,
+ * public pages use a read-only preview from the same source data as the
+ * explicit seed script. This preview does not persist data and must never be
+ * used for carts, checkout, auth, orders, or fulfilment. Other database errors
+ * still surface normally.
  */
 
 const hasDatabase = () => Boolean(process.env.DATABASE_URL?.trim());
@@ -168,10 +169,19 @@ function filterPreviewProducts(q: string, category: string) {
   });
 }
 
+async function hasDatabaseProducts() {
+  const [product] = await db
+    .select({ id: products.id })
+    .from(products)
+    .limit(1);
+  return Boolean(product);
+}
+
 export async function getCategories() {
   if (!hasDatabase()) return previewCategories;
   try {
-    return await db.select().from(categories).orderBy(asc(categories.id));
+    const rows = await db.select().from(categories).orderBy(asc(categories.id));
+    return rows.length ? rows : previewCategories;
   } catch (error) {
     if (isMissingDatabaseRelation(error)) return previewCategories;
     throw error;
@@ -182,7 +192,7 @@ export async function getCategoriesWithCounts() {
   if (!hasDatabase()) return getPreviewCategoriesWithCounts();
 
   try {
-    return await db
+    const rows = await db
       .select({
         id: categories.id,
         slug: categories.slug,
@@ -197,6 +207,7 @@ export async function getCategoriesWithCounts() {
       .leftJoin(products, eq(products.categoryId, categories.id))
       .groupBy(categories.id)
       .orderBy(asc(categories.id));
+    return rows.length ? rows : getPreviewCategoriesWithCounts();
   } catch (error) {
     if (isMissingDatabaseRelation(error)) return getPreviewCategoriesWithCounts();
     throw error;
@@ -214,6 +225,8 @@ export async function getFeaturedProducts(limit = 8) {
       .where(eq(products.featured, true))
       .orderBy(desc(products.rating))
       .limit(limit);
+    if (existing.length === 0 && !(await hasDatabaseProducts())) return preview();
+
     const showcase = await getPreviewOnlyRows(existing.map((product) => product.slug));
     return [...showcase.filter((row) => row.product.featured).map((row) => row.product), ...existing].slice(0, limit);
   } catch (error) {
@@ -283,6 +296,10 @@ export async function getFilteredProducts(rawFilters: ProductFilters) {
     .orderBy(...orderBy)
     .limit(60);
 
+  if (rows.length === 0 && !(await hasDatabaseProducts())) {
+    return getPreviewFilteredProducts(q, category, sort);
+  }
+
   const showcase = await getPreviewOnlyRows(rows.map((row) => row.product.slug));
   const matchingShowcase = showcase.filter((row) => {
     const matchesCategory = !category || row.categorySlug === category;
@@ -317,7 +334,9 @@ export async function getProductBySlug(rawSlug: string) {
 
     if (row) return row;
     const showcase = await getPreviewOnlyRows();
-    return showcase.find((item) => item.product.slug === parsed.data) ?? null;
+    const showcaseProduct = showcase.find((item) => item.product.slug === parsed.data);
+    if (showcaseProduct) return showcaseProduct;
+    return (await hasDatabaseProducts()) ? null : getPreviewProductBySlug(parsed.data);
   } catch (error) {
     if (isMissingDatabaseRelation(error)) return getPreviewProductBySlug(parsed.data);
     throw error;
@@ -331,12 +350,14 @@ export async function getRelatedProducts(categoryId: number, excludeId: number, 
   if (!hasDatabase()) return preview();
 
   try {
-    return await db
+    const rows = await db
       .select()
       .from(products)
       .where(and(eq(products.categoryId, categoryId), sql`${products.id} <> ${excludeId}`))
       .orderBy(desc(products.rating))
       .limit(limit);
+    if (rows.length > 0 || (await hasDatabaseProducts())) return rows;
+    return preview();
   } catch (error) {
     if (isMissingDatabaseRelation(error)) return preview();
     throw error;
