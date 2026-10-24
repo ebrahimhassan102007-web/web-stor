@@ -20,7 +20,7 @@ export default async function FaqPage() {
           {page.itemsHeading}
         </h2>
         <div className="space-y-3">
-          {page.items.map((item, index) => (
+          {page.items.map((item) => (
             <details key={item.question} className="glass-card group p-5 sm:p-6">
               <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-4 font-semibold leading-6 marker:hidden focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
                 <span>{item.question}</span>

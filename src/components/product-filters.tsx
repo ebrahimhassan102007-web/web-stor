@@ -22,7 +22,7 @@ export function ProductFilters({
   function pushParams(update: Record<string, string>) {
     const next = new URLSearchParams(params.toString());
     for (const [k, v] of Object.entries(update)) {
-      if (v) next.set(k, v);
+      if (v && !(k === "sort" && v === "newest")) next.set(k, v);
       else next.delete(k);
     }
     startTransition(() => {
