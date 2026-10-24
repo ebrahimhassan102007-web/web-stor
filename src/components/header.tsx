@@ -27,6 +27,7 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
   const navItems = [
     { href: "/", label: t.nav.home, icon: "⌂" },
     { href: "/products", label: t.nav.products, icon: "▦" },
+    { href: "/offers", label: isArabic ? "العروض" : "Offers", icon: "🏷️" },
     { href: "/products?category=game-topups", label: isArabic ? "شحن الألعاب" : "Game top-ups", icon: "⚡" },
     { href: "/products?category=gift-cards", label: isArabic ? "بطاقات الهدايا" : "Gift cards", icon: "▤" },
     { href: "/products?category=subscriptions", label: isArabic ? "الاشتراكات" : "Subscriptions", icon: "✦" },
@@ -36,6 +37,7 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
     { href: "/account/wallet", label: isArabic ? "المحفظة والإيداع" : "Wallet & deposits", icon: "▣" },
     { href: "/account/orders", label: isArabic ? "طلباتي" : "My orders", icon: "▤" },
     { href: "/faq", label: isArabic ? "الأسئلة الشائعة" : "Help center", icon: "?" },
+    { href: "/support-bot", label: isArabic ? "بوت الدعم" : "Support bot", icon: "🤖" },
     { href: "/contact", label: isArabic ? "تواصل معنا" : "Contact us", icon: "✉" },
     { href: "/about", label: isArabic ? "عن E‑Vora" : "About E‑Vora", icon: "ⓘ" },
   ];

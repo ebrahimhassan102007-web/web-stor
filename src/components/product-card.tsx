@@ -18,14 +18,18 @@ export function ProductCard({
   categoryName?: string;
 }) {
   const t = dictionaries[locale];
+  const artwork = product.slug.startsWith("pubg") ? "/products/pubg.svg" : product.slug.startsWith("free-fire") ? "/products/free-fire.svg" : product.slug.startsWith("chatgpt") ? "/products/chatgpt.svg" : product.slug.startsWith("gemini") ? "/products/gemini.svg" : product.slug.startsWith("claude") ? "/products/claude.svg" : null;
 
   return (
     <Link href={`/products/${product.slug}`}
       className="glass-card card-glow-red group flex h-full flex-col overflow-hidden transition-transform duration-300 hover:-translate-y-1">
-      <div className="product-art relative isolate flex aspect-[4/3] items-center justify-center text-6xl">
+      <div
+        className="product-art relative isolate flex aspect-[4/3] items-center justify-center overflow-hidden bg-gradient-to-br from-[#171827] via-[#20223b] to-[#101018] bg-cover bg-center text-white"
+        style={artwork ? { backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.04), rgba(0,0,0,.16)), url('${artwork}')` } : undefined}
+      >
         {product.featured && <span className="badge-red absolute start-4 top-4 z-10 text-xs">{t.product.featured}</span>}
-        <span aria-hidden className="product-art-mark">{product.icon}</span>
-        <span aria-hidden className="absolute bottom-4 end-4 z-10 rounded-full border border-edge/80 bg-base/60 px-2.5 py-1 font-mono text-[9px] font-semibold tracking-[0.18em] text-muted backdrop-blur">E-VORA</span>
+        {!artwork && <span aria-hidden className="product-art-mark text-6xl">{product.icon}</span>}
+        <span aria-hidden className="absolute bottom-4 end-4 z-10 rounded-full border border-white/15 bg-black/35 px-2.5 py-1 font-mono text-[9px] font-semibold tracking-[0.18em] text-white/80 backdrop-blur">E‑VORA</span>
       </div>
       <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
         <div className="flex min-h-6 items-center justify-between gap-2">
