@@ -112,10 +112,10 @@ export function AdminShell({
             <nav aria-label={ar ? "التنقل السريع" : "Quick navigation"} className="admin-mobile-nav lg:hidden">
               {navItems.map((item) => (
                 <Link key={item.href} href={item.href} aria-current={isActive(item.href) ? "page" : undefined} className={`admin-mobile-nav-link ${isActive(item.href) ? "is-active" : ""}`}>
-                  <AdminIcon name={item.icon} className="h-4 w-4 shrink-0" /><span>{item.label}</span>
+                  <span>{item.label}</span>
                 </Link>
               ))}
-              <Link href="/" className="admin-mobile-nav-link"><AdminIcon name="store" className="h-4 w-4 shrink-0" /><span>{labels.switchStore}</span></Link>
+              <Link href="/" className="admin-mobile-nav-link"><span>{labels.switchStore}</span></Link>
             </nav>
             <div className="mb-3 flex items-center justify-between gap-3 px-1 sm:mb-4 lg:hidden">
               <span className="truncate text-xs text-muted">{user.displayName} · {ar ? "مدير المتجر" : "Store admin"}</span>

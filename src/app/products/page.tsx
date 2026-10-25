@@ -46,31 +46,26 @@ export default async function ProductsPage(props: {
   const activeCategory = categories.find((c) => c.slug === applied.category);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-      <div className="mb-8">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-          {activeCategory ? (
-            <>
-              {activeCategory.icon} {locName(activeCategory, locale)}
-            </>
-          ) : (
-            <>
-              {t.products.allTitle}{" "}
-              <span className="text-primary">{t.products.allAccent}</span>
-            </>
-          )}
-        </h1>
-        <p className="mt-2 text-sm text-muted">
-          {rows.length === 1
-            ? t.products.countOne
-            : fill(t.products.count, { count: rows.length })}
-          {applied.q && (
-            <>
-              {" "}
-              {fill(t.products.matching, { q: applied.q })}
-            </>
-          )}
-        </p>
+    <div className="store-page-enter mx-auto max-w-7xl px-4 py-10 sm:px-6">
+      <div className="catalog-page-heading mb-7">
+        <div>
+          <p className="catalog-eyebrow">{locale === "ar" ? "E‑VORA / اكتشف الكتالوج" : "E‑VORA / EXPLORE THE CATALOGUE"}</p>
+          <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
+            {activeCategory ? (
+              <span className="text-balance">{locName(activeCategory, locale)}</span>
+            ) : (
+              <>{t.products.allTitle} <span className="text-primary">{t.products.allAccent}</span></>
+            )}
+          </h1>
+          <p className="mt-2 text-sm text-muted">
+            {rows.length === 1 ? t.products.countOne : fill(t.products.count, { count: rows.length })}
+            {applied.q && <> · {fill(t.products.matching, { q: applied.q })}</>}
+          </p>
+        </div>
+        <span className="catalog-count" aria-label={locale === "ar" ? `${rows.length} منتج` : `${rows.length} products`}>
+          <strong>{rows.length.toLocaleString(locale === "ar" ? "ar-EG-u-nu-latn" : "en-US")}</strong>
+          <span>{locale === "ar" ? "منتج" : "items"}</span>
+        </span>
       </div>
 
       <div className="mb-6 rounded-2xl border border-amber-500/25 bg-amber-500/[0.07] px-4 py-3 text-sm leading-6 text-muted"><strong className="text-foreground">{locale === "ar" ? "كتالوج للمعاينة فقط" : "Demo catalogue only"}.</strong>{" "}{locale === "ar" ? "المنتجات والأسعار المعروضة للتوضيح؛ الشراء والدفع وتسليم الأكواد غير مفعّلين." : "Products and prices are illustrative. Purchasing, payment and code delivery are disabled."}</div>
@@ -80,7 +75,6 @@ export default async function ProductsPage(props: {
           categories={categories.map((c) => ({
             slug: c.slug,
             name: locName(c, locale),
-            icon: c.icon,
           }))}
           applied={applied}
         />
@@ -94,11 +88,12 @@ export default async function ProductsPage(props: {
         </div>
       ) : (
         <div className="mt-8 grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {rows.map(({ product, categoryName, categoryNameAr }) => (
+          {rows.map(({ product, categoryName, categoryNameAr }, index) => (
             <ProductCard
               key={product.id}
               product={product}
               locale={locale}
+              animationIndex={index}
               categoryName={locName(
                 { name: categoryName, nameAr: categoryNameAr },
                 locale,

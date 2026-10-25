@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useI18n } from "./locale-provider";
 
-type CategoryOption = { slug: string; name: string; icon: string };
+type CategoryOption = { slug: string; name: string };
 
 export function ProductFilters({
   categories,
@@ -17,7 +17,7 @@ export function ProductFilters({
   const params = useSearchParams();
   const { t } = useI18n();
   const [q, setQ] = useState(applied.q);
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
   function pushParams(update: Record<string, string>) {
     const next = new URLSearchParams(params.toString());
@@ -31,7 +31,7 @@ export function ProductFilters({
   }
 
   return (
-    <div className="glass-card p-4 sm:p-5 space-y-4">
+    <div className={`catalog-filter-card glass-card p-4 sm:p-5 space-y-4 ${isPending ? "is-pending" : ""}`} aria-busy={isPending}>
       {/* Search + sort */}
       <div className="flex flex-col sm:flex-row gap-3">
         <form
@@ -82,11 +82,13 @@ export function ProductFilters({
           </button>
         )}
       </div>
+      <p className="catalog-filter-status" role="status" aria-live="polite">{isPending ? t.filters.updating : ""}</p>
 
       {/* Category pills */}
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
+          aria-pressed={!applied.category}
           onClick={() => pushParams({ category: "" })}
           className={`rounded-full px-4 py-1.5 text-sm font-medium border transition-colors ${
             !applied.category
@@ -100,6 +102,7 @@ export function ProductFilters({
           <button
             key={c.slug}
             type="button"
+            aria-pressed={applied.category === c.slug}
             onClick={() =>
               pushParams({ category: applied.category === c.slug ? "" : c.slug })
             }
@@ -109,7 +112,6 @@ export function ProductFilters({
                 : "border-edge bg-raised/60 text-muted hover:text-foreground hover:border-strong"
             }`}
           >
-            <span aria-hidden className="me-1.5">{c.icon}</span>
             {c.name}
           </button>
         ))}

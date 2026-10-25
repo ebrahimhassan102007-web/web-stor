@@ -15,7 +15,7 @@ export default async function HomePage() {
   const ar = locale === "ar";
 
   return (
-    <div className="mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6 sm:pt-9">
+    <div className="store-page-enter mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6 sm:pt-9">
       <section className="relative isolate overflow-hidden rounded-[2rem] border border-edge bg-[#111827] px-6 py-10 text-white shadow-2xl sm:px-10 sm:py-14 lg:px-14 lg:py-16">
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
           <div className="absolute -end-20 -top-28 h-96 w-96 rounded-full bg-rose-500/25 blur-3xl" />
@@ -103,7 +103,7 @@ export default async function HomePage() {
           <Link href="/products" className="hidden min-h-10 shrink-0 items-center rounded-xl border border-edge px-4 py-2 text-sm font-semibold transition hover:border-primary/40 hover:text-primary sm:inline-flex">{t.home.viewAll} <span className="ms-2 rtl:-scale-x-100">→</span></Link>
         </div>
         {featured.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:gap-5">{featured.map((product) => <ProductCard key={product.id} product={product} locale={locale} />)}</div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:gap-5">{featured.map((product, index) => <ProductCard key={product.id} product={product} locale={locale} animationIndex={index} />)}</div>
         ) : (
           <div className="rounded-2xl border border-dashed border-edge px-6 py-12 text-center text-sm text-muted">{t.products.emptyText}</div>
         )}

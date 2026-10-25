@@ -45,7 +45,7 @@ export default async function OrdersPage() {
     if (status === "fulfilled") return ar ? "مكتمل" : "Fulfilled";
     return status;
   };
-  return <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
+  return <div className="account-page-enter mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
     <p className="text-xs font-bold uppercase tracking-[.2em] text-primary">E‑VORA / PURCHASE HISTORY</p>
     <h1 className="mt-2 text-3xl font-extrabold">{ar ? "مشترياتي السابقة" : "Previous purchases"}</h1>
     <p className="mt-2 text-sm text-muted">{ar ? "كل طلباتك المسجلة بنفس البريد الإلكتروني هتظهر هنا." : "Orders placed with this email address appear here."}</p>

@@ -8,6 +8,7 @@ import {
 import { formatCents, formatEgpFromUsdCents } from "@/lib/money";
 import { AddToCart } from "@/components/add-to-cart";
 import { ProductCard } from "@/components/product-card";
+import { ProductArtwork } from "@/components/product-artwork";
 import { getI18n } from "@/lib/i18n/server";
 import { fill, locDesc, locName } from "@/lib/i18n/dictionary";
 
@@ -57,7 +58,7 @@ export default async function ProductDetailPage(props: { params: Params }) {
   const inStock = product.stock > 0;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+    <div className="store-page-enter mx-auto max-w-7xl px-4 py-10 sm:px-6">
       {/* Breadcrumbs */}
       <nav aria-label="Breadcrumb" className="mb-6 text-sm text-muted">
         <ol className="flex flex-wrap items-center gap-2">
@@ -81,9 +82,7 @@ export default async function ProductDetailPage(props: { params: Params }) {
       <div className="grid gap-8 lg:grid-cols-2">
         {/* Art */}
         <div className="glass-card overflow-hidden">
-          <div className="product-art aspect-square text-[9rem] sm:text-[11rem]">
-            <span aria-hidden className="product-art-mark">{product.icon}</span>
-          </div>
+          <ProductArtwork product={product} featuredLabel={t.product.featured} variant="detail" />
         </div>
 
         {/* Info */}
@@ -125,19 +124,10 @@ export default async function ProductDetailPage(props: { params: Params }) {
             />
           </div>
 
-          <div className="mt-8 glass-card p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-center text-xs text-muted">
-            <div>
-              <p className="text-base" aria-hidden>🔒</p>
-              <p className="mt-1 font-medium text-foreground">{t.product.tileSecure}</p>
-            </div>
-            <div>
-              <p className="text-base" aria-hidden>⚡</p>
-              <p className="mt-1 font-medium text-foreground">{t.product.tileInstant}</p>
-            </div>
-            <div>
-              <p className="text-base" aria-hidden>🎟️</p>
-              <p className="mt-1 font-medium text-foreground">{t.product.tileOfficial}</p>
-            </div>
+          <div className="product-detail-points mt-8">
+            <div><span>01</span><p>{t.product.tileSecure}</p></div>
+            <div><span>02</span><p>{t.product.tileInstant}</p></div>
+            <div><span>03</span><p>{t.product.tileOfficial}</p></div>
           </div>
 
           <p className="mt-4 text-center text-xs text-muted">
@@ -153,8 +143,8 @@ export default async function ProductDetailPage(props: { params: Params }) {
             {fill(t.product.moreIn, { category: categoryLabel })}
           </h2>
           <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-            {related.map((p) => (
-              <ProductCard key={p.id} product={p} locale={locale} />
+            {related.map((p, index) => (
+              <ProductCard key={p.id} product={p} locale={locale} animationIndex={index} />
             ))}
           </div>
         </section>

@@ -221,9 +221,10 @@ const en = {
     rating: "Featured first",
     clear: "Clear filters",
     all: "All",
+    updating: "Updating results…",
   },
   product: {
-    featured: "★ Featured",
+    featured: "Featured",
     instantDelivery: "Digital catalogue item",
     codesAvailable: "{count} listed units",
     codesLeft: "{count} units shown in catalogue",
@@ -532,9 +533,10 @@ const ar: Dict = {
     rating: "المميزة أولاً",
     clear: "مسح الفلاتر",
     all: "الكل",
+    updating: "جارٍ تحديث النتائج…",
   },
   product: {
-    featured: "★ مميز",
+    featured: "مميز",
     instantDelivery: "منتج في الكتالوج الرقمي",
     codesAvailable: "الكمية المعروضة: {count}",
     codesLeft: "الكمية المعروضة في الكتالوج: {count}",

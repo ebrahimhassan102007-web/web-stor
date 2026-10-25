@@ -7,6 +7,8 @@ import { SignOutButton } from "@/components/sign-out-button";
 import { getI18n } from "@/lib/i18n/server";
 import { getCurrentAccountUser } from "@/lib/security/account-session";
 import { fill } from "@/lib/i18n/dictionary";
+import { count, desc, eq } from "drizzle-orm";
+import { db, orders } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -21,25 +23,36 @@ export default async function AccountPage() {
   const ar = locale === "ar";
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
   const isStoreAdmin = Boolean(adminEmail && user.email.toLowerCase() === adminEmail);
+  const [summaryRows, recentOrders] = await Promise.all([
+    db.select({ total: count() }).from(orders).where(eq(orders.email, user.email)),
+    db.select({ orderNumber: orders.orderNumber, status: orders.status, createdAt: orders.createdAt })
+      .from(orders).where(eq(orders.email, user.email)).orderBy(desc(orders.createdAt)).limit(1),
+  ]);
+  const orderCount = summaryRows[0]?.total ?? 0;
+  const latestOrder = recentOrders[0] ?? null;
+  const dateFormat = new Intl.DateTimeFormat(ar ? "ar-EG" : "en-US", { dateStyle: "medium" });
+  const statusText = latestOrder ? (ar
+    ? ({ confirmed: "مؤكد", fulfilled: "مكتمل", cancelled: "ملغي", pending: "قيد الانتظار", processing: "قيد المعالجة" } as Record<string, string>)[latestOrder.status] ?? latestOrder.status
+    : ({ confirmed: "Confirmed", fulfilled: "Fulfilled", cancelled: "Cancelled", pending: "Pending", processing: "Processing" } as Record<string, string>)[latestOrder.status] ?? latestOrder.status) : "";
   const createdDate = new Intl.DateTimeFormat(ar ? "ar-EG" : "en-US", { year: "numeric", month: "long" }).format(user.createdAt);
   const words = ar ? {
     welcome: "أهلاً بيك في E‑Vora", subtitle: "كل مشترياتك وخدماتك الرقمية في مكان واحد.",
-    wallet: "رصيد المحفظة", demo: "رصيد تجريبي", orders: "الطلبات", ordersValue: "لا توجد طلبات بعد",
+    wallet: "حالة المحفظة", demo: "غير مفعّلة", orders: "الطلبات", ordersValue: "كل الطلبات المسجلة",
     security: "حالة الحساب", verified: "البريد الإلكتروني موثّق", unverified: "البريد الإلكتروني غير موثّق",
-    shop: "اكتشف المنتجات", deposit: "إيداع رصيد", history: "متابعة الطلبات",
+    shop: "اكتشف المنتجات", deposit: "الرصيد", history: "متابعة الطلبات", lastActivity: "آخر نشاط", noRecentOrder: "لا توجد طلبات مسجلة بعد",
     profile: "بيانات الحساب", profileSub: "حدّث بياناتك وطرق تسجيل الدخول.",
-    currency: "القيمة المعروضة بالجنيه المصري تقريبية، ولا يوجد رصيد مالي فعلي في هذه المعاينة."
+    currency: "المحفظة غير مفعّلة؛ لا يتم حفظ أموال أو تنفيذ إيداعات أو سحوبات في هذه المعاينة."
   } : {
     welcome: "Welcome to E‑Vora", subtitle: "Your digital purchases and account tools, all in one place.",
-    wallet: "Wallet balance", demo: "Demo balance", orders: "Orders", ordersValue: "No orders yet",
+    wallet: "Wallet status", demo: "Not enabled", orders: "Orders", ordersValue: "All recorded orders",
     security: "Account status", verified: "Email verified", unverified: "Email not verified",
-    shop: "Explore products", deposit: "Add funds", history: "Track orders",
+    shop: "Explore products", deposit: "Balance", history: "Track orders", lastActivity: "Latest activity", noRecentOrder: "No orders recorded yet",
     profile: "Account details", profileSub: "Manage your personal details and sign-in methods.",
-    currency: "EGP values are indicative only. This preview does not hold real money or accept deposits."
+    currency: "The wallet is not active. This preview does not hold funds or process deposits or withdrawals."
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
+      <div className="account-page-enter mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
       <div className="mb-7 overflow-hidden rounded-[1.7rem] border border-edge bg-card/80 p-6 sm:p-9">
         <div aria-hidden className="pointer-events-none float-end -mt-12 -me-10 h-44 w-44 rounded-full bg-primary/10 blur-3xl" />
         <p className="text-xs font-bold uppercase tracking-[.2em] text-primary">E‑VORA / CUSTOMER SPACE</p>
@@ -52,37 +65,39 @@ export default async function AccountPage() {
         </div>
       </div>
 
-      <section className="relative mb-7 overflow-hidden rounded-3xl border border-primary/25 bg-gradient-to-br from-[#181b2a] via-[#251b2a] to-[#111827] p-6 text-white shadow-xl sm:p-8">
-        <div aria-hidden className="absolute -end-12 -top-20 h-64 w-64 rounded-full bg-rose-500/20 blur-3xl" />
-        <div className="relative flex flex-wrap items-end justify-between gap-5">
-          <div>
-            <p className="text-sm font-semibold text-white/70">{ar ? "رصيد محفظتك" : "Your wallet balance"}</p>
-            <p className="mt-2 text-4xl font-black tabular-nums sm:text-5xl">$0.00</p>
-            <p className="mt-2 text-sm text-white/60">≈ EGP 0 · {words.demo}</p>
-            <p className="mt-3 max-w-xl text-xs leading-6 text-white/55">{ar ? "رصيد تجريبي للعرض فقط، لا يمثل أموالاً حقيقية ولا يمكن سحبه أو استخدامه للشراء." : "Demo balance only. It is not real money and cannot be withdrawn or used for purchases."}</p>
-          </div>
-          <Link href="/account/wallet" className="inline-flex min-h-11 items-center rounded-xl bg-rose-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-rose-400">{ar ? "تفاصيل المحفظة" : "Wallet details"} <span className="ms-2">→</span></Link>
+      <section className="account-wallet-banner">
+        <div className="account-wallet-copy">
+          <span className="wallet-card-label">{words.wallet}</span>
+          <h2>{words.demo}</h2>
+          <p>{ar ? "لا توجد أموال حقيقية محفوظة أو متاحة للاستخدام. لن نعرض رقم رصيد غير فعلي." : "No real funds are held or available to spend. We will not display a fabricated balance."}</p>
         </div>
+        <Link href="/account/wallet" className="account-wallet-link">{ar ? "عرض تفاصيل الرصيد" : "View balance details"}<span aria-hidden="true">{ar ? "←" : "→"}</span></Link>
       </section>
 
       <AccountNav locale={locale} active="/account" />
 
-      <div className="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <section className="glass-card p-5">
-          <div className="flex items-center justify-between"><p className="text-sm text-muted">{words.orders}</p><span className="text-xl">▤</span></div>
-          <p className="mt-3 text-3xl font-extrabold tabular-nums">0</p>
-          <p className="mt-2 text-sm text-muted">{words.ordersValue}</p>
-          <Link href="/account/orders" className="mt-4 inline-flex text-sm font-semibold text-primary">{words.history} ←</Link>
+      <div className="account-summary-grid mb-7">
+        <section className="account-stat-card">
+          <div className="account-stat-heading"><p>{words.orders}</p><span>01</span></div>
+          <strong>{orderCount.toLocaleString(ar ? "ar-EG-u-nu-latn" : "en-US")}</strong>
+          <p>{words.ordersValue}</p>
+          <Link href="/account/orders" className="account-stat-link">{words.history}<span aria-hidden="true">{ar ? "←" : "→"}</span></Link>
         </section>
-        <section className="glass-card p-5">
-          <div className="flex items-center justify-between"><p className="text-sm text-muted">{words.security}</p><span className="text-xl">◈</span></div>
-          <p className="mt-3 text-lg font-bold">{user.emailVerifiedAt ? words.verified : words.unverified}</p>
-          <p className="mt-2 truncate text-sm text-muted">{user.email}</p>
-          <span className={`mt-4 inline-flex ${user.emailVerifiedAt ? "badge-green" : "badge-red"}`}>{user.emailVerifiedAt ? (ar ? "آمن" : "Verified") : (ar ? "يحتاج تأكيد" : "Action needed")}</span>
+        <section className="account-stat-card">
+          <div className="account-stat-heading"><p>{words.lastActivity}</p><span>02</span></div>
+          <strong className="account-stat-recent">{latestOrder ? `#${latestOrder.orderNumber}` : words.noRecentOrder}</strong>
+          <p>{latestOrder ? `${dateFormat.format(latestOrder.createdAt)} · ${statusText}` : (ar ? "سيظهر أحدث سجل طلب هنا." : "Your latest order record will appear here.")}</p>
+          <Link href="/account/orders" className="account-stat-link">{words.history}<span aria-hidden="true">{ar ? "←" : "→"}</span></Link>
+        </section>
+        <section className="account-stat-card">
+          <div className="account-stat-heading"><p>{words.security}</p><span>03</span></div>
+          <strong className="account-stat-recent">{user.emailVerifiedAt ? words.verified : words.unverified}</strong>
+          <p className="truncate">{user.email}</p>
+          <span className={`account-verification-label ${user.emailVerifiedAt ? "is-verified" : "is-pending"}`}>{user.emailVerifiedAt ? (ar ? "البريد موثّق" : "Verified") : (ar ? "يحتاج تأكيد" : "Action needed")}</span>
         </section>
       </div>
 
-      <div className="mb-7 rounded-2xl border border-edge bg-raised/40 px-4 py-3 text-xs leading-6 text-muted">ⓘ {words.currency}</div>
+      <div className="account-data-note"><span aria-hidden="true">i</span><p>{words.currency}</p></div>
 
       <section className="glass-card card-glow-green p-5 sm:p-8">
         <div className="mb-6 flex flex-wrap items-start justify-between gap-3">

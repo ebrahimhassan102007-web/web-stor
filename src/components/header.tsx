@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCart } from "./cart-provider";
 import { useI18n } from "./locale-provider";
 import { LanguageToggle, ThemeToggle } from "./preference-toggles";
@@ -13,34 +13,76 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
   const { count } = useCart();
   const { locale, t } = useI18n();
   const [open, setOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
   const isArabic = locale === "ar";
 
   useEffect(() => {
     if (!open) return;
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+    const focusable = () => drawerRef.current?.querySelectorAll<HTMLElement>("a[href], button:not([disabled])") ?? [];
+    focusable()[0]?.focus();
+    function handleKeydown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+        menuButtonRef.current?.focus();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
     }
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
+    window.addEventListener("keydown", handleKeydown);
+    return () => window.removeEventListener("keydown", handleKeydown);
   }, [open]);
 
-  const navItems = [
-    { href: "/", label: t.nav.home, icon: "⌂" },
-    { href: "/products", label: t.nav.products, icon: "▦" },
-    { href: "/offers", label: isArabic ? "العروض" : "Offers", icon: "🏷️" },
-    { href: "/products?category=game-topups", label: isArabic ? "شحن الألعاب" : "Game top-ups", icon: "⚡" },
-    { href: "/products?category=gift-cards", label: isArabic ? "بطاقات الهدايا" : "Gift cards", icon: "▤" },
-    { href: "/products?category=subscriptions", label: isArabic ? "الاشتراكات" : "Subscriptions", icon: "✦" },
-    { href: "/products?category=software-keys", label: isArabic ? "مفاتيح البرامج والألعاب" : "Software & game keys", icon: "⌘" },
-    { href: "/cart", label: t.nav.cart, icon: "🛒" },
-    { href: "/account", label: isArabic ? "لوحة التحكم" : "Dashboard", icon: "◉" },
-    { href: "/account/wallet", label: isArabic ? "المحفظة والإيداع" : "Wallet & deposits", icon: "▣" },
-    { href: "/account/orders", label: isArabic ? "طلباتي" : "My orders", icon: "▤" },
-    { href: "/faq", label: isArabic ? "الأسئلة الشائعة" : "Help center", icon: "?" },
-    { href: "/support-bot", label: isArabic ? "بوت الدعم" : "Support bot", icon: "🤖" },
-    { href: "/contact", label: isArabic ? "تواصل معنا" : "Contact us", icon: "✉" },
-    { href: "/about", label: isArabic ? "عن E‑Vora" : "About E‑Vora", icon: "ⓘ" },
-  ];
+  const navSections = [
+    {
+      title: isArabic ? "اكتشف" : "DISCOVER",
+      kind: "primary",
+      items: [
+        { href: "/", label: t.nav.home, icon: "⌂" },
+        { href: "/products", label: t.nav.products, icon: "▦" },
+        { href: "/offers", label: isArabic ? "العروض" : "Offers", icon: "✦" },
+      ],
+    },
+    {
+      title: isArabic ? "تسوق حسب القسم" : "SHOP BY CATEGORY",
+      kind: "categories",
+      items: [
+        { href: "/products?category=game-topups", label: isArabic ? "شحن الألعاب" : "Game top-ups" },
+        { href: "/products?category=gift-cards", label: isArabic ? "بطاقات الهدايا" : "Gift cards" },
+        { href: "/products?category=subscriptions", label: isArabic ? "الاشتراكات" : "Subscriptions" },
+        { href: "/products?category=software-keys", label: isArabic ? "مفاتيح البرامج والألعاب" : "Software & game keys" },
+      ],
+    },
+    {
+      title: isArabic ? "حسابك" : "YOUR ACCOUNT",
+      kind: "text",
+      items: [
+        { href: "/account", label: isArabic ? "لوحة التحكم" : "Dashboard" },
+        { href: "/account/wallet", label: isArabic ? "الرصيد" : "Balance" },
+        { href: "/account/orders", label: isArabic ? "طلباتي" : "Order history" },
+      ],
+    },
+    {
+      title: isArabic ? "المساعدة" : "HELP",
+      kind: "text",
+      items: [
+        { href: "/faq", label: isArabic ? "مركز المساعدة" : "Help center" },
+        { href: "/contact", label: isArabic ? "تواصل معنا" : "Contact us" },
+        { href: "/support-bot", label: isArabic ? "مساعد الدعم" : "Support assistant" },
+        { href: "/about", label: isArabic ? "عن E‑Vora" : "About E‑Vora" },
+      ],
+    },
+  ] as const;
 
   const closeLabel = isArabic ? "إغلاق القائمة" : "Close menu";
   const menuTitle = isArabic ? "تصفح E‑Vora" : "Explore E‑Vora";
@@ -80,6 +122,8 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
             aria-label={t.nav.menuToggle}
             aria-expanded={open}
             aria-haspopup="dialog"
+            aria-controls="evora-nav-dialog"
+            ref={menuButtonRef}
             onClick={() => setOpen((value) => !value)}
             className="flex h-10 w-10 items-center justify-center rounded-xl border border-edge bg-card transition-colors hover:border-primary/50 hover:text-primary"
           >
@@ -98,43 +142,54 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
             type="button"
             aria-label={closeLabel}
             tabIndex={-1}
-            onClick={() => setOpen(false)}
-            className="fixed inset-0 z-[60] cursor-default bg-black/60 backdrop-blur-[2px]"
+            onClick={() => { setOpen(false); menuButtonRef.current?.focus(); }}
+            className="menu-overlay-enter fixed inset-0 z-[60] cursor-default bg-black/60 backdrop-blur-[2px]"
           />
           <aside
+            id="evora-nav-dialog"
+            ref={drawerRef}
             role="dialog"
             aria-modal="true"
             aria-label={menuTitle}
             dir={isArabic ? "rtl" : "ltr"}
-            className="fixed inset-y-0 end-0 z-[70] flex w-[min(88vw,24rem)] flex-col border-s border-edge bg-base shadow-2xl"
+            className="menu-drawer-panel fixed inset-y-0 end-0 z-[70] flex w-[min(88vw,24rem)] flex-col border-s border-edge bg-base shadow-2xl"
           >
             <div className="flex items-center justify-between gap-3 border-b border-edge px-5 py-5">
               <div>
                 <p className="text-lg font-bold">{menuTitle}</p>
                 <p className="mt-1 text-xs text-muted">{isArabic ? "كل اللي تحتاجه، من غير زحمة." : "Everything you need, without the clutter."}</p>
               </div>
-              <button type="button" aria-label={closeLabel} onClick={() => setOpen(false)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-edge text-muted hover:text-foreground">
+              <button type="button" aria-label={closeLabel} onClick={() => { setOpen(false); menuButtonRef.current?.focus(); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-edge text-muted hover:text-foreground">
                 <span aria-hidden="true">✕</span>
               </button>
             </div>
 
-            <nav aria-label={menuTitle} className="flex-1 space-y-1 overflow-y-auto p-3">
-              {navItems.map((item) => {
-                const active = item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(item.href.split("?")[0] + "/");
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setOpen(false)}
-                    aria-current={active ? "page" : undefined}
-                    className={`flex min-h-12 items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-medium transition-colors ${active ? "bg-primary/10 text-primary" : "text-foreground hover:bg-hover"}`}
-                  >
-                    <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-edge bg-card text-base">{item.icon}</span>
-                    <span>{item.label}</span>
-                    <span aria-hidden="true" className="ms-auto text-muted">{isArabic ? "‹" : "›"}</span>
-                  </Link>
-                );
-              })}
+            <nav aria-label={menuTitle} className="menu-sections flex-1 overflow-y-auto p-4">
+              {navSections.map((section) => (
+                <section key={section.title} className="menu-section">
+                  <h2 className="menu-section-title">{section.title}</h2>
+                  <div className={section.kind === "categories" ? "menu-category-grid" : "menu-link-list"}>
+                    {section.items.map((item) => {
+                      const active = item.href === "/"
+                        ? pathname === "/"
+                        : !item.href.includes("?") && (pathname === item.href || (item.href !== "/account" && pathname.startsWith(`${item.href}/`)));
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setOpen(false)}
+                          aria-current={active ? "page" : undefined}
+                          className={`menu-drawer-link menu-drawer-link-${section.kind} ${active ? "is-active" : ""}`}
+                        >
+                          {"icon" in item && <span aria-hidden="true" className="menu-drawer-icon">{item.icon}</span>}
+                          <span>{item.label}</span>
+                          {section.kind !== "categories" && <span aria-hidden="true" className="ms-auto text-muted">{isArabic ? "‹" : "›"}</span>}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
             </nav>
 
 
