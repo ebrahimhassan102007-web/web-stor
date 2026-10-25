@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { getCategories, getFilteredProducts } from "@/lib/catalog";
 import { ProductCard } from "@/components/product-card";
@@ -31,6 +32,7 @@ type SearchParams = Promise<{
   q?: string | string[];
   category?: string | string[];
   sort?: string | string[];
+  view?: string | string[];
 }>;
 
 export default async function ProductsPage(props: {
@@ -44,6 +46,16 @@ export default async function ProductsPage(props: {
   ]);
 
   const activeCategory = categories.find((c) => c.slug === applied.category);
+  const viewMode = searchParams.view === "list" ? "list" : "grid";
+  const viewParams = new URLSearchParams();
+  if (applied.q) viewParams.set("q", applied.q);
+  if (applied.category) viewParams.set("category", applied.category);
+  if (applied.sort !== "newest") viewParams.set("sort", applied.sort);
+  const viewHref = (view: "grid" | "list") => {
+    const next = new URLSearchParams(viewParams);
+    next.set("view", view);
+    return `/products?${next.toString()}`;
+  };
 
   return (
     <div className="store-page-enter mx-auto max-w-7xl px-4 py-10 sm:px-6">
@@ -80,6 +92,14 @@ export default async function ProductsPage(props: {
         />
       </Suspense>
 
+      <div className="catalog-results-toolbar">
+        <p>{locale === "ar" ? "طريقة عرض المنتجات" : "PRODUCT DISPLAY"}</p>
+        <nav aria-label={locale === "ar" ? "طريقة عرض المنتجات" : "Product display"} className="catalog-view-toggle">
+          <Link href={viewHref("grid")} aria-current={viewMode === "grid" ? "page" : undefined} className={viewMode === "grid" ? "is-active" : ""}>{locale === "ar" ? "شبكة" : "Grid"}</Link>
+          <Link href={viewHref("list")} aria-current={viewMode === "list" ? "page" : undefined} className={viewMode === "list" ? "is-active" : ""}>{locale === "ar" ? "قائمة" : "List"}</Link>
+        </nav>
+      </div>
+
       {rows.length === 0 ? (
         <div className="glass-card mt-8 p-12 text-center">
           <p className="text-4xl" aria-hidden>🔍</p>
@@ -87,7 +107,7 @@ export default async function ProductsPage(props: {
           <p className="mt-1 text-sm text-muted">{t.products.emptyText}</p>
         </div>
       ) : (
-        <div className="mt-8 grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className={`product-results-grid mt-4 grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${viewMode === "list" ? "is-list" : ""}`}>
           {rows.map(({ product, categoryName, categoryNameAr }, index) => (
             <ProductCard
               key={product.id}
