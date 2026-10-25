@@ -7,6 +7,7 @@ import "./globals.css";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { FooterVisibility } from "@/components/footer-visibility";
+import { StoreChromeVisibility } from "@/components/store-chrome-visibility";
 import { CartProvider } from "@/components/cart-provider";
 import { LocaleProvider } from "@/components/locale-provider";
 import { getI18n, getTheme } from "@/lib/i18n/server";
@@ -53,9 +54,11 @@ export default async function RootLayout({
       >
         <LocaleProvider locale={locale} dict={t}>
           <CartProvider>
-            <Header initialTheme={theme} />
+            <StoreChromeVisibility>
+              <Header initialTheme={theme} />
+              <FooterVisibility><Footer /></FooterVisibility>
+            </StoreChromeVisibility>
             <main className="flex-1">{children}</main>
-            <FooterVisibility><Footer /></FooterVisibility>
           </CartProvider>
         </LocaleProvider>
       </body>

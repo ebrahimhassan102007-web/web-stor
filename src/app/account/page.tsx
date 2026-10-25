@@ -19,6 +19,8 @@ export default async function AccountPage() {
   const [{ locale, t }, user] = await Promise.all([getI18n(), getCurrentAccountUser()]);
   if (!user) redirect("/login?next=%2Faccount");
   const ar = locale === "ar";
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const isStoreAdmin = Boolean(adminEmail && user.email.toLowerCase() === adminEmail);
   const createdDate = new Intl.DateTimeFormat(ar ? "ar-EG" : "en-US", { year: "numeric", month: "long" }).format(user.createdAt);
   const words = ar ? {
     welcome: "أهلاً بيك في E‑Vora", subtitle: "كل مشترياتك وخدماتك الرقمية في مكان واحد.",
@@ -46,6 +48,7 @@ export default async function AccountPage() {
         <div className="mt-5 flex flex-wrap gap-2">
           <Link href="/products" className="btn-primary px-5 py-3 text-sm">{words.shop} <span aria-hidden>→</span></Link>
           <Link href="/account/wallet" className="btn-ghost px-5 py-3 text-sm">{words.deposit}</Link>
+          {isStoreAdmin && <Link href="/admin" className="btn-ghost border-primary/35 px-5 py-3 text-sm text-primary">{ar ? "إدارة المتجر" : "Store admin"} <span aria-hidden>↗</span></Link>}
         </div>
       </div>
 
