@@ -41,7 +41,7 @@
     "@types/react-dom": "^19",
     "drizzle-kit": "^0.31.11",
     "eslint": "^9",
-    "eslint-config-next": "16.4.2",
+    "eslint-config-next": "16.4.3",
     "pg-connection-string": "^2.14.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
