@@ -53,7 +53,7 @@ test(
 
       const freshUrl = databaseUrl(target.connectionString, freshName);
       const fresh = await migratePostgres({ connectionString: freshUrl });
-      assert.equal(fresh.applied.length, 3);
+      assert.equal(fresh.applied.length, 4);
       const freshAgain = await migratePostgres({ connectionString: freshUrl });
       assert.equal(freshAgain.operations.every((operation) => operation.action === "unchanged"), true);
 
@@ -63,7 +63,7 @@ test(
         const tables = await freshClient.query<{ tablename: string }>(
           "SELECT tablename FROM pg_tables WHERE schemaname = 'public'",
         );
-        for (const table of ["users", "account_sessions", "products", "orders"]) {
+        for (const table of ["users", "account_sessions", "products", "orders", "security_audit_log"]) {
           assert.ok(tables.rows.some((row) => row.tablename === table), table);
         }
       } finally {
@@ -106,6 +106,7 @@ test(
       assert.deepEqual(upgraded.applied, [
         "0001_evora-digital",
         "0002_authentication",
+        "0003_hardening",
       ]);
 
       const upgradedClient = new Client({ connectionString: legacyUrl });
