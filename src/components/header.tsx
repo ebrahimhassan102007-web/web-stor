@@ -223,7 +223,7 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
   return (
     <>
       <header className="sticky top-0 z-50 border-b border-edge bg-base/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-[4.25rem] max-w-7xl items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6">
+        <div className="mx-auto flex h-[4.25rem] max-w-7xl items-center justify-between gap-1 px-3 sm:gap-4 sm:px-6">
           <Link href="/" aria-label="E-Vora" className="group flex shrink-0 items-center gap-2.5">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-lg font-black text-white transition-transform group-hover:scale-[1.03]">
               E
@@ -233,14 +233,14 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
             </span>
           </Link>
 
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <LanguageToggle />
             <ThemeToggle initialTheme={initialTheme} />
 
             {/* Wallet balance chip + add-funds "+" (P0-2). Amount is the same
                 honest demo zero shown on the wallet page; signed-out visitors
                 see only the "+" and are routed through login. */}
-            <div className="flex items-center gap-1.5" data-testid="wallet-chip">
+            <div className="flex items-center gap-1 sm:gap-1.5" data-testid="wallet-chip">
               {signedIn ? (
                 <Link
                   href={WALLET_PATH}

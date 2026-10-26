@@ -9,7 +9,7 @@ export function LanguageToggle() {
   const { locale, setLocale, switching, t } = useI18n();
 
   const btn = (active: boolean) =>
-    `rounded-md px-2.5 py-1 text-xs font-bold transition-colors ${
+    `rounded-md px-1.5 py-1 text-xs font-bold transition-colors sm:px-2.5 ${
       active
         ? "bg-primary text-white"
         : "text-muted hover:text-foreground"
