@@ -12,7 +12,9 @@
     "db:push": "drizzle-kit push",
     "db:seed": "tsx scripts/seed.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test",
+    "scan:headers": "node scripts/scan-headers.mjs"
   },
   "dependencies": {
     "@fontsource-variable/cairo": "^5.3.0",
@@ -30,6 +32,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.10",
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.2",

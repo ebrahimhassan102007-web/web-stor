@@ -44,3 +44,7 @@ next-env.d.ts
 .pglite/
 .env
 !.env.example
+
+# Playwright artifacts
+test-results/
+playwright-report/
