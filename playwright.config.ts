@@ -17,6 +17,7 @@ export default defineConfig({
     ? undefined
     : {
         command: "npm run build && npm run start -- --port 3100",
+        env: { APP_ORIGIN: "http://localhost:3100" },
         url: "http://localhost:3100",
         reuseExistingServer: false,
         timeout: 300_000,
