@@ -7,6 +7,7 @@ import { defineConfig, devices } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "./e2e",
+  reporter: process.env.CI ? "github" : "list",
   timeout: 30_000,
   use: {
     baseURL: process.env.PW_BASE_URL ?? "http://localhost:3100",
