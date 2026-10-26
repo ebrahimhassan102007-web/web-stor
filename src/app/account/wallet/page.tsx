@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getI18n } from "@/lib/i18n/server";
 import { getCurrentAccountUser } from "@/lib/security/account-session";
 import { AccountNav } from "@/components/account-nav";
+import { formatDemoEgp, formatDemoUsd } from "@/lib/wallet";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata(): Promise<Metadata> {
@@ -23,8 +24,8 @@ export default async function WalletPage() {
     <section className="relative overflow-hidden rounded-3xl border border-edge bg-card p-6 sm:p-9">
       <div aria-hidden className="absolute -end-12 -top-16 h-52 w-52 rounded-full bg-primary/10 blur-3xl" />
       <p className="relative text-sm text-muted">{ar ? "الرصيد الحالي · تجريبي" : "Current balance · demo"}</p>
-      <p className="relative mt-3 text-4xl font-black tabular-nums">$0.00</p>
-      <p className="relative mt-1 text-lg font-semibold text-muted">EGP 0</p>
+      <p className="relative mt-3 text-4xl font-black tabular-nums">{formatDemoUsd()}</p>
+      <p className="relative mt-1 text-lg font-semibold text-muted">{formatDemoEgp()}</p>
       <span className="relative mt-4 inline-flex badge-neutral">{ar ? "لا توجد أموال حقيقية محفوظة" : "No real funds are stored"}</span>
     </section>
     <section className="mt-7">

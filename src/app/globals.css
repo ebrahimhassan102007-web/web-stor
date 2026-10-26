@@ -171,7 +171,11 @@ html[lang="ar"] * {
   border-radius: 0.65rem;
   background: var(--accent-red);
   color: #fff;
-  font-weight: 600;
+  /* Contrast mitigation WITHOUT color change (see docs/CONTRAST-REPORT.md):
+     white on dark-theme red is 3.76:1, so button labels are set bolder and
+     slightly larger to meet the AA large/bold-text threshold. */
+  font-weight: 800;
+  font-size: 0.9375rem;
   padding: 0.65rem 1.25rem;
   transition: background 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
   &:hover {
@@ -424,4 +428,24 @@ html[lang="ar"] * {
     transition: none;
     transform: none;
   }
+}
+
+/* Navigation drawer entrance (P0-1). Motion only; no color tokens touched.
+   Disabled entirely when the user prefers reduced motion. The drawer is
+   anchored to the inline-end edge: right in LTR, left in RTL. */
+@media (prefers-reduced-motion: no-preference) {
+  .drawer-panel {
+    animation: evora-drawer-in 180ms ease-out;
+  }
+  html[dir="rtl"] .drawer-panel {
+    animation-name: evora-drawer-in-rtl;
+  }
+}
+@keyframes evora-drawer-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes evora-drawer-in-rtl {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
 }
