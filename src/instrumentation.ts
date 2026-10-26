@@ -10,7 +10,11 @@
  * persist carts, accounts, or orders still require PostgreSQL and fail closed.
  */
 export async function register() {
-  if (process.env.NEXT_RUNTIME === "nodejs" && process.env.DATABASE_URL?.trim()) {
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  // S-17: fail fast on invalid secrets/origin/partial provider config.
+  const { assertValidEnv } = await import("./lib/env");
+  assertValidEnv();
+  if (process.env.DATABASE_URL?.trim()) {
     const { assertDatabaseConfigured } = await import("./lib/db/config");
     assertDatabaseConfigured();
   }

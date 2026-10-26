@@ -4,7 +4,8 @@ import { db, products } from "@/lib/db";
 import { addToCartLine } from "@/lib/db/cart-operations";
 import { getOrCreateCartId } from "@/lib/security/session";
 import { verifySameOrigin } from "@/lib/security/csrf";
-import { rateLimit, clientKey } from "@/lib/security/rate-limit";
+import { enforceRateLimit, clientKey } from "@/lib/security/rate-limit";
+import { readJsonBody, JSON_BODY_STATUS } from "@/lib/security/read-json";
 import { addToCartSchema } from "@/lib/validation";
 import { getCartSummary } from "@/lib/cart";
 import { jsonOk, jsonError, handleUnexpected } from "@/lib/http";
@@ -17,16 +18,15 @@ export async function POST(req: NextRequest) {
     if (!verifySameOrigin(req)) {
       return jsonError("Request rejected.", 403);
     }
-    if (!rateLimit(`cart:${clientKey(req)}`, 60, 60_000)) {
+    if (!(await enforceRateLimit("cart", [clientKey(req)], 60, 60_000))) {
       return jsonError("Too many requests. Please slow down.", 429);
     }
 
-    let raw: unknown;
-    try {
-      raw = await req.json();
-    } catch {
-      return jsonError("Invalid request body.", 400);
+    const body = await readJsonBody(req, 8 * 1024);
+    if (!body.ok) {
+      return jsonError("Invalid request body.", JSON_BODY_STATUS[body.reason]);
     }
+    const raw: unknown = body.value;
 
     const parsed = addToCartSchema.safeParse(raw);
     if (!parsed.success) {
@@ -44,6 +44,9 @@ export async function POST(req: NextRequest) {
     if (!candidate) return jsonError("PRODUCT_NOT_FOUND", 404);
 
     const cartId = await getOrCreateCartId();
+    if (!(await enforceRateLimit("cart", [`cart:${cartId}`], 60, 60_000))) {
+      return jsonError("Too many requests. Please slow down.", 429);
+    }
     const result = await addToCartLine(db, {
       cartId,
       productId,

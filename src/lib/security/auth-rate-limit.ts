@@ -9,9 +9,15 @@ export type AuthRatePolicy = {
   windowMs: number;
   ipLimit: number;
   emailLimit?: number;
+  /**
+   * Combined IP+email bucket (S-04). This is the tight bucket: it stops one
+   * source hammering one account without letting that source lock the real
+   * owner (on a different IP) out of their account.
+   */
+  combinedLimit?: number;
 };
 
-function bucketDigest(scope: string, kind: "ip" | "email", value: string) {
+function bucketDigest(scope: string, kind: "ip" | "email" | "ip-email", value: string) {
   return createHmac("sha256", getAuthSecret())
     .update(`evora-auth-rate\0${scope}\0${kind}\0${value}`)
     .digest("hex");
@@ -56,6 +62,17 @@ export async function enforceAuthRateLimit(
   if (clientIp) {
     const ipDigest = bucketDigest(scope, "ip", clientIp);
     if (!(await takeBucket(ipDigest, policy.ipLimit, policy.windowMs))) {
+      return false;
+    }
+  }
+
+  if (email && clientIp && policy.combinedLimit !== undefined) {
+    const combinedDigest = bucketDigest(
+      scope,
+      "ip-email",
+      `${clientIp}\0${email.toLowerCase()}`,
+    );
+    if (!(await takeBucket(combinedDigest, policy.combinedLimit, policy.windowMs))) {
       return false;
     }
   }

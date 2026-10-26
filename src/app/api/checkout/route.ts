@@ -5,7 +5,9 @@ import { jsonError, jsonOk, handleUnexpected } from "@/lib/http";
 import { resolveCheckoutMode, CHECKOUT_DISABLED_ERROR, CHECKOUT_DISABLED_STATUS } from "@/lib/checkout-policy";
 import { getExistingCartId } from "@/lib/security/session";
 import { verifySameOrigin } from "@/lib/security/csrf";
-import { rateLimit, clientKey } from "@/lib/security/rate-limit";
+import { enforceRateLimit, clientKey } from "@/lib/security/rate-limit";
+import { readJsonBody, JSON_BODY_STATUS } from "@/lib/security/read-json";
+import { getCurrentAccountUser } from "@/lib/security/account-session";
 import { checkoutSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -23,16 +25,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (!verifySameOrigin(req)) return jsonError("REQUEST_REJECTED", 403);
-    if (!rateLimit(`checkout:${clientKey(req)}`, 10, 60_000)) {
+    if (!(await enforceRateLimit("checkout", [clientKey(req)], 10, 60_000))) {
       return jsonError("RATE_LIMITED", 429);
     }
 
-    let raw: unknown;
-    try {
-      raw = await req.json();
-    } catch {
-      return jsonError("INVALID_BODY", 400);
-    }
+    const body = await readJsonBody(req, 16 * 1024);
+    if (!body.ok) return jsonError("INVALID_BODY", JSON_BODY_STATUS[body.reason]);
+    const raw: unknown = body.value;
 
     const parsed = checkoutSchema.safeParse(raw);
     if (!parsed.success) {
@@ -46,8 +45,15 @@ export async function POST(req: NextRequest) {
     const cartId = await getExistingCartId();
     if (!cartId) return jsonError("CART_EMPTY", 400);
 
+    if (!(await enforceRateLimit("checkout", [`cart:${cartId}`], 10, 60_000))) {
+      return jsonError("RATE_LIMITED", 429);
+    }
+    // S-08: ownership comes from the signed-in session, never from the
+    // email typed into the form.
+    const accountUser = await getCurrentAccountUser().catch(() => null);
     const result = await recordDemoOrder(db, {
       cartId,
+      userId: accountUser?.id ?? null,
       shipping: parsed.data,
     });
     if (result.status === "empty") return jsonError("CART_EMPTY", 400);

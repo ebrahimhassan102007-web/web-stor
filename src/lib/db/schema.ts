@@ -1,5 +1,6 @@
 import {
   boolean,
+  check,
   index,
   integer,
   numeric,
@@ -11,7 +12,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 /* ------------------------------------------------------------------ */
 /* Categories                                                          */
@@ -72,6 +73,8 @@ export const products = pgTable(
     uniqueIndex("products_slug_idx").on(t.slug),
     index("products_category_idx").on(t.categoryId),
     index("products_featured_idx").on(t.featured),
+    check("products_price_positive", sql`${t.priceCents} > 0`),
+    check("products_stock_nonnegative", sql`${t.stock} >= 0`),
   ],
 );
 
@@ -112,6 +115,7 @@ export const cartItems = pgTable(
   (t) => [
     uniqueIndex("cart_items_cart_product_idx").on(t.cartId, t.productId),
     index("cart_items_cart_idx").on(t.cartId),
+    check("cart_items_quantity_range", sql`${t.quantity} BETWEEN 1 AND 99`),
   ],
 );
 
@@ -122,6 +126,14 @@ export const orders = pgTable(
   "orders",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    /**
+     * Owning account (S-08). Set from the signed-in session at checkout;
+     * null for guest orders. Order history is keyed by this, never by the
+     * typed email address.
+     */
+    userId: uuid("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
     orderNumber: varchar("order_number", { length: 32 }).notNull(),
     status: varchar("status", { length: 24 }).notNull().default("confirmed"),
     customerName: varchar("customer_name", { length: 128 }).notNull(),
@@ -141,7 +153,16 @@ export const orders = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [uniqueIndex("orders_number_idx").on(t.orderNumber)],
+  (t) => [
+    uniqueIndex("orders_number_idx").on(t.orderNumber),
+    index("orders_email_idx").on(t.email),
+    index("orders_user_idx").on(t.userId),
+    check(
+      "orders_status_known",
+      sql`${t.status} IN ('confirmed','paid','completed','cancelled','fulfilled','pending','demo-unpaid')`,
+    ),
+    check("orders_totals_nonnegative", sql`${t.totalCents} >= 0 AND ${t.subtotalCents} >= 0`),
+  ],
 );
 
 export const orderItems = pgTable(
@@ -170,7 +191,11 @@ export const orderItems = pgTable(
      */
     deliveryInfo: varchar("delivery_info", { length: 256 }),
   },
-  (t) => [index("order_items_order_idx").on(t.orderId)],
+  (t) => [
+    index("order_items_order_idx").on(t.orderId),
+    check("order_items_quantity_range", sql`${t.quantity} BETWEEN 1 AND 99`),
+    check("order_items_price_positive", sql`${t.unitPriceCents} > 0`),
+  ],
 );
 
 /* ------------------------------------------------------------------ */
@@ -184,6 +209,8 @@ export const users = pgTable(
     displayName: varchar("display_name", { length: 128 }).notNull(),
     passwordHash: varchar("password_hash", { length: 255 }),
     googleSub: varchar("google_sub", { length: 255 }),
+    /** Authorization role (S-13). ADMIN_EMAIL remains a bootstrap fallback. */
+    role: varchar("role", { length: 16 }).notNull().default("customer"),
     emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -195,6 +222,8 @@ export const users = pgTable(
   (t) => [
     uniqueIndex("users_email_idx").on(t.email),
     uniqueIndex("users_google_sub_idx").on(t.googleSub),
+    check("users_email_lowercase", sql`${t.email} = lower(${t.email})`),
+    check("users_role_known", sql`${t.role} IN ('customer','admin')`),
   ],
 );
 
@@ -227,6 +256,12 @@ export const accountSessions = pgTable(
     /** SHA-256 digest of a random 256-bit HttpOnly cookie token. */
     tokenHash: varchar("token_hash", { length: 64 }).notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    /** Last authenticated use; drives the idle timeout (S-09). */
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** Truncated user-agent for the session list UI (not an identifier). */
+    userAgent: varchar("user_agent", { length: 256 }).notNull().default(""),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -264,6 +299,27 @@ export const googleOAuthStates = pgTable(
       .defaultNow(),
   },
   (t) => [index("google_oauth_states_expiry_idx").on(t.expiresAt)],
+);
+
+export const securityAuditLog = pgTable(
+  "security_audit_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    /** Machine event name, e.g. login_success / admin_denied. No secrets. */
+    event: varchar("event", { length: 48 }).notNull(),
+    /** Non-sensitive context (never emails, tokens, or passwords). */
+    detail: varchar("detail", { length: 128 }).notNull().default(""),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("security_audit_log_user_idx").on(t.userId),
+    index("security_audit_log_created_idx").on(t.createdAt),
+  ],
 );
 
 /* ------------------------------------------------------------------ */

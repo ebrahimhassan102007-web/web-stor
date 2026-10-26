@@ -7,6 +7,8 @@ import { newOrderNumber } from "../order-number";
 
 export type DemoOrderInput = {
   cartId: string;
+  /** Owning account when the buyer is signed in (S-08). Never inferred from email. */
+  userId?: string | null;
   shipping: {
     customerName: string;
     email: string;
@@ -68,6 +70,7 @@ export async function recordDemoOrder<
       .insert(orders)
       .values({
         orderNumber: newOrderNumber(),
+        userId: input.userId ?? null,
         status: DEMO_ORDER_STATUS,
         customerName: input.shipping.customerName,
         email: input.shipping.email,
