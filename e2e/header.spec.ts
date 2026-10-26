@@ -85,9 +85,22 @@ test("P0-2 '+' has an accessible name and >=44px target in both languages", asyn
 test("no horizontal scroll at 320px with the wallet chip present", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto("/");
-  const scrollWidth = await page.evaluate(
-    () => document.documentElement.scrollWidth,
-  );
-  expect(scrollWidth).toBeLessThanOrEqual(320);
+  const diagnostics = await page.evaluate(() => {
+    const offenders: string[] = [];
+    for (const el of document.querySelectorAll<HTMLElement>("body *")) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && (r.right > 321 || r.left < -1)) {
+        offenders.push(
+          `${el.tagName.toLowerCase()}.${el.className.toString().slice(0, 60)} [${Math.round(r.left)}..${Math.round(r.right)}]`,
+        );
+        if (offenders.length >= 8) break;
+      }
+    }
+    return { scrollWidth: document.documentElement.scrollWidth, offenders };
+  });
+  expect(
+    diagnostics.scrollWidth,
+    `offenders: ${diagnostics.offenders.join(" | ") || "none found"}`,
+  ).toBeLessThanOrEqual(320);
   await page.screenshot({ path: "docs/evidence/header-320.png" });
 });
