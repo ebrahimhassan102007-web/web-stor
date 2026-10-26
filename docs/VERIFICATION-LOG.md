@@ -48,12 +48,17 @@ Invalid environment configuration:
 
 ## NOT RUN (explicit)
 
-- **Playwright browser tests / screenshots (`docs/evidence/menu-*.png`)**: NOT
-  RUN in this sandbox. `npx playwright install chromium` failed (browser CDN
-  unreachable); `@sparticuz/chromium` failed (`libnspr4.so` missing, apt has
-  no network). Spec committed at `e2e/header.spec.ts` + CI job added; run
-  `npm run test:e2e` where a browser exists. P0-1/P0-2 are covered meanwhile
-  by structural tests in `tests/hardening.test.ts` and SSR/live probes above.
+- **Playwright browser tests**: could not run *in this sandbox* (no browser
+  binary; CDNs/apt unreachable), so they were executed in GitHub CI instead.
+  Result: **9 passed** (run 40363824136 on PR #11) — P0-1 drawer visibility/
+  focus/scroll-lock/Escape at 320×640, 360×740, 1280×800 in `ar`+`en`; P0-2
+  signed-out "+" → `/login?next=%2Faccount%2Fwallet`, accessible names and
+  ≥44px targets in both languages; no horizontal scroll at 320px (after a
+  real 24px header overflow was found by this test and fixed in 234e292).
+  Screenshot files are written to `docs/evidence/` inside the CI workspace
+  and discarded; commit them by running `npm run test:e2e` locally once.
+  Signed-in chip flow and light/dark theme matrix remain NOT RUN in a
+  browser (need seeded account + more spec cases).
 - Real-PostgreSQL test files (6 skipped above) and `npm run db:migrate`
   against a live server: NOT RUN locally (no Postgres in sandbox; CI runs
   them against its postgres:16 service). Migrations verified on embedded

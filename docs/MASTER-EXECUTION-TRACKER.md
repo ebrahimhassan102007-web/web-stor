@@ -8,7 +8,7 @@ Status vocabulary: DONE = implemented + verification recorded · PARTIAL = imple
 
 | Scope | Total | DONE | PARTIAL | NOT RUN / BLOCKED | N/A (reasoned) |
 |---|---:|---:|---:|---:|---:|
-| P0-1, P0-2 | 2 | 2 (browser screenshots NOT RUN — B-01) | 0 | 0 | 0 |
+| P0-1, P0-2 | 2 | 2 — browser-verified in CI (9/9 Playwright, run 40363824136); screenshot files not yet committed (B-01) | 0 | 0 | 0 |
 | S-01…S-20 | 20 | 11 | 8 (S-04, S-09, S-10, S-13, S-14, S-15, S-19 personalize, S-20) | 1 (S-18 not implemented) | 0 |
 | VULN-001…118 (items 1–118) | 118 | 19 VERIFIED + 60 CLOSED by code-review evidence | 20 PARTIAL | 11 NOT RUN | 8 |
 | Route matrix items 119–408 (supplied part) | 290 | 0 individually | 0 | **290 NOT RUN** (no browser; see B-01/B-03) | 0 |
@@ -41,8 +41,9 @@ BLOCKED for missing spec) is superseded; see git history.
 
 ## Residual risks (top)
 
-1. Browser-level behavior (menu visuals, focus, CWV) is unit/probe-verified
-   but **not yet seen in a real browser** — run `npm run test:e2e`.
+1. Menu/wallet browser behavior is now CI-verified (9/9 Playwright), but
+   CWV/Lighthouse, zoom, and screen-reader depths are still NOT RUN; the
+   signed-in wallet chip has no browser test yet.
 2. Migration 0003 must be applied before deploy; email-lowercase pre-step
    fails loudly on case-duplicate historic rows by design.
 3. No CAPTCHA/MFA yet (S-18/S-13); rate limits are the interim control.

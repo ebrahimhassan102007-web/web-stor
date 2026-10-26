@@ -4,10 +4,10 @@ The previous blocker ("original specification unavailable") is **resolved**:
 the owner supplied the full hardening program in this session, and the items
 below replace it. Nothing here was silently dropped.
 
-## B-01 — Browser execution unavailable in this sandbox
-- **Impact:** Playwright proofs/screenshots for P0-1/P0-2 (`docs/evidence/menu-*.png`), Lighthouse/CWV checks, and per-route visual checks (G01/G02/G11/G21 etc.) could not run here. `playwright install` cannot reach its browser CDN; bundled Chromium lacks system libraries and apt has no network.
-- **Done instead:** specs committed (`e2e/header.spec.ts`), CI job added, structural unit tests + SSR/live HTTP probes (see VERIFICATION-LOG).
-- **Next action:** run `npm run test:e2e` in CI or any machine with a browser; attach screenshots to `docs/evidence`.
+## B-01 — Browser execution unavailable in this sandbox (PARTIALLY RESOLVED via CI)
+- **Impact:** no browser binary exists in the sandbox, so Playwright ran in GitHub CI instead: **9/9 passed** (PR #11, run 40363824136), covering P0-1/P0-2 at 320/360/1280 in AR+EN. Screenshots are generated in the CI workspace only.
+- **Still blocked:** committed screenshot files in `docs/evidence`, signed-in wallet-chip browser flow, Lighthouse/CWV (G11), zoom/text-spacing (G21), screen-reader passes (G05/G07 depth), and the rest of the per-route visual matrix.
+- **Next action:** run `npm run test:e2e` on a machine with a browser and commit `docs/evidence/*.png`; extend specs per route matrix once the full spec text (B-03) arrives.
 
 ## B-02 — No live PostgreSQL/SMTP/Google in this environment
 - **Impact:** 6 real-Postgres tests skipped locally; auth two-account IDOR, Google linking round-trip, and email delivery not exercised end-to-end.
