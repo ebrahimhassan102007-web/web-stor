@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { getI18n } from "@/lib/i18n/server";
 import { getCurrentAccountUser } from "@/lib/security/account-session";
+import { recordSecurityEvent } from "@/lib/security/audit-log";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata(): Promise<Metadata> {
@@ -11,9 +12,21 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 export default async function AdminPage() {
   const [{ locale }, user] = await Promise.all([getI18n(), getCurrentAccountUser()]);
-  if (!user) redirect("/login?next=%2Fadmin");
+  // S-13: non-admins (including signed-out visitors) get a plain 404 so the
+  // route's existence is not revealed. Admins sign in via /login first.
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-  if (!adminEmail || user.email.toLowerCase() !== adminEmail) notFound();
+  const isAdmin = Boolean(
+    user &&
+      user.emailVerifiedAt &&
+      (user.role === "admin" ||
+        (adminEmail && user.email.toLowerCase() === adminEmail)),
+  );
+  if (!isAdmin) {
+    await recordSecurityEvent("admin_denied", user?.id ?? null);
+    notFound();
+  }
+  if (!user) notFound();
+  await recordSecurityEvent("admin_access", user.id);
   const ar = locale === "ar";
   const cards = [
     { href: "/products", icon: "▦", title: ar ? "كتالوج المنتجات" : "Product catalogue", text: ar ? "معاينة الأقسام والمنتجات الحالية." : "Review the current public catalogue." },

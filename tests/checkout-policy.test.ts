@@ -23,12 +23,44 @@ test("production checkout fails closed before reading or mutating anything", () 
   assert.notEqual(guard, -1);
   for (const laterOperation of [
     "verifySameOrigin(req)",
-    "req.json()",
+    "readJsonBody(req",
     "getExistingCartId()",
     "recordDemoOrder(db",
   ]) {
     assert.ok(guard < handler.indexOf(laterOperation), `${laterOperation} must follow the production guard`);
   }
+});
+
+test("demo checkout requires an explicitly safe environment (S-11)", () => {
+  // Staging with NODE_ENV unset but a public https origin must fail closed.
+  assert.equal(
+    resolveCheckoutMode({ APP_ORIGIN: "https://shop.example.com" }),
+    "disabled",
+  );
+  assert.equal(
+    resolveCheckoutMode({
+      NODE_ENV: "development",
+      CHECKOUT_MODE: "demo",
+      APP_ORIGIN: "https://shop.example.com",
+    }),
+    "disabled",
+  );
+  assert.equal(
+    resolveCheckoutMode({ NODE_ENV: "production", CHECKOUT_MODE: "demo" }),
+    "disabled",
+  );
+  assert.equal(
+    resolveCheckoutMode({ NODE_ENV: "development", CHECKOUT_MODE: "disabled" }),
+    "disabled",
+  );
+  assert.equal(
+    resolveCheckoutMode({
+      NODE_ENV: "development",
+      CHECKOUT_MODE: "demo",
+      APP_ORIGIN: "http://localhost:3000",
+    }),
+    "demo",
+  );
 });
 
 test("demo checkout status never implies payment or confirmation", () => {

@@ -34,6 +34,7 @@ test("a clean embedded PostgreSQL database applies all migrations and additive s
         "order_items",
         "orders",
         "products",
+        "security_audit_log",
         "users",
       ],
     );

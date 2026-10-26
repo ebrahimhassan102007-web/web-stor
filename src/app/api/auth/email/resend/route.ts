@@ -27,6 +27,12 @@ export async function POST(request: NextRequest) {
         windowMs: 60 * 60 * 1000,
         ipLimit: 20,
         emailLimit: 5,
+      })) ||
+      // S-10: hard daily cap so fresh codes cannot reset the budget.
+      !(await enforceAuthRateLimit(request, "resend-email-day", email, {
+        windowMs: 24 * 60 * 60 * 1000,
+        ipLimit: 100,
+        emailLimit: 10,
       }))
     ) {
       return jsonError("RATE_LIMITED", 429);

@@ -9,6 +9,7 @@ import { enforceAuthRateLimit, isAuthSecretConfigured } from "@/lib/security/aut
 import { isEmailDeliveryConfigured } from "@/lib/security/email";
 import { verifyPassword } from "@/lib/security/auth-core";
 import { createAccountSession } from "@/lib/security/account-session";
+import { recordSecurityEvent } from "@/lib/security/audit-log";
 import { issueEmailVerification } from "@/lib/security/email-verification";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +29,12 @@ export async function POST(request: NextRequest) {
       !(await enforceAuthRateLimit(request, "login", email, {
         windowMs: 15 * 60 * 1000,
         ipLimit: 40,
-        emailLimit: 10,
+        // S-04: the tight limit is per (IP+email); the email-only bucket is a
+        // high ceiling against distributed stuffing so a single attacker
+        // cannot lock the owner out. Google sign-in uses separate scopes
+        // and is never blocked by password-login failures.
+        combinedLimit: 10,
+        emailLimit: 60,
       }))
     ) {
       return jsonError("RATE_LIMITED", 429);
@@ -48,6 +54,7 @@ export async function POST(request: NextRequest) {
     // to reduce timing-based account/password enumeration.
     const passwordMatches = await verifyPassword(password, user?.passwordHash);
     if (!user || !user.passwordHash || !passwordMatches) {
+      await recordSecurityEvent("login_failed", null);
       return jsonError("INVALID_CREDENTIALS", 401);
     }
 
@@ -68,6 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     await createAccountSession(user.id);
+    await recordSecurityEvent("login_success", user.id);
     return jsonOk({ authenticated: true });
   } catch {
     console.error("[auth:login] request could not be completed");

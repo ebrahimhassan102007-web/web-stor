@@ -1,21 +1,28 @@
-# Blocked Work and Required Inputs
+# Blocked Work and Required Inputs (updated 2026-10-26)
 
-## B-01 — Complete original E-Vora specification unavailable
+The previous blocker ("original specification unavailable") is **resolved**:
+the owner supplied the full hardening program in this session, and the items
+below replace it. Nothing here was silently dropped.
 
-- **Impact:** Prevents honest completion of the mandatory ID-by-ID scope reconciliation and therefore blocks implementation phases 2–12. The conversation provides a phase outline and identifier ranges, but not the original detailed requirements, exact finding descriptions, tests, route checks, or acceptance criteria. Repository discovery found no other source specification.
-- **Blocked references:** P0; WALLET scope; S-01..S-20; VULN-001..VULN-118; G01..G24; unenumerated route-specific scope; detailed phase 11 and 12 criteria. See the master tracker and the individual `docs/security/` reports.
-- **What is not being inferred:** No details are guessed for any vulnerability ID or check. No item is marked DONE on the basis of baseline build/lint. No fake wallet balance, payment, or financial behavior is introduced.
-- **Specific next action:** User supplies the complete, untruncated original E-Vora requirements, including all original identifiers and descriptions, the full P0 reproduction/acceptance criteria, security finding texts, VULN details and test IDs, G01-G24 definitions, route-by-route checks, and phase 11/12 measurable criteria. Once supplied, reconcile it into `docs/MASTER-EXECUTION-TRACKER.md` before proceeding.
-- **Status:** BLOCKED.
+## B-01 — Browser execution unavailable in this sandbox (PARTIALLY RESOLVED via CI)
+- **Impact:** no browser binary exists in the sandbox, so Playwright ran in GitHub CI instead: **9/9 passed** (PR #11, run 40363824136), covering P0-1/P0-2 at 320/360/1280 in AR+EN. Screenshots are generated in the CI workspace only.
+- **Still blocked:** committed screenshot files in `docs/evidence`, signed-in wallet-chip browser flow, Lighthouse/CWV (G11), zoom/text-spacing (G21), screen-reader passes (G05/G07 depth), and the rest of the per-route visual matrix.
+- **Next action:** run `npm run test:e2e` on a machine with a browser and commit `docs/evidence/*.png`; extend specs per route matrix once the full spec text (B-03) arrives.
 
-## B-02 — Dependency audit findings need triage
+## B-02 — No live PostgreSQL/SMTP/Google in this environment
+- **Impact:** 6 real-Postgres tests skipped locally; auth two-account IDOR, Google linking round-trip, and email delivery not exercised end-to-end.
+- **Next action:** CI runs the Postgres suite; owner provides disposable `*_test` DB + test SMTP/Google credentials for a full auth pass. Never production.
 
-- **Impact:** `npm audit --json` exited 1 and reported 8 dependency advisories (4 moderate, 3 high, 1 critical); affected dependency graph includes Next.js 16.3.6 and other dependencies. This baseline finding has no original S-/VULN- ID attribution because the source specification is missing. The audit output does not establish exploitability in this app.
-- **Specific next action:** After receiving the spec and reviewing installed Next.js 16 docs, assess supported non-breaking updates and compatibility against the original acceptance suite; record dependency changes and rerun verification. Do not use `npm audit fix --force` blindly.
-- **Status:** BLOCKED.
+## B-03 — Specification message was truncated at item ~408
+- **Impact:** The supplied program text ended mid-sentence at "[/account/orders] specific — status labels…". Sections 4 (rest), 5+ (if any) are unavailable, so items beyond 408 cannot be enumerated or counted honestly. Route-matrix items 119–408 were **not** individually executed this session (see tracker); P0 + S-01…S-20 + VULN-001…118 were prioritized and are fully accounted.
+- **Next action:** owner resends the remainder; then execute the route matrix per page with browser evidence.
 
-## B-03 — No automated test suite configured
+## B-04 — Owner decisions / external accounts needed
+- `security.txt` contact + policy URL are `example.com` placeholders — owner must supply a real security contact before launch.
+- S-18 CAPTCHA: needs Turnstile (owner site keys) or a PoW decision.
+- S-09 `__Host-` cookie prefix + S-13 MFA: implement in a follow-up with production cookie/domain facts.
+- VULN-093/095/115 (DB roles, sslmode, branch protection) are platform settings only the owner can apply.
+- Contrast: small white-on-red text in dark theme (3.76:1) awaits owner's color decision (see CONTRAST-REPORT).
 
-- **Impact:** `package.json` has no `test` script. This prevents running project regression tests for the requested items.
-- **Specific next action:** The original specification should identify required test IDs and expected frameworks/environment. Add suitable isolated tests after scope reconciliation; do not claim behavior verified by the current lint/typecheck/build alone.
-- **Status:** BLOCKED.
+## B-05 — Database role for migrations
+- Migration 0003 must run before deploying this code (`npm run db:migrate` with existing ALLOW_* guards). The app refuses to boot unconfigured in production by design (S-17).

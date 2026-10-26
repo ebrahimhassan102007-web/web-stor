@@ -27,7 +27,7 @@ export default async function OrdersPage() {
     productNameAr: orderItems.productNameAr,
     quantity: orderItems.quantity,
     unitPriceCents: orderItems.unitPriceCents,
-  }).from(orders).leftJoin(orderItems, eq(orderItems.orderId, orders.id)).where(eq(orders.email, user.email)).orderBy(desc(orders.createdAt)).limit(100);
+  }).from(orders).leftJoin(orderItems, eq(orderItems.orderId, orders.id)).where(eq(orders.userId, user.id)).orderBy(desc(orders.createdAt)).limit(100);
   const grouped = new Map<string, { orderNumber: string; status: string; createdAt: Date; totalCents: number; items: { name: string; quantity: number; unitPriceCents: number }[] }>();
   for (const row of rows) {
     let order = grouped.get(row.orderId);
@@ -48,7 +48,7 @@ export default async function OrdersPage() {
   return <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
     <p className="text-xs font-bold uppercase tracking-[.2em] text-primary">E‑VORA / PURCHASE HISTORY</p>
     <h1 className="mt-2 text-3xl font-extrabold">{ar ? "مشترياتي السابقة" : "Previous purchases"}</h1>
-    <p className="mt-2 text-sm text-muted">{ar ? "كل طلباتك المسجلة بنفس البريد الإلكتروني هتظهر هنا." : "Orders placed with this email address appear here."}</p>
+    <p className="mt-2 text-sm text-muted">{ar ? "طلباتك المرتبطة بحسابك هتظهر هنا." : "Orders linked to your account appear here."}</p>
     <div className="mt-7"><AccountNav locale={locale} active="/account/orders" /></div>
     {purchases.length ? <div className="mt-5 space-y-4">{purchases.map((order) => <section key={order.orderNumber} className="glass-card p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-edge pb-4">

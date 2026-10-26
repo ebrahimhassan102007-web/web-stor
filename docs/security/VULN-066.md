@@ -1,9 +1,7 @@
-# VULN-066
+# VULN-066 - Mail relay abuse
 
-- **Status:** BLOCKED
-- **Original requirement:** This identifier is named in the E-Vora execution directive, but its original finding description and acceptance criteria were not provided in the available source material.
-- **Implementation:** None; no details have been inferred.
-- **Verification:** NOT RUN. No regression test or exploit probe was run for this item.
-- **Blocker:** Complete original specification, affected route/component, impact, expected remediation, and exact test/evidence criteria are unavailable.
-- **Next action:** Obtain and reconcile the original specification before implementing or testing this finding. Any future exploit simulation must use only a local or disposable isolated test environment with test data.
-- **Evidence:** `docs/VERIFICATION-LOG.md` records baseline-only checks; it is not evidence that this finding is fixed.
+**Status:** CLOSED by code review with grep/structural evidence (see below)
+
+**Probe/evidence:** Mail only sends verification codes to the registering address; no user-controlled recipients/body.
+
+Local instance only (dev server on localhost:3000, no production contact). Full command log: docs/VERIFICATION-LOG.md.

@@ -42,7 +42,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Lint
         run: npm run lint
@@ -91,3 +91,31 @@ jobs:
 
       - name: Production dependency audit
         run: npm audit --omit=dev
+
+      - name: Registry signature audit
+        # Report-only: not every transitive package publishes signatures yet.
+        continue-on-error: true
+        run: npm audit signatures
+
+      # Browser proof for P0-1/P0-2 (menu drawer + wallet '+'). The webServer
+      # in playwright.config.ts builds and starts the app on port 3100.
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end header tests
+        shell: bash
+        env:
+          # S-17: production boot requires a valid origin; localhost http is
+          # explicitly allowed by the validator for local/CI runs.
+          APP_ORIGIN: http://localhost:3100
+        run: |
+          set +e
+          npm run test:e2e > /tmp/evora-e2e.log 2>&1
+          result=$?
+          cat /tmp/evora-e2e.log
+          if [ "$result" -ne 0 ]; then
+            message=$(tail -60 /tmp/evora-e2e.log | head -c 3000)
+            escaped=$(printf '%s' "$message" | sed 's/%/%25/g' | tr '\r\n' '  ' )
+            echo "::error title=Playwright failure tail::${escaped}"
+          fi
+          exit "$result"

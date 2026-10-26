@@ -2,7 +2,8 @@ import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { db, googleOAuthStates, users } from "@/lib/db";
+import { db, accountSessions, emailVerificationCodes, googleOAuthStates, users } from "@/lib/db";
+import { planGoogleLink } from "@/lib/security/google-link";
 import { createAccountSession } from "@/lib/security/account-session";
 import { enforceAuthRateLimit, isAuthSecretConfigured } from "@/lib/security/auth-rate-limit";
 import { safeReturnPath, secureStringEqual } from "@/lib/security/auth-core";
@@ -63,6 +64,66 @@ async function consumeState(state: string) {
   });
 }
 
+type LinkCandidate = {
+  id: string;
+  googleSub: string | null;
+  displayName: string;
+  emailVerifiedAt: Date | null;
+  passwordHash: string | null;
+};
+
+async function applyGoogleLink(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  candidate: LinkCandidate,
+  input: { subject: string; displayName: string },
+  now: Date,
+): Promise<string> {
+  const plan = planGoogleLink(
+    {
+      googleSub: candidate.googleSub,
+      emailVerifiedAt: candidate.emailVerifiedAt,
+      hasPasswordHash: Boolean(candidate.passwordHash),
+    },
+    input.subject,
+  );
+  if (plan.action === "reject") {
+    throw new Error("Google account is already linked to a different identity");
+  }
+  // S-01: when Google proves ownership of an email whose password account
+  // was never verified, the pre-registered password (possibly an attacker's)
+  // must not survive. Pending codes and all sessions are revoked in the
+  // same transaction.
+  if (plan.deleteVerificationCodes) {
+    await tx
+      .delete(emailVerificationCodes)
+      .where(eq(emailVerificationCodes.userId, candidate.id));
+  }
+  if (plan.revokeAllSessions) {
+    await tx.delete(accountSessions).where(eq(accountSessions.userId, candidate.id));
+  }
+  const [updated] = await tx
+    .update(users)
+    .set({
+      googleSub: input.subject,
+      emailVerifiedAt: candidate.emailVerifiedAt ?? now,
+      displayName: candidate.displayName || input.displayName,
+      ...(plan.clearPasswordHash ? { passwordHash: null } : {}),
+      updatedAt: now,
+    })
+    .where(eq(users.id, candidate.id))
+    .returning({ id: users.id });
+  if (!updated) throw new Error("Google account update failed");
+  return updated.id;
+}
+
+const linkColumns = {
+  id: users.id,
+  googleSub: users.googleSub,
+  displayName: users.displayName,
+  emailVerifiedAt: users.emailVerifiedAt,
+  passwordHash: users.passwordHash,
+};
+
 async function findOrCreateGoogleUser(input: {
   subject: string;
   email: string;
@@ -71,34 +132,13 @@ async function findOrCreateGoogleUser(input: {
   return db.transaction(async (tx) => {
     const now = new Date();
     const [existing] = await tx
-      .select({
-        id: users.id,
-        googleSub: users.googleSub,
-        displayName: users.displayName,
-        emailVerifiedAt: users.emailVerifiedAt,
-      })
+      .select(linkColumns)
       .from(users)
       .where(eq(users.email, input.email))
       .for("update")
       .limit(1);
 
-    if (existing) {
-      if (existing.googleSub && existing.googleSub !== input.subject) {
-        throw new Error("Google account is already linked to a different identity");
-      }
-      const [updated] = await tx
-        .update(users)
-        .set({
-          googleSub: input.subject,
-          emailVerifiedAt: existing.emailVerifiedAt ?? now,
-          displayName: existing.displayName || input.displayName,
-          updatedAt: now,
-        })
-        .where(eq(users.id, existing.id))
-        .returning({ id: users.id });
-      if (!updated) throw new Error("Google account update failed");
-      return updated.id;
-    }
+    if (existing) return applyGoogleLink(tx, existing, input, now);
 
     const [created] = await tx
       .insert(users)
@@ -112,35 +152,16 @@ async function findOrCreateGoogleUser(input: {
       .returning({ id: users.id });
     if (created) return created.id;
 
-    // A concurrent callback may have inserted the same email first. Link only
-    // if the existing Google subject is absent or matches this verified sub.
+    // A concurrent callback may have inserted the same email first. Apply
+    // the exact same S-01 linking policy to the raced row.
     const [raced] = await tx
-      .select({
-        id: users.id,
-        googleSub: users.googleSub,
-        displayName: users.displayName,
-        emailVerifiedAt: users.emailVerifiedAt,
-      })
+      .select(linkColumns)
       .from(users)
       .where(eq(users.email, input.email))
       .for("update")
       .limit(1);
-    if (!raced || (raced.googleSub && raced.googleSub !== input.subject)) {
-      throw new Error("Google account could not be linked");
-    }
-
-    const [updated] = await tx
-      .update(users)
-      .set({
-        googleSub: input.subject,
-        emailVerifiedAt: raced.emailVerifiedAt ?? now,
-        displayName: raced.displayName || input.displayName,
-        updatedAt: now,
-      })
-      .where(eq(users.id, raced.id))
-      .returning({ id: users.id });
-    if (!updated) throw new Error("Google account update failed");
-    return updated.id;
+    if (!raced) throw new Error("Google account could not be linked");
+    return applyGoogleLink(tx, raced, input, now);
   });
 }
 

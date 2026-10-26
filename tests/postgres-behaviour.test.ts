@@ -86,6 +86,7 @@ test("the clean PostgreSQL schema includes storefront and authentication tables"
       "order_items",
       "orders",
       "products",
+      "security_audit_log",
       "users",
     ],
   );

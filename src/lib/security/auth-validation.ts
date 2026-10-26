@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { normalizeVerificationDigits } from "@/lib/security/digits";
+import { isAcceptablePassword } from "@/lib/security/password-policy";
 
 const cleanText = (min: number, max: number) =>
   z
@@ -16,7 +17,11 @@ export const authEmailSchema = z
   .email()
   .max(254);
 
-const passwordSchema = z.string().min(12).max(128);
+const passwordSchema = z
+  .string()
+  .min(12)
+  .max(128)
+  .refine(isAcceptablePassword, "Password is too common");
 
 export const emailRegisterSchema = z.object({
   displayName: cleanText(2, 128),

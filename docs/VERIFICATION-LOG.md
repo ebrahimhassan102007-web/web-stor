@@ -1,21 +1,68 @@
 # Verification Log
 
-All commands below were run in `/home/user/web-stor` on branch `arena/ed18dd9e-web-stor`, 2026-10-26 (UTC). They describe a local checkout only.
+All 2026-10-26 commands below ran in `/home/user/web-stor` on branch
+`arena/a703a62a-web-stor`. Local instance only; no production contact.
+Anything not executed is written as NOT RUN.
 
-## Phase 1 baseline
+## Quality gates
 
 | Check | Command | Actual result |
 |---|---|---|
-| Working tree / branch baseline | `git status --short --branch` | `## arena/ed18dd9e-web-stor`; clean at start. |
-| Architecture inventory | `find src -type f | sort` | Completed; source contains App Router pages/APIs, components, DB, security, catalog, and i18n modules. |
-| Framework/repository instructions | `cat AGENTS.md README.md package.json` | Completed. `AGENTS.md` requires consulting installed Next.js 16 docs before framework API changes. No framework API changes made. |
-| Dependency install | `npm ci` | Exit 0; 406 packages added; npm reported 8 advisories (4 moderate, 3 high, 1 critical). Deprecation notices for `@esbuild-kit/*` and ESLint 9.39.5. |
-| Lint | `npm run lint` | Exit 0. |
-| Typecheck | `npm run typecheck` | Exit 0. |
-| Production build | `npm run build` | Exit 0; Next.js 16.3.6 / Turbopack compiled, typechecked and generated pages. Build log confirms local embedded PGlite `./.pglite`; routes listed in tracker. |
-| Dependency security audit | `npm audit --json` | Exit 1 (findings, not a clean pass): 8 package vulnerabilities: 4 moderate, 3 high, 1 critical. Reported packages include Next.js 16.3.6, Zod, drizzle-kit transitive `esbuild`, `sharp`, `source-map-js`. The JSON output was not committed because full advisory data is available from the command; see `docs/BLOCKED.md` for scope impact. This is not an application vulnerability assessment. |
-| Source scope search | `rg -n 'P0|S-0[1-9]|S-10|VULN-|G[0-9]{2}|E-Vora|E-VORA|wallet|balance' . --glob '!package-lock.json' --glob '!*.svg'` | No original spec/tracker found; only source text references to store/product wallet catalog and README. |
+| Install | `npm ci --ignore-scripts` | Exit 0 |
+| Lint | `npm run lint` | Exit 0 |
+| Typecheck | `npm run typecheck` | Exit 0 |
+| Unit/integration tests | `npm test` | **69 pass, 0 fail, 6 skipped** (75 total). Skipped = real-PostgreSQL tests requiring `TEST_DATABASE_URL` (run in CI). New: `tests/hardening.test.ts` (12 tests), S-11 checkout cases, updated migration expectations for 0003. |
+| Production build | `npm run build` | Exit 0; route table includes `/api/auth/sessions`, `/robots.txt`, `/sitemap.xml`, `ƒ Proxy (Middleware)` (nonce CSP). |
+| Prod dependency audit | `npm audit --omit=dev` | **0 vulnerabilities** (after `@playwright/test` bump to ^1.64.1). |
+| Full audit | `npm audit` | Dev-only moderate findings remain in drizzle-kit/esbuild chain (build-time tooling). Recorded in S-14. |
+| Signature audit | `npm audit signatures` | **NOT RUN to completion** — network error in sandbox. Wired into CI as report-only. |
 
-## Interpretation
+## Live local probes (dev server, localhost:3000)
 
-Baseline quality commands pass except dependency audit, which reports advisories. There is no test script or test suite configured in `package.json`. Passing lint/typecheck/build does not resolve the missing source specification, does not prove any S-/VULN-/G-check, and does not qualify any referenced item as DONE. No exploit tests or external infrastructure checks were performed.
+| Probe | Result |
+|---|---|
+| `node scripts/scan-headers.mjs http://localhost:3000` (/, /login, /account, /products) | **ALL HEADER CHECKS PASSED** — nonce CSP, strict-dynamic, frame-ancestors none, object-src none, no script unsafe-inline, nosniff/DENY/COOP/CORP, no-store on personal pages |
+| Header SSR HTML contains add-funds link | `data-testid="header-add-funds" … href="/login?next=%2Faccount%2Fwallet"` (signed-out default) |
+| Reflected XSS `/products?q=<script>alert(1)</script>` | Raw payload occurrences in HTML: **0** |
+| Open redirect `/login?next=https://evil.example.com` | HTTP 200, no external `Location` |
+| `/.env`, `/.git/config`, `/drizzle/meta/_journal.json` | 404 / 404 / 404 |
+| `GET /admin` signed-out | **404** (was login redirect before S-13 fix) |
+| `/.well-known/security.txt`, `/robots.txt`, `/sitemap.xml` | 200 / 200 / 200 |
+| `POST /api/cart/items` 20 KB JSON body | **413** |
+| `POST /api/cart/items` `Content-Type: text/plain` | **415** |
+| `POST /api/cart/items` with `Origin: https://evil.example.com` | **403** |
+| `grep -rn dangerouslySetInnerHTML src/` | 0 matches |
+| `grep -rn NEXT_PUBLIC src/` | 0 matches |
+
+## Fail-closed boot proof (S-17)
+
+`npm run start` (production) without env **refused to start**:
+
+```
+Invalid environment configuration:
+- SESSION_SECRET must be set to at least 32 characters in production
+- AUTH_SECRET must be set to at least 32 characters in production
+- DATABASE_URL must be set in production
+- APP_ORIGIN must be set in production
+```
+
+## NOT RUN (explicit)
+
+- **Playwright browser tests**: could not run *in this sandbox* (no browser
+  binary; CDNs/apt unreachable), so they were executed in GitHub CI instead.
+  Result: **9 passed** (run 40363824136 on PR #11) — P0-1 drawer visibility/
+  focus/scroll-lock/Escape at 320×640, 360×740, 1280×800 in `ar`+`en`; P0-2
+  signed-out "+" → `/login?next=%2Faccount%2Fwallet`, accessible names and
+  ≥44px targets in both languages; no horizontal scroll at 320px (after a
+  real 24px header overflow was found by this test and fixed in 234e292).
+  Screenshot files are written to `docs/evidence/` inside the CI workspace
+  and discarded; commit them by running `npm run test:e2e` locally once.
+  Signed-in chip flow and light/dark theme matrix remain NOT RUN in a
+  browser (need seeded account + more spec cases).
+- Real-PostgreSQL test files (6 skipped above) and `npm run db:migrate`
+  against a live server: NOT RUN locally (no Postgres in sandbox; CI runs
+  them against its postgres:16 service). Migrations verified on embedded
+  PGlite instead.
+- Google OAuth / SMTP end-to-end: NOT RUN (no real credentials; never faked).
+- Lighthouse/Core Web Vitals, screen-reader passes, 200%-zoom checks:
+  NOT RUN (no browser). See route-matrix status in MASTER tracker.
