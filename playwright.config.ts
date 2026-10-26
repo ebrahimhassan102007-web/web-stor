@@ -8,7 +8,11 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   timeout: 30_000,
-  use: { baseURL: process.env.PW_BASE_URL ?? "http://localhost:3100" },
+  use: {
+    baseURL: process.env.PW_BASE_URL ?? "http://localhost:3100",
+    // Deterministic drawer geometry; also exercises the reduced-motion path.
+    reducedMotion: "reduce",
+  },
   webServer: process.env.PW_BASE_URL
     ? undefined
     : {

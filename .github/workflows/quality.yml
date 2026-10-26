@@ -103,4 +103,8 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: End-to-end header tests
+        env:
+          # S-17: production boot requires a valid origin; localhost http is
+          # explicitly allowed by the validator for local/CI runs.
+          APP_ORIGIN: http://localhost:3100
         run: npm run test:e2e
