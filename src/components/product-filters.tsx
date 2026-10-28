@@ -31,7 +31,7 @@ export function ProductFilters({
   }
 
   return (
-    <div className="glass-card p-4 sm:p-5 space-y-4">
+    <div className="surface p-4 sm:p-5 space-y-4">
       {/* Search + sort */}
       <div className="flex flex-col sm:flex-row gap-3">
         <form
@@ -88,10 +88,10 @@ export function ProductFilters({
         <button
           type="button"
           onClick={() => pushParams({ category: "" })}
-          className={`rounded-full px-4 py-1.5 text-sm font-medium border transition-colors ${
+          className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-all duration-200 active:scale-[0.98] ${
             !applied.category
-              ? "border-primary/50 bg-primary/15 text-primary"
-              : "border-edge bg-raised/60 text-muted hover:text-foreground hover:border-strong"
+              ? "border-champagne/45 bg-champagne/12 text-champagne"
+              : "border-edge bg-raised/60 text-muted hover:border-strong hover:text-foreground"
           }`}
         >
           {t.filters.all}
@@ -103,10 +103,10 @@ export function ProductFilters({
             onClick={() =>
               pushParams({ category: applied.category === c.slug ? "" : c.slug })
             }
-            className={`rounded-full px-4 py-1.5 text-sm font-medium border transition-colors ${
+            className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-all duration-200 active:scale-[0.98] ${
               applied.category === c.slug
-                ? "border-primary/50 bg-primary/15 text-primary"
-                : "border-edge bg-raised/60 text-muted hover:text-foreground hover:border-strong"
+                ? "border-champagne/45 bg-champagne/12 text-champagne"
+                : "border-edge bg-raised/60 text-muted hover:border-strong hover:text-foreground"
             }`}
           >
             <span aria-hidden className="me-1.5">{c.icon}</span>

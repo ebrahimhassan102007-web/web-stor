@@ -35,6 +35,8 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
     () => false,
   );
   const [signedIn, setSignedIn] = useState(false);
+  // Compact/glassier header once the page is scrolled (CSS-only transition).
+  const [scrolled, setScrolled] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
   const wasOpenRef = useRef(false);
@@ -57,6 +59,25 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
   }, [pathname]);
 
   const close = useCallback(() => setOpen(false), []);
+
+  // Passive, rAF-throttled scroll flag; no layout reads while scrolling.
+  useEffect(() => {
+    let frame = 0;
+    const read = () => {
+      frame = 0;
+      setScrolled(window.scrollY > 12);
+    };
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(read);
+    };
+    read();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, []);
 
   // Close on route change (render-phase reset pattern).
   const [lastPathname, setLastPathname] = useState(pathname);
@@ -174,14 +195,14 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
         aria-label={menuTitle}
         data-testid="nav-drawer"
         dir={isArabic ? "rtl" : "ltr"}
-        className="drawer-panel fixed inset-y-0 end-0 z-[70] flex w-[min(88vw,24rem)] flex-col border-s border-edge bg-base shadow-2xl"
+        className="drawer-panel fixed inset-y-0 end-0 z-[70] flex w-[min(88vw,24rem)] flex-col border-s border-edge shadow-[0_0_80px_-20px_rgba(0,0,0,0.9)]"
       >
         <div className="flex items-center justify-between gap-3 border-b border-edge px-5 py-5">
           <div>
             <p className="text-lg font-bold">{menuTitle}</p>
             <p className="mt-1 text-xs text-muted">{isArabic ? "كل اللي تحتاجه، من غير زحمة." : "Everything you need, without the clutter."}</p>
           </div>
-          <button type="button" aria-label={closeLabel} onClick={close} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-edge text-muted hover:text-foreground">
+          <button type="button" aria-label={closeLabel} onClick={close} className="btn-icon h-11 w-11 shrink-0 text-muted">
             <span aria-hidden="true">✕</span>
           </button>
         </div>
@@ -195,9 +216,13 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
                   href={item.href}
                   onClick={close}
                   aria-current={active ? "page" : undefined}
-                  className={`flex min-h-12 flex-1 items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-medium transition-colors ${active ? "bg-primary/10 text-primary" : "text-foreground hover:bg-hover"}`}
+                  className={`group flex min-h-12 flex-1 items-center gap-3 rounded-xl border px-3.5 py-3 text-sm font-medium transition-all duration-200 ${
+                    active
+                      ? "border-champagne/35 bg-champagne/[0.08] text-foreground"
+                      : "border-transparent text-foreground hover:border-edge hover:bg-hover"
+                  }`}
                 >
-                  <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-edge bg-card text-base">{item.icon}</span>
+                  <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-edge bg-card text-base transition-transform duration-200 group-hover:scale-105">{item.icon}</span>
                   <span>{item.label}</span>
                   <span aria-hidden="true" className="ms-auto text-muted">{isArabic ? "‹" : "›"}</span>
                 </Link>
@@ -207,7 +232,7 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
                     onClick={close}
                     aria-label={addFundsLabel}
                     data-testid="drawer-add-funds"
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-edge bg-card text-lg font-bold text-primary transition-colors hover:border-primary/50"
+                    className="btn-icon h-11 w-11 shrink-0 text-lg font-bold text-primary hover:text-primary"
                   >
                     <span aria-hidden="true">+</span>
                   </Link>
@@ -222,10 +247,14 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-edge bg-base/90 backdrop-blur-xl">
+      <header
+        data-scrolled={scrolled ? "true" : "false"}
+        className="site-header sticky top-0 z-50 border-b border-edge/80 bg-base/60 backdrop-blur-2xl supports-[backdrop-filter]:bg-base/45"
+      >
         <div className="mx-auto flex h-[4.25rem] max-w-7xl items-center justify-between gap-1 px-3 sm:gap-4 sm:px-6">
           <Link href="/" aria-label="E-Vora" className="group flex shrink-0 items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-lg font-black text-white transition-transform group-hover:scale-[1.03]">
+            <span className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-dim text-lg font-black text-white shadow-[0_10px_24px_-14px_rgba(239,68,68,0.9)] transition-transform duration-300 group-hover:scale-[1.04]">
+              <span aria-hidden="true" className="absolute inset-0 rounded-xl ring-1 ring-inset ring-white/20" />
               E
             </span>
             <span className="hidden text-lg font-extrabold tracking-tight min-[420px]:inline">
@@ -245,7 +274,7 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
                 <Link
                   href={WALLET_PATH}
                   aria-label={walletBalanceLabel}
-                  className="flex h-11 items-center gap-1.5 rounded-xl border border-edge bg-card px-2.5 transition-colors hover:border-primary/50 hover:text-primary"
+                  className="btn-icon h-11 gap-1.5 px-2.5"
                 >
                   <svg aria-hidden="true" className="h-[1.15rem] w-[1.15rem] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 1 3 7.5m18 4.5v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5V9" />
@@ -259,7 +288,7 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
                 href={addFundsHref}
                 aria-label={addFundsLabel}
                 data-testid="header-add-funds"
-                className="flex h-11 w-11 items-center justify-center rounded-xl border border-edge bg-card text-xl font-bold text-primary transition-colors hover:border-primary/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className="btn-icon h-11 w-11 text-xl font-bold text-primary hover:text-primary"
               >
                 <span aria-hidden="true">+</span>
               </Link>
@@ -268,7 +297,7 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
             <Link
               href="/cart"
               aria-label={fill(t.nav.cartAria, { count })}
-              className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-edge bg-card transition-colors hover:border-primary/50 hover:text-primary"
+              className="btn-icon relative h-10 w-10"
             >
               <svg aria-hidden="true" className="h-[1.2rem] w-[1.2rem]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h1.6c.5 0 .94.34 1.07.82l.4 1.48M7.5 14.5h10.7c1.1-2.3 2.08-4.68 2.9-7.1A60 60 0 0 0 4.6 5.6M7.5 14.5 6.07 5.3M7.5 14.5l-.7 2.5h12M9 20a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm9.5 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
@@ -288,7 +317,7 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
               aria-haspopup="dialog"
               data-testid="menu-toggle"
               onClick={() => setOpen((value) => !value)}
-              className="flex h-11 w-11 items-center justify-center rounded-xl border border-edge bg-card transition-colors hover:border-primary/50 hover:text-primary"
+              className="btn-icon h-11 w-11"
             >
               <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                 {open

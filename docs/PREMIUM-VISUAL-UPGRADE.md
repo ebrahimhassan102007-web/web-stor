@@ -1,0 +1,99 @@
+# E-Vora — Premium Visual Upgrade ("Dawn Luxury")
+
+**Scope:** presentation only. No API route, server action, database query, auth rule, cart/checkout behaviour, price, product record or payment setting was modified.
+
+- Branch: `arena/6bbbf7ed-web-stor` (this session's fixed branch; PR #19 was merged before this work started, so this is a clean follow-up branch state).
+- Preview: local `next dev` on `0.0.0.0:3000` (catalogue preview mode — no `DATABASE_URL`, read-only seeded catalogue), exposed as the Arena live preview.
+
+---
+
+## 1. Art direction
+
+| Layer | Dark theme | Light theme |
+| --- | --- | --- |
+| Surface | `#06060a` → `#0a0a10` → `#15151e` (near-black with a warm undertone) | `#f5f1ea` → `#efeae1` → `#fffefb` (warm ivory paper, **not** inverted dark) |
+| Ambient light | 3 fixed, heavily blurred dawn glows: champagne `rgba(236,217,180,.10)`, rose `rgba(240,168,160,.085)`, violet `rgba(179,166,240,.075)` | Warm, weaker glows (`--ambient-strength: .85`) |
+| Accent light | Champagne `#ecd9b4` / `#f6ecd9` | Champagne **text** `#9a7434` (4.9:1 on white) |
+| Brand action | Red stays the CTA colour (`#ef4444`), now with a gradient + inner highlight | `#c62b1f` |
+| Text | `#ece9e2` on dark, muted `#9c968c` | `#1a1712`, muted `#6a6257` |
+| Glass | `rgba(12,12,18,.62)` + 14px blur + hairline top highlight | `rgba(255,253,249,.78)` |
+
+Design rules applied everywhere:
+
+- **One glow, one grain, one aurora.** Decorative light is confined to the fixed `DawnStage` and the hero (mobile drops the third light source and halves blur).
+- **Hairline "lit-from-above" edges** instead of heavy borders (masked 1px gradient on `.glass-card`).
+- **Depth by shadow, not by colour noise** — layered warm shadows (`--card-shadow` → `--elev-hover`).
+- **Typography**: one display treatment (`title-luxe`, tight tracking), one eyebrow treatment (`eyebrow`, champagne, uppercase). Letter-spacing is applied **only** under `html[lang="en"]`; Arabic keeps `letter-spacing: normal` so Cairo's joined letters are never broken.
+
+## 2. Motion system (CSS-only, no libraries)
+
+| Utility | What it does | Where |
+| --- | --- | --- |
+| `.reveal` / `.is-visible` | opacity + 18px translate on first intersection, delay via `--reveal-delay` | sections, category cards, product grids |
+| `.rise-in` | one-shot staggered entrance with `--rise-delay` | hero eyebrow → title → paragraph → search → CTAs → trust chips |
+| `.dawn-glow-a/b/c` | 64–96s alternating drift, transform-only | fixed background |
+| `hero-aurora` | 34s scale/translate inside the hero panel | home hero |
+| `.float-soft` | 14s ±10px float | glass E-Vora mark only |
+| `.sheen` | hover light sweep (opacity + translate) | product media, product detail art |
+| `card-media-zoom` | 1.0 → 1.055 image scale on hover/focus | product artwork layer only (text never scales) |
+| `btn-primary` / `btn-ghost` / `btn-icon` | hover lift + `active:scale(.985)` press feedback | every button/link button |
+| `.skeleton` | 1.6s sweep | `/products` and `/account` loading states |
+| drawer | 200ms inline-end slide, RTL-aware keyframes | mobile navigation |
+
+Guarantees:
+
+- **`prefers-reduced-motion: reduce`** disables every animation, zeroes reveal delays, forces `.reveal`/`.rise-in` to full opacity, and removes the sheen. A JS `matchMedia` check in `Reveal` short-circuits the observer as a second layer.
+- **No layout shift:** all motion is `opacity`/`transform` only. Skeletons mirror final geometry. No font or image swaps were introduced.
+- **No runaway animation:** no infinite animations outside the three ambient glows and the hero aurora (both transform-only and disabled for reduced motion). The old `animate-pulse` footer dot was removed.
+- **No new dependency**: `package.json` is untouched.
+
+## 3. Page-by-page
+
+| Page | Work |
+| --- | --- |
+| Home | New cinematic hero: aurora + ornaments + staggered reveal, glass 3D "E" mark, premium `search-luxe` bar with focus glow, trust chips, restyled pillars/notice/categories/featured with staggered reveals |
+| Products | Eyebrow + gradient title, refined notice, `Reveal` grid (first 8 staggered), new `loading.tsx` skeleton |
+| Product detail | Art panel with sheen + champagne brand chip + bottom fade, gradient price, refined trust tiles, "keep exploring" header |
+| Cart | Eyebrow + gradient title, sticky summary with champagne rule, lift on line cards |
+| Checkout / success | Eyebrow + gradient title; success halo |
+| Login | Side panel re-skinned from cyan/violet to champagne/dawn, `title-luxe`, champagne tabs |
+| Account (dashboard, orders, wallet, nav) | Eyebrow/title system, champagne wallet card with rose counter-glow, champagne nav pills, `account/loading.tsx` skeleton |
+| Offers | Hero re-skinned to dawn palette, `btn-primary`, staggered grid |
+| Info pages (about/FAQ/contact/policies) | Champagne eyebrow chip, champagne top hairline, `title-luxe` |
+| Admin hub | Eyebrow, `lift` cards, champagne hover, warmer notice |
+| Footer | Gradient fade + champagne hairline, static status dot (no infinite pulse), champagne link hover |
+| Header | Scroll-reactive glass (`data-scrolled`), rAF-throttled passive listener, gradient logo mark with inner ring, `btn-icon` controls, drawer items with champagne active state; all `data-testid`s, 44px targets, focus trap and 16 drawer links preserved |
+
+## 4. RTL / LTR
+
+- Logical properties only (`ms-/me-`, `ps-/pe-`, `start-/end-`, `inset-inline-*`); the hero mark, glows, ornaments, drawer, nav underline and arrow chevrons all flip correctly.
+- Chevrons/arrows keep the existing `rtl:-scale-x-100` pattern; hover translates are mirrored (`rtl:group-hover:-translate-x-0.5`).
+- Arabic letter-spacing is force-neutralised, and the new `eyebrow`/`tracking-luxe` letter-spacing is scoped to `html[lang="en"]`.
+- Hero and card copy read correctly in both scripts at every breakpoint tested (320/360/768/1280).
+
+## 5. Accessibility
+
+- Global `:focus-visible` outline (`--focus-ring`) on top of existing per-component rings; hero CTA/secondary buttons keep ≥44–48px heights.
+- Contrast: muted text 8.6:1 (dark) / 5.4:1 (light); champagne on ivory 4.9:1; primary button label unchanged from the documented CONTRAST-REPORT mitigation (bold ≥ 0.9375rem).
+- Decorative layers are `aria-hidden` + `pointer-events: none`; skeletons expose `aria-busy` and a screen-reader label.
+- The `<noscript>` fallback forces reveal content visible if JavaScript never runs.
+
+## 6. Verification
+
+| Gate | Result |
+| --- | --- |
+| `npm run lint` | pass |
+| `npm run typecheck` | pass |
+| `npm test` | **115 tests, 109 pass, 0 fail, 6 skipped** (unchanged behaviour) |
+| `npm run build` | pass |
+| Dev server smoke (`/`, `/products`, `/offers`, `/login`, `/cart`, `/checkout`, `/account/wallet`, `/about`, `/faq`, `/contact`, `/policies/terms`, `/support-bot`, product detail) | 200 + zero runtime errors |
+| Theme/locale cookies (`evora_theme=light`, `evora_locale=ar`) | `<html lang="ar" dir="rtl" data-theme="light">` verified |
+| Playwright (`e2e/visual.spec.ts`) | **NOT RUN locally** — no browser binary in the sandbox and `playwright install` cannot reach the download CDN. Runs in the Quality workflow, which installs Chromium. |
+| Screenshots | **NOT produced locally** for the same reason; the new spec writes the full matrix to `docs/evidence/dawn-*.png` during CI. |
+
+## 7. Known limitations
+
+1. No local browser ⇒ no before/after screenshots from this environment; CI produces them.
+2. The catalogue is served from the read-only preview fallback (no `DATABASE_URL`), so styling was verified against preview rows.
+3. Light theme keeps the hero as a deliberate dark "panel" for contrast; everything else is warm ivory.
+4. Marketplace/seller pages do not exist yet (they are a later PR); their design language is defined here and will be applied when those routes land.

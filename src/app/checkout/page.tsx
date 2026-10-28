@@ -156,8 +156,9 @@ export default function CheckoutPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-      <h1 className="text-3xl font-bold tracking-tight">
-        {t.checkout.title} <span className="text-primary">{t.checkout.titleAccent}</span>
+      <p className="eyebrow mb-3">{t.checkout.encrypted}</p>
+      <h1 className="title-luxe text-3xl">
+        {t.checkout.title} <span className="text-gradient-dawn">{t.checkout.titleAccent}</span>
       </h1>
       <p className="mt-2 flex items-center gap-2 text-sm text-muted flex-wrap">
         <span className="badge-green">

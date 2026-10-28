@@ -223,22 +223,23 @@ export function AuthPanel({
 
   return (
     <div className="mx-auto grid min-h-[calc(100vh-12rem)] max-w-5xl items-stretch gap-5 px-4 py-10 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:gap-7">
-      <aside className="relative hidden min-h-[620px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#101827] p-10 text-white shadow-2xl lg:flex lg:flex-col lg:justify-between">
-        <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-cyan-400/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-28 -left-20 h-80 w-80 rounded-full bg-violet-500/20 blur-3xl" />
+      <aside className="relative hidden min-h-[620px] overflow-hidden rounded-[2rem] border border-[#ecd9b4]/20 bg-[linear-gradient(160deg,#171320_0%,#221726_55%,#100c16_100%)] p-10 text-white shadow-[0_40px_90px_-50px_rgba(0,0,0,0.95)] lg:flex lg:flex-col lg:justify-between">
+        <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-[#ecd9b4]/25 blur-3xl" />
+        <div className="pointer-events-none absolute -left-16 top-1/3 h-64 w-64 rounded-full bg-[#f0a8a0]/15 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-28 -left-20 h-80 w-80 rounded-full bg-[#b3a6f0]/15 blur-3xl" />
         <div className="relative z-10">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-cyan-300 shadow-lg shadow-cyan-950/30">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-[#ecd9b4] shadow-[0_18px_40px_-24px_rgba(236,217,180,0.9)]">
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-7 w-7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 8.5h16l-1.2 11H5.2L4 8.5Z" />
               <path d="M8.5 9V6a3.5 3.5 0 0 1 7 0v3" />
               <path d="m9 14 2 2 4-4" />
             </svg>
           </div>
-          <p className="mt-8 text-xs font-bold uppercase tracking-[0.28em] text-cyan-300">E-Vora Store</p>
-          <h2 className="mt-4 max-w-sm text-4xl font-black leading-[1.15] tracking-tight">
+          <p className="eyebrow mt-8">E-Vora Store</p>
+          <h2 className="mt-4 max-w-sm text-4xl font-black leading-[1.15]">
             {locale === "ar" ? "كل عالمك الرقمي في مكان واحد" : "Your digital world, all in one place."}
           </h2>
-          <p className="mt-5 max-w-sm text-sm leading-7 text-slate-300">
+          <p className="mt-5 max-w-sm text-sm leading-7 text-white/70">
             {locale === "ar"
               ? "ادخل إلى حسابك وتابع منتجاتك وتجربتك في E‑Vora بسهولة وأمان."
               : "Sign in to explore your account and keep your digital essentials close."}
@@ -271,8 +272,8 @@ export function AuthPanel({
               <path d="M8.5 9V6a3.5 3.5 0 0 1 7 0v3" />
             </svg>
           </div>
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-primary">E-Vora · Store</p>
-          <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
+          <p className="eyebrow">E-Vora · Store</p>
+          <h1 className="title-luxe mt-2 text-2xl sm:text-3xl">
             {stage === "verification"
               ? t.auth.verificationTitle
               : mode === "signin"
@@ -301,7 +302,7 @@ export function AuthPanel({
 
         {stage === "credentials" ? (
           <>
-            <div className="mt-7 grid grid-cols-2 rounded-xl border border-edge bg-raised/60 p-1" role="tablist" aria-label={t.auth.signInTab}>
+            <div className="mt-7 grid grid-cols-2 rounded-xl border border-edge bg-raised/50 p-1" role="tablist" aria-label={t.auth.signInTab}>
               <button
                 type="button"
                 role="tab"
@@ -311,7 +312,7 @@ export function AuthPanel({
                   setErrorCode("");
                   setNotice("");
                 }}
-                className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${mode === "signin" ? "bg-primary text-white" : "text-muted hover:text-foreground"}`}
+                className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-all duration-200 ${mode === "signin" ? "bg-primary text-white shadow-[0_10px_22px_-14px_rgba(239,68,68,0.9)]" : "text-muted hover:text-foreground"}`}
               >
                 {t.auth.signInTab}
               </button>
@@ -324,7 +325,7 @@ export function AuthPanel({
                   setErrorCode("");
                   setNotice("");
                 }}
-                className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${mode === "signup" ? "bg-primary text-white" : "text-muted hover:text-foreground"}`}
+                className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-all duration-200 ${mode === "signup" ? "bg-primary text-white shadow-[0_10px_22px_-14px_rgba(239,68,68,0.9)]" : "text-muted hover:text-foreground"}`}
               >
                 {t.auth.signUpTab}
               </button>

@@ -8,6 +8,7 @@ import {
 import { formatCents, formatEgpFromUsdCents } from "@/lib/money";
 import { AddToCart } from "@/components/add-to-cart";
 import { ProductCard } from "@/components/product-card";
+import { Reveal } from "@/components/reveal";
 import { getI18n } from "@/lib/i18n/server";
 import { fill, locDesc, locName } from "@/lib/i18n/dictionary";
 
@@ -79,10 +80,21 @@ export default async function ProductDetailPage(props: { params: Params }) {
       </nav>
 
       <div className="grid gap-8 lg:grid-cols-2">
-        {/* Art */}
-        <div className="glass-card overflow-hidden">
-          <div className="product-art aspect-square text-[9rem] sm:text-[11rem]">
-            <span aria-hidden className="product-art-mark">{product.icon}</span>
+        {/* Art — the hero object of the page */}
+        <div className="glass-card group relative overflow-hidden p-3 sm:p-4">
+          <div className="relative overflow-hidden rounded-[0.95rem]">
+            <div className="product-art aspect-square text-[8rem] sm:text-[11rem]">
+              <span aria-hidden className="product-art-mark">{product.icon}</span>
+            </div>
+            <span aria-hidden className="sheen absolute inset-0 rounded-[0.95rem]" />
+            <span
+              aria-hidden
+              className="absolute inset-x-0 bottom-0 h-24"
+              style={{ background: "linear-gradient(180deg, transparent, color-mix(in srgb, var(--bg-deep) 55%, transparent))" }}
+            />
+            <span className="badge-champagne absolute bottom-3 start-3 z-10 text-[0.7rem]">
+              <span className="tracking-luxe">E-VORA</span>
+            </span>
           </div>
         </div>
 
@@ -101,7 +113,7 @@ export default async function ProductDetailPage(props: { params: Params }) {
             {product.featured && <span className="badge-red">{t.product.featured}</span>}
           </div>
 
-          <h1 className="mt-4 text-3xl sm:text-4xl font-bold tracking-tight leading-tight">
+          <h1 className="title-luxe mt-4 text-3xl leading-tight sm:text-4xl">
             {locName(product, locale)}
           </h1>
 
@@ -111,7 +123,7 @@ export default async function ProductDetailPage(props: { params: Params }) {
 
           <div className="mt-6 flex items-center gap-3 flex-wrap">
             <span className="flex flex-col">
-              <strong className="text-4xl font-extrabold tracking-tight">{formatCents(product.priceCents, locale)}</strong>
+              <strong className="text-4xl font-extrabold tracking-tight text-gradient-dawn">{formatCents(product.priceCents, locale)}</strong>
               <small className="mt-1 text-base font-semibold text-muted">{formatEgpFromUsdCents(product.priceCents, locale)}</small>
             </span>
             <span className="badge-green">{t.product.instantDelivery}</span>
@@ -125,7 +137,7 @@ export default async function ProductDetailPage(props: { params: Params }) {
             />
           </div>
 
-          <div className="mt-8 glass-card p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-center text-xs text-muted">
+          <div className="mt-8 surface grid grid-cols-1 gap-3 p-4 text-center text-xs text-muted sm:grid-cols-3">
             <div>
               <p className="text-base" aria-hidden>🔒</p>
               <p className="mt-1 font-medium text-foreground">{t.product.tileSecure}</p>
@@ -149,12 +161,17 @@ export default async function ProductDetailPage(props: { params: Params }) {
       {/* Related */}
       {related.length > 0 && (
         <section className="mt-16">
-          <h2 className="mb-6 text-2xl font-bold tracking-tight">
-            {fill(t.product.moreIn, { category: categoryLabel })}
-          </h2>
+          <div className="mb-6">
+            <p className="eyebrow">{locale === "ar" ? "اكتشف المزيد" : "KEEP EXPLORING"}</p>
+            <h2 className="title-luxe mt-2 text-2xl">
+              {fill(t.product.moreIn, { category: categoryLabel })}
+            </h2>
+          </div>
           <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-            {related.map((p) => (
-              <ProductCard key={p.id} product={p} locale={locale} />
+            {related.map((p, index) => (
+              <Reveal key={p.id} delay={index * 60} className="h-full">
+                <ProductCard product={p} locale={locale} />
+              </Reveal>
             ))}
           </div>
         </section>

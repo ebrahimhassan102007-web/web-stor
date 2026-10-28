@@ -105,8 +105,9 @@ export default function CartPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-      <h1 className="text-3xl font-bold tracking-tight">
-        {t.cart.title} <span className="text-primary">{t.cart.titleAccent}</span>
+      <p className="eyebrow mb-3">{locale === "ar" ? "خطوة واحدة قبل الدفع" : "ONE STEP TO CHECKOUT"}</p>
+      <h1 className="title-luxe text-3xl">
+        {t.cart.title} <span className="text-gradient-dawn">{t.cart.titleAccent}</span>
       </h1>
       <p className="mt-1 text-sm text-muted">
         {cart.itemCount === 1
@@ -124,7 +125,7 @@ export default function CartPage() {
         {/* Lines */}
         <div className="space-y-4">
           {cart.items.map((line) => (
-            <div key={line.id} className="glass-card card-glow-red flex gap-4 p-4">
+            <div key={line.id} className="glass-card lift card-glow-red flex gap-4 p-4">
               <Link
                 href={`/products/${line.slug}`}
                 className="product-art h-24 w-24 shrink-0 rounded-xl text-4xl"
@@ -206,6 +207,7 @@ export default function CartPage() {
 
         {/* Summary */}
         <aside className="glass-card h-fit p-6 lg:sticky lg:top-24">
+          <span aria-hidden className="mb-4 block h-px w-12 bg-gradient-to-r from-champagne to-transparent" />
           <h2 className="text-lg font-bold">{t.cart.summary}</h2>
           <dl className="mt-4 space-y-3 text-sm">
             <div className="flex justify-between">

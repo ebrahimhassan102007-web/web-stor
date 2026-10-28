@@ -35,7 +35,7 @@ export default async function OrderSuccessPage(props: {
           />
           <span
             aria-hidden="true"
-            className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-success/40 bg-success/10 text-3xl"
+            className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-success/40 bg-success/10 text-3xl shadow-[0_0_50px_-16px_color-mix(in_srgb,var(--accent-green)_55%,transparent)]"
           >
             ✓
           </span>
