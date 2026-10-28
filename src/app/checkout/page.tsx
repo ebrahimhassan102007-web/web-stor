@@ -125,9 +125,20 @@ export default function CheckoutPage() {
   if (cart.items.length === 0) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
-        <div className="glass-card p-12 text-center">
-          <p className="text-5xl" aria-hidden>🛒</p>
-          <h1 className="mt-5 text-2xl font-bold">{t.checkout.nothingTitle}</h1>
+        <div className="glass-card relative isolate overflow-hidden p-12 text-center">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(34rem_14rem_at_50%_-10%,var(--ambient-1),transparent_70%)]"
+          />
+          <span
+            aria-hidden="true"
+            className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-champagne/25 bg-[var(--hover-fill)] text-champagne"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7">
+              <path d="M3 3h1.6c.5 0 .94.34 1.07.82l.4 1.48M7.5 14.5h10.7c1.1-2.3 2.08-4.68 2.9-7.1A60 60 0 0 0 4.6 5.6M7.5 14.5 6.07 5.3M7.5 14.5l-.7 2.5h12M9 20a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm9.5 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+            </svg>
+          </span>
+          <h1 className="title-luxe mt-5 text-2xl">{t.checkout.nothingTitle}</h1>
           <p className="mt-2 text-sm text-muted">{t.checkout.nothingText}</p>
           <Link href="/products" className="btn-primary mt-6 px-8">
             {t.cart.browse}
