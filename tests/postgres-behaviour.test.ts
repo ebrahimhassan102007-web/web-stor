@@ -83,10 +83,13 @@ test("the clean PostgreSQL schema includes storefront and authentication tables"
       "categories",
       "email_verification_codes",
       "google_oauth_states",
+      "marketplace_audit_events",
       "order_items",
       "orders",
       "products",
       "security_audit_log",
+      "seller_application_events",
+      "seller_profiles",
       "users",
     ],
   );
@@ -105,6 +108,11 @@ test("the clean PostgreSQL schema includes storefront and authentication tables"
     "products_slug_idx",
     "users_email_idx",
     "users_google_sub_idx",
+    "seller_profiles_user_idx",
+    "seller_profiles_slug_idx",
+    "seller_profiles_single_platform_idx",
+    "seller_profiles_status_idx",
+    "marketplace_audit_events_created_idx",
   ]) {
     assert.ok(names.includes(expected), `missing index ${expected}`);
   }

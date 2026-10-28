@@ -39,7 +39,7 @@ test("fresh migration is explicit, complete, and idempotent", async () => {
     });
     assert.deepEqual(
       dryRun.operations.map((operation) => operation.action),
-      ["apply", "apply", "apply", "apply"],
+      ["apply", "apply", "apply", "apply", "apply"],
     );
     assert.equal((await tableNames(client)).length, 0, "dry run must not create tables");
 
@@ -49,6 +49,7 @@ test("fresh migration is explicit, complete, and idempotent", async () => {
       "0001_evora-digital",
       "0002_authentication",
       "0003_hardening",
+      "0004_marketplace_identity",
     ]);
     assert.deepEqual(first.adopted, []);
     assert.deepEqual(await tableNames(client), [
@@ -59,10 +60,13 @@ test("fresh migration is explicit, complete, and idempotent", async () => {
       "categories",
       "email_verification_codes",
       "google_oauth_states",
+      "marketplace_audit_events",
       "order_items",
       "orders",
       "products",
       "security_audit_log",
+      "seller_application_events",
+      "seller_profiles",
       "users",
     ]);
 
@@ -72,7 +76,7 @@ test("fresh migration is explicit, complete, and idempotent", async () => {
     const second = await migrateDatabase({ client: asMigrationClient(client) });
     assert.deepEqual(second.applied, []);
     assert.deepEqual(second.adopted, []);
-    assert.equal(second.unchanged.length, 4);
+    assert.equal(second.unchanged.length, 5);
     const preserved = await client.query<{ name: string }>(
       "SELECT name FROM categories WHERE slug = 'custom-category'",
     );
@@ -121,7 +125,7 @@ test("existing 0000 storefront is adopted without replaying CREATE TABLE and pre
     });
     assert.deepEqual(
       plan.operations.map((operation) => operation.action),
-      ["adopt", "apply", "apply", "apply"],
+      ["adopt", "apply", "apply", "apply", "apply"],
     );
 
     const migrated = await migrateDatabase({
@@ -133,6 +137,7 @@ test("existing 0000 storefront is adopted without replaying CREATE TABLE and pre
       "0001_evora-digital",
       "0002_authentication",
       "0003_hardening",
+      "0004_marketplace_identity",
     ]);
 
     const preserved = await client.query<{
@@ -176,9 +181,12 @@ test("an already-shaped but untracked schema requires adoption and never duplica
       client: asMigrationClient(client),
       adoptExisting: true,
     });
-    // The three historical migrations are adopted; the new hardening
-    // migration (no adoption requirement) applies normally on top.
-    assert.deepEqual(result.applied, ["0003_hardening"]);
+    // The three historical migrations are adopted; the hardening migration and
+    // the marketplace identity migration (no adoption requirement) apply on top.
+    assert.deepEqual(result.applied, [
+      "0003_hardening",
+      "0004_marketplace_identity",
+    ]);
     assert.equal(result.adopted.length, 3);
     const count = await client.query<{ count: string }>(
       "SELECT COUNT(*)::text AS count FROM categories WHERE slug = 'keep-me'",
