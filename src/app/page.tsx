@@ -100,7 +100,7 @@ export default async function HomePage() {
                 placeholder={t.filters.searchPlaceholder}
                 className="min-w-0 flex-1 bg-transparent px-1 py-2.5 text-sm text-[#f6f1e7] outline-none placeholder:text-[#a49d90] sm:py-3"
               />
-              <button type="submit" className="btn-primary min-h-11 shrink-0 px-4 text-sm sm:px-5">
+              <button type="submit" className="btn-primary min-h-11 shrink-0 px-3.5 text-sm sm:px-5">
                 {t.filters.search}
               </button>
             </form>
@@ -135,7 +135,7 @@ export default async function HomePage() {
           </div>
 
           {/* Glass E-Vora mark — brand anchor, not decoration-as-noise. */}
-          <div className="rise-in order-first mx-auto lg:order-none lg:mx-0" style={{ "--rise-delay": "260ms" } as React.CSSProperties}>
+          <div className="rise-in order-last mx-auto mt-2 lg:order-none lg:mx-0 lg:mt-0" style={{ "--rise-delay": "260ms" } as React.CSSProperties}>
             <div className="hero-mark float-soft mx-auto">
               <span className="hero-mark-letter" aria-hidden="true">E</span>
             </div>
@@ -179,7 +179,7 @@ export default async function HomePage() {
       <Reveal delay={40}>
         <section className="surface mt-4 flex items-start gap-4 border-amber-500/25 bg-amber-500/[0.055] p-4 sm:items-center sm:px-5">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-lg">ⓘ</span>
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-bold">{ar ? "نسخة استعراضية — المنتجات للمعاينة فقط" : "Store preview — products are for browsing only"}</p>
             <p className="mt-1 text-xs leading-6 text-muted">
               {ar

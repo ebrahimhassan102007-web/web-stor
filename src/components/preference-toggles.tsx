@@ -65,9 +65,27 @@ export function ThemeToggle({ initialTheme }: { initialTheme: Theme }) {
       type="button"
       onClick={toggle}
       aria-label={theme === "dark" ? t.theme.toLight : t.theme.toDark}
-      className="btn-icon h-10 w-10 text-base"
+      className="btn-icon group h-10 w-10"
     >
-      <span aria-hidden>{theme === "dark" ? "☀️" : "🌙"}</span>
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="h-[1.15rem] w-[1.15rem] text-muted transition-colors duration-300 group-hover:text-champagne"
+      >
+        {theme === "dark" ? (
+          <>
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" />
+          </>
+        ) : (
+          <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" />
+        )}
+      </svg>
     </button>
   );
 }

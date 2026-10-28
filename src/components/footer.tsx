@@ -12,7 +12,7 @@ export async function Footer() {
   const links = staticPages[locale].footerLinks;
 
   return (
-    <footer className="relative mt-20 border-t border-edge bg-gradient-to-b from-transparent to-base/70">
+    <footer className="relative mt-20 border-t border-edge bg-gradient-to-b from-transparent to-canvas/70">
       <span aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-champagne/30 to-transparent" />
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">

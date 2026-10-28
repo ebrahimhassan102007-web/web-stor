@@ -170,6 +170,17 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
     { href: "/about", label: isArabic ? "عن E‑Vora" : "About E‑Vora", icon: "ⓘ" },
   ] as const;
 
+  // Primary links surfaced inline on large screens. They mirror entries that
+  // already exist in the drawer — no new destination, just a shorter path to
+  // the five most useful ones.
+  const primaryNav = [
+    { href: "/products", label: t.nav.products },
+    { href: "/offers", label: isArabic ? "العروض" : "Offers" },
+    { href: "/products?category=game-topups", label: isArabic ? "شحن الألعاب" : "Game top-ups" },
+    { href: "/products?category=subscriptions", label: isArabic ? "الاشتراكات" : "Subscriptions" },
+    { href: "/faq", label: isArabic ? "المساعدة" : "Help" },
+  ] as const;
+
   const closeLabel = isArabic ? "إغلاق القائمة" : "Close menu";
   const menuTitle = isArabic ? "تصفح E‑Vora" : "Explore E‑Vora";
   const addFundsLabel = isArabic ? "إضافة رصيد" : "Add funds";
@@ -249,7 +260,7 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
     <>
       <header
         data-scrolled={scrolled ? "true" : "false"}
-        className="site-header sticky top-0 z-50 border-b border-edge/80 bg-base/60 backdrop-blur-2xl supports-[backdrop-filter]:bg-base/45"
+        className="site-header sticky top-0 z-50 border-b border-edge/80 bg-canvas/60 backdrop-blur-2xl supports-[backdrop-filter]:bg-canvas/45"
       >
         <div className="mx-auto flex h-[4.25rem] max-w-7xl items-center justify-between gap-1 px-3 sm:gap-4 sm:px-6">
           <Link href="/" aria-label="E-Vora" className="group flex shrink-0 items-center gap-2.5">
@@ -261,6 +272,29 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
               E<span className="text-primary">-Vora</span>
             </span>
           </Link>
+
+          <nav
+            aria-label={isArabic ? "التنقل الرئيسي" : "Primary"}
+            className="hidden min-w-0 items-center gap-0.5 lg:flex"
+          >
+            {primaryNav.map((item) => {
+              const active =
+                item.href === "/products"
+                  ? pathname === "/products" || pathname.startsWith("/products/")
+                  : pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  data-active={active ? "true" : undefined}
+                  className="nav-link text-sm font-medium"
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
 
           <div className="flex items-center gap-1 sm:gap-2">
             <LanguageToggle />
