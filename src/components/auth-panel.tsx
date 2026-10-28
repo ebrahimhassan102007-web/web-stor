@@ -223,7 +223,7 @@ export function AuthPanel({
 
   return (
     <div className="mx-auto grid min-h-[calc(100vh-12rem)] max-w-5xl items-stretch gap-5 px-4 py-10 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:gap-7">
-      <aside className="relative hidden min-h-[620px] overflow-hidden rounded-[2rem] border border-[#ecd9b4]/20 bg-[linear-gradient(160deg,#171320_0%,#221726_55%,#100c16_100%)] p-10 text-white shadow-[0_40px_90px_-50px_rgba(0,0,0,0.95)] lg:flex lg:flex-col lg:justify-between">
+      <aside className="dawn-panel hidden min-h-[620px] p-10 text-white lg:flex lg:flex-col lg:justify-between">
         <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-[#ecd9b4]/25 blur-3xl" />
         <div className="pointer-events-none absolute -left-16 top-1/3 h-64 w-64 rounded-full bg-[#f0a8a0]/15 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-28 -left-20 h-80 w-80 rounded-full bg-[#b3a6f0]/15 blur-3xl" />

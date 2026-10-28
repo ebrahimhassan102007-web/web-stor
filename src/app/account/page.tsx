@@ -50,7 +50,7 @@ export default async function AccountPage() {
         </div>
       </div>
 
-      <section className="relative mb-7 overflow-hidden rounded-3xl border border-champagne/25 bg-gradient-to-br from-[#181422] via-[#241a24] to-[#100d16] p-6 text-white shadow-[0_30px_70px_-40px_rgba(0,0,0,0.95)] sm:p-8">
+      <section className="dawn-panel mb-7 p-6 text-white sm:p-8">
         <div aria-hidden className="absolute -end-12 -top-20 h-64 w-64 rounded-full bg-[#ecd9b4]/20 blur-3xl" />
           <div aria-hidden className="absolute -bottom-24 start-1/4 h-56 w-56 rounded-full bg-rose-500/15 blur-3xl" />
         <div className="relative flex flex-wrap items-end justify-between gap-5">

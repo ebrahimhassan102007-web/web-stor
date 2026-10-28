@@ -21,7 +21,7 @@ export default async function WalletPage() {
     <h1 className="title-luxe mt-2 text-3xl">{ar ? "المحفظة والإيداع" : "Wallet & deposits"}</h1>
     <p className="mt-2 text-sm text-muted">{ar ? "تابع رصيدك وطرق إضافة الأموال من مكان واحد." : "View your balance and available funding options in one place."}</p>
     <div className="mt-7"><AccountNav locale={locale} active="/account/wallet" /></div>
-    <section className="relative overflow-hidden rounded-3xl border border-champagne/25 bg-gradient-to-br from-[#181422] via-[#231a24] to-[#0f0c14] p-6 text-white shadow-[0_30px_70px_-44px_rgba(0,0,0,0.95)] sm:p-9">
+    <section className="dawn-panel p-6 text-white sm:p-9">
       <div aria-hidden className="absolute -end-12 -top-16 h-52 w-52 rounded-full bg-[#ecd9b4]/20 blur-3xl" />
       <p className="relative text-sm text-white/70">{ar ? "الرصيد الحالي · تجريبي" : "Current balance · demo"}</p>
       <p className="relative mt-3 text-4xl font-black tabular-nums">{formatDemoUsd()}</p>

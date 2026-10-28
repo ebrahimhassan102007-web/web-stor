@@ -11,13 +11,13 @@ export function LanguageToggle() {
   const btn = (active: boolean) =>
     `rounded-md px-1.5 py-1 text-xs font-bold transition-colors sm:px-2.5 ${
       active
-        ? "bg-primary text-white"
+        ? "bg-[var(--hover-fill)] text-champagne shadow-[inset_0_1px_0_var(--glass-highlight)]"
         : "text-muted hover:text-foreground"
     }`;
 
   return (
     <div
-      className={`flex items-center gap-0.5 rounded-lg border border-edge bg-raised/60 p-0.5 ${
+      className={`flex items-center gap-0.5 rounded-xl border border-edge bg-[var(--input-bg)] p-0.5 ${
         switching ? "opacity-60" : ""
       }`}
       role="group"
@@ -65,7 +65,7 @@ export function ThemeToggle({ initialTheme }: { initialTheme: Theme }) {
       type="button"
       onClick={toggle}
       aria-label={theme === "dark" ? t.theme.toLight : t.theme.toDark}
-      className="flex h-10 w-10 items-center justify-center rounded-lg border border-edge bg-raised/60 text-base hover:border-primary/40 transition-colors"
+      className="btn-icon h-10 w-10 text-base"
     >
       <span aria-hidden>{theme === "dark" ? "☀️" : "🌙"}</span>
     </button>

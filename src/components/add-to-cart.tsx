@@ -130,12 +130,12 @@ export function AddToCart({
 
       <div className="flex items-center gap-3">
         {!compact && inStock && (
-          <div className="flex items-center rounded-lg border border-edge bg-raised/60">
+          <div className="flex items-center overflow-hidden rounded-xl border border-edge bg-[var(--input-bg)]">
             <button
               type="button"
               aria-label={t.add.decrease}
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              className="h-11 w-10 text-lg text-muted hover:text-foreground disabled:opacity-40"
+              className="h-11 w-10 text-lg text-muted transition-colors hover:bg-[var(--hover-fill)] hover:text-champagne active:scale-95 disabled:opacity-40 disabled:hover:bg-transparent"
               disabled={quantity <= 1}
             >
               −
@@ -147,7 +147,7 @@ export function AddToCart({
               type="button"
               aria-label={t.add.increase}
               onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
-              className="h-11 w-10 text-lg text-muted hover:text-foreground disabled:opacity-40"
+              className="h-11 w-10 text-lg text-muted transition-colors hover:bg-[var(--hover-fill)] hover:text-champagne active:scale-95 disabled:opacity-40 disabled:hover:bg-transparent"
               disabled={quantity >= maxQty}
             >
               +

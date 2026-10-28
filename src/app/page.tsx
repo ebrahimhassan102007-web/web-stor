@@ -61,7 +61,7 @@ export default async function HomePage() {
 
         <div className="relative z-10 grid items-center gap-9 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-14">
           <div className="min-w-0">
-            <p className="rise-in eyebrow badge-champagne" style={{ "--rise-delay": "40ms" } as React.CSSProperties}>
+            <p className="rise-in eyebrow-pill" style={{ "--rise-delay": "40ms" } as React.CSSProperties}>
               <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />
               {t.hero.eyebrow}
             </p>

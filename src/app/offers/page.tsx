@@ -14,7 +14,7 @@ export default async function OffersPage() {
   const [{ locale }, products] = await Promise.all([getI18n(), getFeaturedProducts(12)]);
   const ar = locale === "ar";
   return <div className="mx-auto max-w-7xl px-4 py-9 sm:px-6 sm:py-12">
-    <section className="relative isolate overflow-hidden rounded-[2rem] border border-[#ecd9b4]/20 bg-[linear-gradient(150deg,#1b1420_0%,#231826_52%,#0f0c14_100%)] p-7 text-white shadow-[0_40px_90px_-52px_rgba(0,0,0,0.95)] sm:p-10">
+    <section className="dawn-panel p-7 text-white sm:p-10">
       <div aria-hidden className="absolute -end-12 -top-16 h-64 w-64 rounded-full bg-[#ecd9b4]/20 blur-3xl" />
       <div aria-hidden className="absolute -bottom-24 start-1/3 h-56 w-56 rounded-full bg-[#f0a8a0]/15 blur-3xl" />
       <p className="eyebrow">E‑VORA / {ar ? "اختيارات مميزة" : "FEATURED PICKS"}</p>

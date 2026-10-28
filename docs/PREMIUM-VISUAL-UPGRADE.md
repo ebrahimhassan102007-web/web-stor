@@ -47,6 +47,20 @@ Guarantees:
 - **No runaway animation:** no infinite animations outside the three ambient glows and the hero aurora (both transform-only and disabled for reduced motion). The old `animate-pulse` footer dot was removed.
 - **No new dependency**: `package.json` is untouched.
 
+## 2b. Dark panels in a light theme
+
+The hero, the offers hero, the support-bot hero, the login side panel, the wallet card and the account balance card stay dark in **both** themes — a dark showcase panel on warm ivory is what makes the light theme feel designed rather than inverted. Instead of overriding colours element by element, `dawn-panel` re-declares the light-on-dark tokens locally:
+
+```
+.hero-shell, .dawn-panel {
+  --champagne, --champagne-soft, --foreground, --muted,
+  --border-subtle, --glass-bg, --glass-border, --hover-fill,
+  --input-bg, --card-shadow, --elev-hover
+}
+```
+
+so nested utilities (`text-muted`, `badge-*`, `glass-card`, `btn-*`) stay legible automatically. `title-luxe` deliberately does **not** set a colour (it inherits), and the light-mode `text-gradient-dawn` is re-brightened inside those panels — otherwise the accent word would turn dark gold on near-black.
+
 ## 3. Page-by-page
 
 | Page | Work |
@@ -62,6 +76,8 @@ Guarantees:
 | Info pages (about/FAQ/contact/policies) | Champagne eyebrow chip, champagne top hairline, `title-luxe` |
 | Admin hub | Eyebrow, `lift` cards, champagne hover, warmer notice |
 | Footer | Gradient fade + champagne hairline, static status dot (no infinite pulse), champagne link hover |
+| 404 | Champagne gradient numerals, dawn halo, `title-luxe` |
+| Support bot | `dawn-panel` hero, champagne eyebrow, `title-luxe` |
 | Header | Scroll-reactive glass (`data-scrolled`), rAF-throttled passive listener, gradient logo mark with inner ring, `btn-icon` controls, drawer items with champagne active state; all `data-testid`s, 44px targets, focus trap and 16 drawer links preserved |
 
 ## 4. RTL / LTR
@@ -88,12 +104,13 @@ Guarantees:
 | `npm run build` | pass |
 | Dev server smoke (`/`, `/products`, `/offers`, `/login`, `/cart`, `/checkout`, `/account/wallet`, `/about`, `/faq`, `/contact`, `/policies/terms`, `/support-bot`, product detail) | 200 + zero runtime errors |
 | Theme/locale cookies (`evora_theme=light`, `evora_locale=ar`) | `<html lang="ar" dir="rtl" data-theme="light">` verified |
-| Playwright (`e2e/visual.spec.ts`) | **NOT RUN locally** — no browser binary in the sandbox and `playwright install` cannot reach the download CDN. Runs in the Quality workflow, which installs Chromium. |
-| Screenshots | **NOT produced locally** for the same reason; the new spec writes the full matrix to `docs/evidence/dawn-*.png` during CI. |
+| Playwright (`e2e/visual.spec.ts`) locally | **NOT RUN** — no browser binary in the sandbox and the Playwright download CDN is unreachable from it. |
+| Playwright in CI | ✅ **pass** in the Quality workflow (`End-to-end header tests`, which runs the whole `e2e/` directory: the existing `header.spec.ts` **and** the new `visual.spec.ts`), 2m52s, run `40757494898`. |
+| Screenshots | Produced by CI: the Quality workflow now uploads the matrix as the `visual-review-screenshots` artifact (14 days). Download it from the run to review every locale × theme × viewport combination. |
 
 ## 7. Known limitations
 
-1. No local browser ⇒ no before/after screenshots from this environment; CI produces them.
+1. No local browser in this sandbox ⇒ the screenshot matrix is produced by the Quality workflow (artifact `visual-review-screenshots`); it cannot be generated in the dev sandbox.
 2. The catalogue is served from the read-only preview fallback (no `DATABASE_URL`), so styling was verified against preview rows.
 3. Light theme keeps the hero as a deliberate dark "panel" for contrast; everything else is warm ivory.
 4. Marketplace/seller pages do not exist yet (they are a later PR); their design language is defined here and will be applied when those routes land.
