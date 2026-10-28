@@ -66,3 +66,14 @@ its blur below 640 px.
   scroll through each page.
 - Drawer at 390 px: full viewport height, 16 links, focus moved inside.
 - Zero `pageerror` events across all captured pages.
+
+## Empty states — emoji → SVG
+
+| Before (tofu boxes) | After |
+| --- | --- |
+| ![before](before-fix-checkout.png) | ![after](after-checkout-empty-dark-en.png) |
+
+The empty-cart and empty-checkout states used colour emoji glyphs, which render
+as blank tofu squares on any system without a colour emoji font (Chromium in a
+container, many Linux desktops, some Android builds). Both are now a champagne
+SVG inside a glass tile with a soft halo.
