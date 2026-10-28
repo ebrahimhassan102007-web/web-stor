@@ -107,6 +107,7 @@ test(
         "0001_evora-digital",
         "0002_authentication",
         "0003_hardening",
+        "0004_marketplace_identity",
       ]);
 
       const upgradedClient = new Client({ connectionString: legacyUrl });

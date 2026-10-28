@@ -31,10 +31,13 @@ test("a clean embedded PostgreSQL database applies all migrations and additive s
         "categories",
         "email_verification_codes",
         "google_oauth_states",
+        "marketplace_audit_events",
         "order_items",
         "orders",
         "products",
         "security_audit_log",
+        "seller_application_events",
+        "seller_profiles",
         "users",
       ],
     );

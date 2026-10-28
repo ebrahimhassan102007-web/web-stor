@@ -3,6 +3,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   serial,
@@ -223,7 +224,8 @@ export const users = pgTable(
     uniqueIndex("users_email_idx").on(t.email),
     uniqueIndex("users_google_sub_idx").on(t.googleSub),
     check("users_email_lowercase", sql`${t.email} = lower(${t.email})`),
-    check("users_role_known", sql`${t.role} IN ('customer','admin')`),
+    // Superset of the previous rule: sellers are added, existing rows unchanged.
+    check("users_role_known", sql`${t.role} IN ('customer','seller','admin')`),
   ],
 );
 
@@ -322,6 +324,160 @@ export const securityAuditLog = pgTable(
   ],
 );
 
+
+/* ------------------------------------------------------------------ */
+/* Marketplace: seller identity, approval history, audit trail         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Seller storefront identity and approval state.
+ *
+ * Authorization NEVER reads this table from a cookie or request body: server
+ * code resolves the signed-in `users.id` to a profile and re-reads `status`
+ * on every protected operation. `status` is the authoritative seller gate.
+ *
+ * Exactly one platform-owned profile exists (`is_platform = true`,
+ * `user_id = NULL`) so E-Vora's own catalogue and third-party sellers share
+ * one reporting shape (see docs/DECISIONS.md D-11).
+ */
+export const sellerProfiles = pgTable(
+  "seller_profiles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Owning account. NULL only for the single platform-owned profile. */
+    userId: uuid("user_id").references(() => users.id, {
+      onDelete: "restrict",
+    }),
+    isPlatform: boolean("is_platform").notNull().default(false),
+    storeName: varchar("store_name", { length: 120 }).notNull(),
+    storeSlug: varchar("store_slug", { length: 140 }).notNull(),
+    storeDescription: text("store_description").notNull().default(""),
+    phone: varchar("phone", { length: 32 }).notNull(),
+    /** ISO-3166 alpha-2, uppercase. */
+    country: varchar("country", { length: 2 }).notNull(),
+    businessType: varchar("business_type", { length: 32 }).notNull().default(""),
+    businessRegistration: varchar("business_registration", { length: 64 })
+      .notNull()
+      .default(""),
+    /** pending | approved | rejected | suspended — new sellers default to pending. */
+    status: varchar("status", { length: 16 }).notNull().default("pending"),
+    termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
+    termsVersion: varchar("terms_version", { length: 16 }).notNull().default(""),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    approvedBy: uuid("approved_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    rejectionReason: varchar("rejection_reason", { length: 512 })
+      .notNull()
+      .default(""),
+    suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+    suspendedReason: varchar("suspended_reason", { length: 512 })
+      .notNull()
+      .default(""),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("seller_profiles_user_idx").on(t.userId),
+    uniqueIndex("seller_profiles_slug_idx").on(t.storeSlug),
+    uniqueIndex("seller_profiles_single_platform_idx")
+      .on(t.isPlatform)
+      .where(sql`${t.isPlatform}`),
+    index("seller_profiles_status_idx").on(t.status),
+    check(
+      "seller_profiles_status_known",
+      sql`${t.status} IN ('pending','approved','rejected','suspended')`,
+    ),
+    // A rejected application must record why (server writes the reason).
+    check(
+      "seller_profiles_rejection_reason_required",
+      sql`${t.status} <> 'rejected' OR length(btrim(${t.rejectionReason})) > 0`,
+    ),
+    // Exactly one kind of row: platform-owned (no user) or a real applicant.
+    check(
+      "seller_profiles_identity_shape",
+      sql`(${t.isPlatform} AND ${t.userId} IS NULL) OR (NOT ${t.isPlatform} AND ${t.userId} IS NOT NULL)`,
+    ),
+    check(
+      "seller_profiles_country_uppercase",
+      sql`${t.country} ~ '^[A-Z]{2}$'`,
+    ),
+    check(
+      "seller_profiles_terms_for_real_sellers",
+      sql`${t.isPlatform} OR ${t.termsAcceptedAt} IS NOT NULL`,
+    ),
+  ],
+);
+
+/** Append-only approval history (submitted / approved / rejected / suspended …). */
+export const sellerApplicationEvents = pgTable(
+  "seller_application_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sellerId: uuid("seller_id")
+      .notNull()
+      .references(() => sellerProfiles.id, { onDelete: "cascade" }),
+    /** Admin or applicant who caused the event; NULL for system events. */
+    actorId: uuid("actor_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    action: varchar("action", { length: 24 }).notNull(),
+    fromStatus: varchar("from_status", { length: 16 }),
+    toStatus: varchar("to_status", { length: 16 }),
+    reason: varchar("reason", { length: 512 }).notNull().default(""),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("seller_application_events_seller_idx").on(t.sellerId, t.createdAt),
+    check(
+      "seller_application_events_action_known",
+      sql`${t.action} IN ('submitted','resubmitted','approved','rejected','suspended','reactivated','terms_accepted','info_updated')`,
+    ),
+  ],
+);
+
+/**
+ * Marketplace audit trail for sensitive approvals, moderation and money moves.
+ *
+ * `metadata` is allow-listed, non-sensitive context (ids, amounts, statuses,
+ * reasons) — never emails, tokens, passwords or full payment references.
+ * Written in the same transaction as the action it describes where practical.
+ */
+export const marketplaceAuditEvents = pgTable(
+  "marketplace_audit_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    actorId: uuid("actor_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    actorRole: varchar("actor_role", { length: 16 }).notNull().default(""),
+    action: varchar("action", { length: 48 }).notNull(),
+    targetType: varchar("target_type", { length: 24 }).notNull(),
+    targetId: varchar("target_id", { length: 64 }).notNull(),
+    metadata: jsonb("metadata")
+      .$type<Record<string, string | number | boolean | null>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    /** Request correlation id from the proxy, when available. */
+    requestId: varchar("request_id", { length: 64 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("marketplace_audit_events_created_idx").on(t.createdAt),
+    index("marketplace_audit_events_actor_idx").on(t.actorId),
+    index("marketplace_audit_events_target_idx").on(t.targetType, t.targetId),
+    index("marketplace_audit_events_action_idx").on(t.action),
+  ],
+);
+
 /* ------------------------------------------------------------------ */
 /* Relations                                                           */
 /* ------------------------------------------------------------------ */
@@ -360,6 +516,28 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
   }),
 }));
 
+
+export const sellerProfilesRelations = relations(
+  sellerProfiles,
+  ({ one, many }) => ({
+    user: one(users, {
+      fields: [sellerProfiles.userId],
+      references: [users.id],
+    }),
+    events: many(sellerApplicationEvents),
+  }),
+);
+
+export const sellerApplicationEventsRelations = relations(
+  sellerApplicationEvents,
+  ({ one }) => ({
+    seller: one(sellerProfiles, {
+      fields: [sellerApplicationEvents.sellerId],
+      references: [sellerProfiles.id],
+    }),
+  }),
+);
+
 /* ------------------------------------------------------------------ */
 /* Inferred types                                                      */
 /* ------------------------------------------------------------------ */
@@ -371,3 +549,6 @@ export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type AccountSession = typeof accountSessions.$inferSelect;
+export type SellerProfile = typeof sellerProfiles.$inferSelect;
+export type SellerApplicationEvent = typeof sellerApplicationEvents.$inferSelect;
+export type MarketplaceAuditEvent = typeof marketplaceAuditEvents.$inferSelect;

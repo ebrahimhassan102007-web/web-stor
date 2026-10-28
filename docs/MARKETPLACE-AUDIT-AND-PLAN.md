@@ -533,8 +533,8 @@ No step touches production data, deployment config, environment variables, or pa
 
 | ID | Decision | Recommendation |
 | --- | --- | --- |
-| **D1** | **Settlement currency.** The catalogue displays USD (`money.ts`); the brief's commission example is EGP 100 → 10 → 90. | Store a per-order `currency` snapshot; compute commission purely in minor units of that currency (no FX). Keep the existing catalogue in USD unless you want EGP as the store currency (that is a branding/pricing decision, not a code one). **Needs your answer.** |
-| **D2** | **Commission on legacy/platform-owned products** (`seller_id IS NULL`). | **No commission** — E-Vora keeps 100% of platform-owned sales; only seller-owned lines produce ledger entries. Retro-computing commission on historic orders is excluded. |
+| **D1** | **Settlement currency.** The catalogue displays USD (`money.ts`); the brief's commission example is EGP 100 → 10 → 90. | **APPROVED: per-order currency snapshot.** Commission is computed in that currency's minor units; no FX in the ledger. Recorded as D-12. |
+| **D2** | **Commission on legacy/platform-owned products** (`seller_id IS NULL`). | **APPROVED: platform seller profile.** One system-owned profile (`is_platform`, no `user_id`) shares the reporting shape; platform lines use 0 bps so no commission is booked against E-Vora. Recorded as D-11. |
 | **D3** | **Paid subscription plans.** | Model only. Seed **Free (0)** as active; Pro/Business show "Coming soon" with **no invented prices** until you approve pricing. |
 | **D4** | **Product images.** No object storage exists in this repo. | Ship `image_url` (validated `https://`) + existing SVG/icon fallback; no upload endpoint until storage credentials exist. |
 | **D5** | **Demo vs provider settlement.** | Demo orders create **non-withdrawable** ledger entries; payout requests are disabled in demo mode with an explicit notice. Real `available` balances and payouts require a verified provider integration that you approve separately. |
@@ -558,3 +558,43 @@ No step touches production data, deployment config, environment variables, or pa
 **No application code has been written.** Only this document was added (and dependency installation for the read-only baseline checks).
 
 To proceed, please reply with **approval** plus answers to **D1** (currency) — and, if you disagree, D2/D3/D4/D5/D6. On approval I will work strictly on `arena/6bbbf7ed-web-stor`, in the order above, keeping lint / typecheck / tests / build green and reporting exact commands and results at each step.
+
+
+---
+
+## 15. Implementation progress (incremental, approved 2026-10-28)
+
+The owner approved the plan with three changes: build in smaller reviewable
+steps, snapshot currency per order (D-12), and model E-Vora's own catalogue as a
+platform seller profile (D-11). Recorded in `docs/DECISIONS.md` as D-09…D-15.
+
+### Step 1 — Commission engine, payout policy, idempotency (DONE)
+
+| File | Purpose |
+| --- | --- |
+| `src/lib/marketplace/commission.ts` | Pure 10% integer engine: `calculateLineCommission`, half-up rounding, per-line snapshots, order sums, currency guard, platform 0-bps constant |
+| `src/lib/marketplace/payout-policy.ts` | Pure payout state machine (7 statuses), seller-cannot-mark-paid rule, eligibility checks with typed refusal codes, bilingual refusal copy |
+| `src/lib/marketplace/idempotency.ts` | Deterministic ledger keys (`sale:`, `refund:`, `payout:`, `settle:`) and safe handling of client checkout keys |
+| `tests/marketplace-commission.test.ts` | 10%/90% example, 2 500+ exactness assertions, half-up rounding, bounds, tampering, currency |
+| `tests/marketplace-payout-policy.test.ts` | Every legal/illegal transition, seller escalation attempts, demo refusal, amount bounds |
+| `tests/marketplace-idempotency.test.ts` | Key stability, malformed-key replacement, uniqueness |
+
+### Step 2 — Identity / approval / audit schema (DONE)
+
+| File | Purpose |
+| --- | --- |
+| `drizzle/0004_marketplace_identity.sql` | Additive migration: `seller_profiles`, `seller_application_events`, `marketplace_audit_events`; `users.role` CHECK superset; single platform profile seed |
+| `drizzle/meta/0004_snapshot.json`, `_journal.json` | Generated + reviewed migration metadata |
+| `src/lib/db/schema.ts` | Drizzle definitions mirroring the SQL (FKs, CHECKs, partial unique index, jsonb metadata) |
+| `src/lib/db/migrations.ts` | `0004_marketplace_identity` `REQUIREMENTS` entry so the runner verifies the final shape |
+| `src/lib/marketplace/platform-seller.ts` | Platform seller id/slug + UUID helper (never client-supplied) |
+| `tests/marketplace-identity-migration.test.ts` | 9 PGlite tests: tables, platform seed, platform uniqueness, pending default, terms/rejection/country CHECKs, one-profile-per-account, role CHECK, FK RESTRICT, idempotence |
+| `tests/migration-runner.test.ts`, `tests/schema-migration.test.ts`, `tests/postgres-migration-compatibility.test.ts` | Expectations updated **deliberately** for the new migration (documented, not silently) |
+
+Verification after step 2: `npm run lint` ✅ · `npm run typecheck` ✅ ·
+`npm test` **115 tests: 109 pass, 0 fail, 6 skipped** (skips need a real
+PostgreSQL server) · `npm run build` ✅.
+
+Next steps pending review: step 3 (roles/guards/audit + `/admin` refactor),
+step 4 (`/welcome` account-type page), step 5 (seller applications + admin
+review), step 6 (commerce/ledger/payout schema).

@@ -270,10 +270,95 @@ const AUTH_REQUIREMENT: Requirement = {
   ],
 };
 
+
+/**
+ * Marketplace identity/approval/audit objects added by
+ * `0004_marketplace_identity`. Verified after every migrate run so a partial
+ * application can never be recorded as success.
+ */
+const MARKETPLACE_IDENTITY_REQUIREMENT: Requirement = {
+  tables: [
+    "marketplace_audit_events",
+    "seller_application_events",
+    "seller_profiles",
+  ],
+  columns: {
+    seller_profiles: {
+      id: "uuid",
+      user_id: "uuid",
+      is_platform: "boolean",
+      store_name: "character varying",
+      store_slug: "character varying",
+      store_description: "text",
+      phone: "character varying",
+      country: "character varying",
+      business_type: "character varying",
+      business_registration: "character varying",
+      status: "character varying",
+      terms_accepted_at: "timestamp with time zone",
+      terms_version: "character varying",
+      approved_at: "timestamp with time zone",
+      approved_by: "uuid",
+      rejection_reason: "character varying",
+      suspended_at: "timestamp with time zone",
+      suspended_reason: "character varying",
+      created_at: "timestamp with time zone",
+      updated_at: "timestamp with time zone",
+    },
+    seller_application_events: {
+      id: "uuid",
+      seller_id: "uuid",
+      actor_id: "uuid",
+      action: "character varying",
+      from_status: "character varying",
+      to_status: "character varying",
+      reason: "character varying",
+      created_at: "timestamp with time zone",
+    },
+    marketplace_audit_events: {
+      id: "uuid",
+      actor_id: "uuid",
+      actor_role: "character varying",
+      action: "character varying",
+      target_type: "character varying",
+      target_id: "character varying",
+      metadata: "jsonb",
+      request_id: "character varying",
+      created_at: "timestamp with time zone",
+    },
+  },
+  indexes: [
+    "marketplace_audit_events_created_idx",
+    "marketplace_audit_events_actor_idx",
+    "marketplace_audit_events_target_idx",
+    "marketplace_audit_events_action_idx",
+    "seller_application_events_seller_idx",
+    "seller_profiles_user_idx",
+    "seller_profiles_slug_idx",
+    "seller_profiles_single_platform_idx",
+    "seller_profiles_status_idx",
+  ],
+  constraints: [
+    "seller_profiles_status_known",
+    "seller_profiles_rejection_reason_required",
+    "seller_profiles_identity_shape",
+    "seller_profiles_country_uppercase",
+    "seller_profiles_terms_for_real_sellers",
+    "seller_application_events_action_known",
+    "seller_application_events_seller_id_seller_profiles_id_fk",
+    "seller_application_events_actor_id_users_id_fk",
+    "seller_profiles_user_id_users_id_fk",
+    "seller_profiles_approved_by_users_id_fk",
+    "marketplace_audit_events_actor_id_users_id_fk",
+    "users_role_known",
+  ],
+};
+
 const REQUIREMENTS: Readonly<Record<string, Requirement>> = {
   "0000_init": BASELINE_REQUIREMENT,
   "0001_evora-digital": DIGITAL_REQUIREMENT,
   "0002_authentication": AUTH_REQUIREMENT,
+  "0004_marketplace_identity": MARKETPLACE_IDENTITY_REQUIREMENT,
 };
 
 async function rows<T extends Record<string, unknown>>(
