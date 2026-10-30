@@ -148,6 +148,9 @@ const en = {
     sub: "This catalogue preview is for browsing only: no real payment, code delivery or stock reservation takes place.",
     ctaBrowse: "Explore the catalogue",
     ctaTopups: "⚡ Game top-ups",
+    eyebrow: "E-VORA · DIGITAL MARKETPLACE",
+    markNote: "Crafted catalogue",
+    highlights: ["Instant digital delivery", "Arabic & English", "Privacy-first by design"],
   },
   badges: [
     {
@@ -459,6 +462,9 @@ const ar: Dict = {
     sub: "دي معاينة للكتالوج للتصفح فقط؛ لا تُعالج دفعات حقيقية ولا يتم تسليم أكواد أو حجز مخزون.",
     ctaBrowse: "استكشف الكتالوج",
     ctaTopups: "⚡ شحن الألعاب",
+    eyebrow: "E‑VORA · متجر رقمي",
+    markNote: "كتالوج مختار بعناية",
+    highlights: ["تسليم رقمي سريع", "العربية والإنجليزية", "الخصوصية أولاً"],
   },
   badges: [
     {

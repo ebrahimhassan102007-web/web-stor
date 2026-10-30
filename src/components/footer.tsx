@@ -12,12 +12,13 @@ export async function Footer() {
   const links = staticPages[locale].footerLinks;
 
   return (
-    <footer className="mt-20 border-t border-edge bg-base/80">
+    <footer className="relative mt-20 border-t border-edge bg-gradient-to-b from-transparent to-canvas/70">
+      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-champagne/30 to-transparent" />
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
           <div>
             <div className="flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary-dim text-white font-black text-sm">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary-dim text-sm font-black text-white shadow-[0_8px_18px_-12px_rgba(239,68,68,0.9)] ring-1 ring-inset ring-white/20">
                 E
               </span>
               <span className="font-extrabold">
@@ -58,12 +59,12 @@ export async function Footer() {
           <div>
             <h3 className="text-sm font-semibold text-foreground">{links.heading}</h3>
             <ul className="mt-4 space-y-2.5 text-sm text-muted">
-              <li><Link href="/about" className="transition-colors hover:text-primary">{links.about}</Link></li>
-              <li><Link href="/faq" className="transition-colors hover:text-primary">{links.faq}</Link></li>
-              <li><Link href="/contact" className="transition-colors hover:text-primary">{links.contact}</Link></li>
-              <li><Link href="/policies/privacy" className="transition-colors hover:text-primary">{links.privacy}</Link></li>
-              <li><Link href="/policies/terms" className="transition-colors hover:text-primary">{links.terms}</Link></li>
-              <li><Link href="/policies/delivery-refunds" className="transition-colors hover:text-primary">{links.deliveryRefunds}</Link></li>
+              <li><Link href="/about" className="transition-colors duration-200 hover:text-champagne">{links.about}</Link></li>
+              <li><Link href="/faq" className="transition-colors duration-200 hover:text-champagne">{links.faq}</Link></li>
+              <li><Link href="/contact" className="transition-colors duration-200 hover:text-champagne">{links.contact}</Link></li>
+              <li><Link href="/policies/privacy" className="transition-colors duration-200 hover:text-champagne">{links.privacy}</Link></li>
+              <li><Link href="/policies/terms" className="transition-colors duration-200 hover:text-champagne">{links.terms}</Link></li>
+              <li><Link href="/policies/delivery-refunds" className="transition-colors duration-200 hover:text-champagne">{links.deliveryRefunds}</Link></li>
             </ul>
           </div>
 
@@ -82,7 +83,7 @@ export async function Footer() {
             <h3 className="text-sm font-semibold text-foreground">{t.footer.status}</h3>
             <div className="mt-4 space-y-3">
               <span className="badge-green">
-                <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+                <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_8px_2px_color-mix(in_srgb,var(--accent-green)_35%,transparent)]" />
                 {t.footer.operational}
               </span>
               <p className="text-xs text-muted font-mono">{t.footer.statusMono}</p>

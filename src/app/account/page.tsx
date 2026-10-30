@@ -41,8 +41,8 @@ export default async function AccountPage() {
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
       <div className="mb-7 overflow-hidden rounded-[1.7rem] border border-edge bg-card/80 p-6 sm:p-9">
         <div aria-hidden className="pointer-events-none float-end -mt-12 -me-10 h-44 w-44 rounded-full bg-primary/10 blur-3xl" />
-        <p className="text-xs font-bold uppercase tracking-[.2em] text-primary">E‑VORA / CUSTOMER SPACE</p>
-        <h1 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">{words.welcome}, {user.displayName.split(" ")[0]}</h1>
+        <p className="eyebrow">E‑VORA / CUSTOMER SPACE</p>
+        <h1 className="title-luxe mt-3 text-3xl sm:text-4xl">{words.welcome}, {user.displayName.split(" ")[0]}</h1>
         <p className="mt-2 max-w-2xl text-sm leading-7 text-muted">{words.subtitle}</p>
         <div className="mt-5 flex flex-wrap gap-2">
           <Link href="/products" className="btn-primary px-5 py-3 text-sm">{words.shop} <span aria-hidden>→</span></Link>
@@ -50,8 +50,9 @@ export default async function AccountPage() {
         </div>
       </div>
 
-      <section className="relative mb-7 overflow-hidden rounded-3xl border border-primary/25 bg-gradient-to-br from-[#181b2a] via-[#251b2a] to-[#111827] p-6 text-white shadow-xl sm:p-8">
-        <div aria-hidden className="absolute -end-12 -top-20 h-64 w-64 rounded-full bg-rose-500/20 blur-3xl" />
+      <section className="dawn-panel mb-7 p-6 text-white sm:p-8">
+        <div aria-hidden className="absolute -end-12 -top-20 h-64 w-64 rounded-full bg-[#ecd9b4]/20 blur-3xl" />
+          <div aria-hidden className="absolute -bottom-24 start-1/4 h-56 w-56 rounded-full bg-rose-500/15 blur-3xl" />
         <div className="relative flex flex-wrap items-end justify-between gap-5">
           <div>
             <p className="text-sm font-semibold text-white/70">{ar ? "رصيد محفظتك" : "Your wallet balance"}</p>
@@ -59,7 +60,7 @@ export default async function AccountPage() {
             <p className="mt-2 text-sm text-white/60">≈ EGP 0 · {words.demo}</p>
             <p className="mt-3 max-w-xl text-xs leading-6 text-white/55">{ar ? "رصيد تجريبي للعرض فقط، لا يمثل أموالاً حقيقية ولا يمكن سحبه أو استخدامه للشراء." : "Demo balance only. It is not real money and cannot be withdrawn or used for purchases."}</p>
           </div>
-          <Link href="/account/wallet" className="inline-flex min-h-11 items-center rounded-xl bg-rose-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-rose-400">{ar ? "تفاصيل المحفظة" : "Wallet details"} <span className="ms-2">→</span></Link>
+          <Link href="/account/wallet" className="btn-primary min-h-11 px-5 py-3 text-sm">{ar ? "تفاصيل المحفظة" : "Wallet details"} <span className="ms-2">→</span></Link>
         </div>
       </section>
 

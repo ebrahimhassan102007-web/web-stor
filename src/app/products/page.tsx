@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { getCategories, getFilteredProducts } from "@/lib/catalog";
 import { ProductCard } from "@/components/product-card";
 import { ProductFilters } from "@/components/product-filters";
+import { Reveal } from "@/components/reveal";
 import { getI18n } from "@/lib/i18n/server";
 import { fill, locName } from "@/lib/i18n/dictionary";
 
@@ -48,7 +49,8 @@ export default async function ProductsPage(props: {
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
       <div className="mb-8">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+        <p className="eyebrow mb-3">{t.nav.products} · E‑VORA</p>
+        <h1 className="title-luxe text-3xl sm:text-4xl">
           {activeCategory ? (
             <>
               {activeCategory.icon} {locName(activeCategory, locale)}
@@ -56,7 +58,7 @@ export default async function ProductsPage(props: {
           ) : (
             <>
               {t.products.allTitle}{" "}
-              <span className="text-primary">{t.products.allAccent}</span>
+              <span className="text-gradient-dawn">{t.products.allAccent}</span>
             </>
           )}
         </h1>
@@ -73,7 +75,7 @@ export default async function ProductsPage(props: {
         </p>
       </div>
 
-      <div className="mb-6 rounded-2xl border border-amber-500/25 bg-amber-500/[0.07] px-4 py-3 text-sm leading-6 text-muted"><strong className="text-foreground">{locale === "ar" ? "كتالوج للمعاينة فقط" : "Demo catalogue only"}.</strong>{" "}{locale === "ar" ? "المنتجات والأسعار المعروضة للتوضيح؛ الشراء والدفع وتسليم الأكواد غير مفعّلين." : "Products and prices are illustrative. Purchasing, payment and code delivery are disabled."}</div>
+      <div className="mb-6 rounded-2xl border border-amber-500/25 bg-amber-500/[0.055] px-4 py-3 text-sm leading-6 text-muted"><strong className="text-foreground">{locale === "ar" ? "كتالوج للمعاينة فقط" : "Demo catalogue only"}.</strong>{" "}{locale === "ar" ? "المنتجات والأسعار المعروضة للتوضيح؛ الشراء والدفع وتسليم الأكواد غير مفعّلين." : "Products and prices are illustrative. Purchasing, payment and code delivery are disabled."}</div>
 
       <Suspense>
         <ProductFilters
@@ -94,16 +96,17 @@ export default async function ProductsPage(props: {
         </div>
       ) : (
         <div className="mt-8 grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {rows.map(({ product, categoryName, categoryNameAr }) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              locale={locale}
-              categoryName={locName(
-                { name: categoryName, nameAr: categoryNameAr },
-                locale,
-              )}
-            />
+          {rows.map(({ product, categoryName, categoryNameAr }, index) => (
+            <Reveal key={product.id} delay={Math.min(index, 8) * 55} className="h-full">
+              <ProductCard
+                product={product}
+                locale={locale}
+                categoryName={locName(
+                  { name: categoryName, nameAr: categoryNameAr },
+                  locale,
+                )}
+              />
+            </Reveal>
           ))}
         </div>
       )}

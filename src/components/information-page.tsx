@@ -33,10 +33,14 @@ export function InformationPage({
       <header className="glass-card relative isolate overflow-hidden p-7 sm:p-10 lg:p-12">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(45rem_20rem_at_90%_0%,var(--glow-red),transparent_65%)]"
+          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(45rem_20rem_at_90%_0%,var(--ambient-1),transparent_65%)]"
         />
-        <span className="badge-green">{page.eyebrow}</span>
-        <h1 className="mt-5 max-w-4xl text-balance text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl lg:text-5xl">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-champagne/40 to-transparent"
+        />
+        <span className="badge-champagne">{page.eyebrow}</span>
+        <h1 className="title-luxe mt-5 max-w-4xl text-balance text-3xl sm:text-4xl lg:text-5xl">
           {page.title}
         </h1>
         <p className="mt-5 max-w-3xl text-base leading-relaxed text-muted sm:text-lg">
@@ -54,7 +58,7 @@ export function InformationPage({
             >
               <h2
                 id={`info-section-${index}`}
-                className="text-lg font-bold tracking-tight sm:text-xl"
+                className="text-lg font-bold sm:text-xl"
               >
                 {section.heading}
               </h2>

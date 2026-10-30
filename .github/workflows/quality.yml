@@ -119,3 +119,15 @@ jobs:
             echo "::error title=Playwright failure tail::${escaped}"
           fi
           exit "$result"
+
+      # Visual review: `e2e/visual.spec.ts` writes the locale × theme ×
+      # viewport screenshot matrix here. Uploaded even on failure so a
+      # regression can be reviewed without re-running the job locally.
+      - name: Upload visual review screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-review-screenshots
+          path: docs/evidence/
+          if-no-files-found: ignore
+          retention-days: 14

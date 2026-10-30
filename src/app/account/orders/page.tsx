@@ -46,8 +46,8 @@ export default async function OrdersPage() {
     return status;
   };
   return <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
-    <p className="text-xs font-bold uppercase tracking-[.2em] text-primary">E‑VORA / PURCHASE HISTORY</p>
-    <h1 className="mt-2 text-3xl font-extrabold">{ar ? "مشترياتي السابقة" : "Previous purchases"}</h1>
+    <p className="eyebrow">E‑VORA / PURCHASE HISTORY</p>
+    <h1 className="title-luxe mt-2 text-3xl">{ar ? "مشترياتي السابقة" : "Previous purchases"}</h1>
     <p className="mt-2 text-sm text-muted">{ar ? "طلباتك المرتبطة بحسابك هتظهر هنا." : "Orders linked to your account appear here."}</p>
     <div className="mt-7"><AccountNav locale={locale} active="/account/orders" /></div>
     {purchases.length ? <div className="mt-5 space-y-4">{purchases.map((order) => <section key={order.orderNumber} className="glass-card p-5 sm:p-6">

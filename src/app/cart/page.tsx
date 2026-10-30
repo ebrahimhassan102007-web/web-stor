@@ -91,9 +91,20 @@ export default function CartPage() {
   if (cart.items.length === 0) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
-        <div className="glass-card p-12 text-center">
-          <p className="text-5xl" aria-hidden>🛒</p>
-          <h1 className="mt-5 text-2xl font-bold">{t.cart.emptyTitle}</h1>
+        <div className="glass-card relative isolate overflow-hidden p-12 text-center">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(34rem_14rem_at_50%_-10%,var(--ambient-1),transparent_70%)]"
+          />
+          <span
+            aria-hidden="true"
+            className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-champagne/25 bg-[var(--hover-fill)] text-champagne"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7">
+              <path d="M3 3h1.6c.5 0 .94.34 1.07.82l.4 1.48M7.5 14.5h10.7c1.1-2.3 2.08-4.68 2.9-7.1A60 60 0 0 0 4.6 5.6M7.5 14.5 6.07 5.3M7.5 14.5l-.7 2.5h12M9 20a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm9.5 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+            </svg>
+          </span>
+          <h1 className="title-luxe mt-5 text-2xl">{t.cart.emptyTitle}</h1>
           <p className="mt-2 text-sm text-muted">{t.cart.emptyText}</p>
           <Link href="/products" className="btn-primary mt-6 px-8">
             {t.cart.browse}
@@ -105,8 +116,9 @@ export default function CartPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-      <h1 className="text-3xl font-bold tracking-tight">
-        {t.cart.title} <span className="text-primary">{t.cart.titleAccent}</span>
+      <p className="eyebrow mb-3">{locale === "ar" ? "خطوة واحدة قبل الدفع" : "ONE STEP TO CHECKOUT"}</p>
+      <h1 className="title-luxe text-3xl">
+        {t.cart.title} <span className="text-gradient-dawn">{t.cart.titleAccent}</span>
       </h1>
       <p className="mt-1 text-sm text-muted">
         {cart.itemCount === 1
@@ -124,7 +136,7 @@ export default function CartPage() {
         {/* Lines */}
         <div className="space-y-4">
           {cart.items.map((line) => (
-            <div key={line.id} className="glass-card card-glow-red flex gap-4 p-4">
+            <div key={line.id} className="glass-card lift card-glow-red flex gap-4 p-4">
               <Link
                 href={`/products/${line.slug}`}
                 className="product-art h-24 w-24 shrink-0 rounded-xl text-4xl"
@@ -206,6 +218,7 @@ export default function CartPage() {
 
         {/* Summary */}
         <aside className="glass-card h-fit p-6 lg:sticky lg:top-24">
+          <span aria-hidden className="mb-4 block h-px w-12 bg-gradient-to-r from-champagne to-transparent" />
           <h2 className="text-lg font-bold">{t.cart.summary}</h2>
           <dl className="mt-4 space-y-3 text-sm">
             <div className="flex justify-between">

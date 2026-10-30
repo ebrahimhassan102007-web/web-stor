@@ -48,3 +48,6 @@ next-env.d.ts
 # Playwright artifacts
 test-results/
 playwright-report/
+
+# Playwright visual-review artifacts (CI uploads them, git does not)
+docs/evidence/

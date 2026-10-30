@@ -7,6 +7,7 @@ import "./globals.css";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { FooterVisibility } from "@/components/footer-visibility";
+import { DawnStage } from "@/components/dawn-stage";
 import { CartProvider } from "@/components/cart-provider";
 import { LocaleProvider } from "@/components/locale-provider";
 import { getI18n, getTheme } from "@/lib/i18n/server";
@@ -49,8 +50,14 @@ export default async function RootLayout({
       data-theme={theme}
     >
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable} bg-mesh min-h-screen antialiased flex flex-col`}
+        className={`${GeistSans.variable} ${GeistMono.variable} min-h-screen antialiased flex flex-col`}
       >
+        {/* Ambient dawn light: fixed, non-interactive, GPU-only motion. */}
+        <DawnStage />
+        {/* Without JavaScript the scroll-reveal wrappers must stay visible. */}
+        <noscript>
+          <style>{`.reveal,.rise-in{opacity:1!important;transform:none!important}`}</style>
+        </noscript>
         <LocaleProvider locale={locale} dict={t}>
           <CartProvider>
             <Header initialTheme={theme} />
