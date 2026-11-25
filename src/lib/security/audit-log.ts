@@ -24,7 +24,8 @@ export type SecurityEvent =
   | "totp_enabled"
   | "totp_disabled"
   | "totp_recovery_regenerated"
-  | "two_factor_login";
+  | "two_factor_login"
+  | "fulfillment_code_revealed";
 
 export async function recordSecurityEvent(
   event: SecurityEvent,

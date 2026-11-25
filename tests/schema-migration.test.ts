@@ -30,6 +30,7 @@ test("a clean embedded PostgreSQL database applies all migrations and additive s
         "carts",
         "categories",
         "email_verification_codes",
+        "fulfillment_vault",
         "google_oauth_states",
         "marketplace_audit_events",
         "order_items",

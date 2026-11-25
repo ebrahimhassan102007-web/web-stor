@@ -100,3 +100,18 @@ Local repository checks only. No production DB, SMTP provider, Google OAuth acco
 | Real PostgreSQL / browser / OAuth / SMTP | — | NOT RUN. The environment had no disposable test DB URL or test provider credentials; browser execution was not attempted. |
 
 No production database or service was contacted. The guarded migrations were applied only in the PGlite integration harness. Outstanding environment-dependent validation is tracked in `docs/BLOCKED.md` B-02/B-05.
+
+## Wave 3A verification — 2026-11-25 (`arena/9dd6dc80-web-stor`)
+
+Local repository checks only. No production database, payment provider, SMTP, or customer fulfillment codes were used.
+
+| Check | Command | Actual result |
+|---|---|---|
+| Typecheck | `npm run typecheck` | Exit 0 |
+| Lint | `npm run lint` | Exit 0, no warnings |
+| Full test suite | `npm test` | **124 passed, 0 failed, 6 skipped** (130 total). Six skips are real-PostgreSQL tests; PGlite migration, duplicate-checkout concurrency, owner-only reveal, and encrypted storage/reveal round-trip tests passed. |
+| Production build | `npm run build` | Exit 0; includes `/api/account/orders/[orderId]/reveal` and `/account/orders`. |
+| Security header scan | `node scripts/scan-headers.mjs http://localhost:3000` | **ALL HEADER CHECKS PASSED** on the local dev server for `/`, `/login`, `/account`, and `/products`. |
+| Whitespace check | `git diff --check` | Exit 0 |
+
+Focused tests also cover target normalization/rejection, AES-256-GCM tamper detection, integer-cent bounds, account-scoped idempotency digest behavior, direct production demo-order refusal, and the documented zero-balance demo wallet. The demo wallet has no ledger or spendable balance; preview checkout remains explicitly unpaid and does not pretend to perform an insufficient-funds debit. Six actual PostgreSQL tests, browser flows, payment-provider integration, and production fulfillment remain NOT RUN; successful local tests are not evidence of real payment or production operation.

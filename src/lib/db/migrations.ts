@@ -376,6 +376,25 @@ const TWO_FACTOR_REQUIREMENT: Requirement = {
   constraints: ["user_totp_counter_nonnegative", "user_totp_user_id_users_id_fk", "totp_recovery_codes_user_id_users_id_fk", "pending_two_factor_auth_method_known", "pending_two_factor_attempts_nonnegative", "pending_two_factor_challenges_user_id_users_id_fk"],
 };
 
+const FULFILLMENT_VAULT_REQUIREMENT: Requirement = {
+  tables: ["fulfillment_vault"],
+  columns: {
+    fulfillment_vault: {
+      id: "uuid", product_id: "integer", order_item_id: "integer", code_index: "integer",
+      ciphertext: "text", iv: "character varying", auth_tag: "character varying", key_id: "character varying",
+      revealed_at: "timestamp with time zone", reveal_count: "integer", created_at: "timestamp with time zone",
+    },
+    orders: { idempotency_key: "character varying" },
+    order_items: { fulfillment_target: "jsonb" },
+  },
+  indexes: ["fulfillment_vault_product_available_idx", "fulfillment_vault_order_item_idx", "fulfillment_vault_item_code_idx", "orders_idempotency_key_idx"],
+  constraints: [
+    "fulfillment_vault_code_index_nonnegative", "fulfillment_vault_reveal_count_nonnegative",
+    "fulfillment_vault_product_id_products_id_fk", "fulfillment_vault_order_item_id_order_items_id_fk",
+    "order_items_fulfillment_target_shape", "products_input_type_known",
+  ],
+};
+
 const REQUIREMENTS: Readonly<Record<string, Requirement>> = {
   "0000_init": BASELINE_REQUIREMENT,
   "0001_evora-digital": DIGITAL_REQUIREMENT,
@@ -383,6 +402,7 @@ const REQUIREMENTS: Readonly<Record<string, Requirement>> = {
   "0004_marketplace_identity": MARKETPLACE_IDENTITY_REQUIREMENT,
   "0005_password_reset_tokens": PASSWORD_RESET_REQUIREMENT,
   "0006_totp_two_factor": TWO_FACTOR_REQUIREMENT,
+  "0007_encrypted_fulfillment_vault": FULFILLMENT_VAULT_REQUIREMENT,
 };
 
 async function rows<T extends Record<string, unknown>>(

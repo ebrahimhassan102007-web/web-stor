@@ -173,6 +173,9 @@ export default function CartPage() {
                           : line.inputValue}
                       </p>
                     )}
+                    {line.inputValue && line.inputType === "activation-email" && (
+                      <p className="mt-1 text-xs text-success font-medium" dir="ltr">✉️ {t.product.activationEmailLabel}: {line.inputValue}</p>
+                    )}
                   </div>
                   <button
                     type="button"

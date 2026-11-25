@@ -1,4 +1,5 @@
-import { createCipheriv, createDecipheriv, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { decryptAes256Gcm, encryptAes256Gcm, encryptionKeyFromEnv, type AuthenticatedEnvelope } from "@/lib/security/encryption";
 
 const B32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 const period = 30;
@@ -66,38 +67,21 @@ export function verifyTotpCode(secret: string, code: string, nowMs = Date.now())
   return matchingTotpCounter(secret, code, nowMs) !== null;
 }
 
-function getEncryptionKey(): { id: string; key: Buffer } {
-  const id = process.env.TOTP_ENCRYPTION_KEY_ID?.trim() ?? "";
-  const encoded = process.env.TOTP_ENCRYPTION_KEY?.trim() ?? "";
-  if (!/^[A-Za-z0-9._-]{1,64}$/.test(id)) throw new Error("TOTP_ENCRYPTION_KEY_ID must be configured");
-  let key: Buffer;
-  if (/^[a-fA-F0-9]{64}$/.test(encoded)) key = Buffer.from(encoded, "hex");
-  else if (/^[A-Za-z0-9_-]{43}$/.test(encoded)) key = Buffer.from(encoded, "base64url");
-  else throw new Error("TOTP_ENCRYPTION_KEY must encode 32 bytes");
-  if (key.length !== 32) throw new Error("TOTP_ENCRYPTION_KEY must be 32 bytes");
-  return { id, key };
+function totpEncryptionKey() {
+  return encryptionKeyFromEnv("TOTP_ENCRYPTION_KEY", "TOTP_ENCRYPTION_KEY_ID");
 }
 
 export function encryptTotpSecret(secret: string): string {
   if (!decodeBase32(secret)) throw new Error("Invalid TOTP secret");
-  const { id, key } = getEncryptionKey();
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", key, iv);
-  cipher.setAAD(Buffer.from(`evora-totp:v1:${id}`));
-  const ciphertext = Buffer.concat([cipher.update(secret, "utf8"), cipher.final()]);
-  return ["v1", id, iv.toString("base64url"), cipher.getAuthTag().toString("base64url"), ciphertext.toString("base64url")].join(".");
+  const envelope = encryptAes256Gcm(secret, totpEncryptionKey(), "evora-totp");
+  return ["v1", envelope.keyId, envelope.iv, envelope.authTag, envelope.ciphertext].join(".");
 }
 
 export function decryptTotpSecret(value: string): string {
-  const [version, id, ivText, tagText, encrypted, ...extra] = value.split(".");
-  if (version !== "v1" || !id || !ivText || !tagText || !encrypted || extra.length) throw new Error("Invalid TOTP envelope");
-  const configured = getEncryptionKey();
-  if (configured.id !== id) throw new Error("TOTP encryption key id mismatch");
-  const iv = Buffer.from(ivText, "base64url"), tag = Buffer.from(tagText, "base64url"), ciphertext = Buffer.from(encrypted, "base64url");
-  if (iv.length !== 12 || tag.length !== 16 || ciphertext.length < 1 || ciphertext.length > 128) throw new Error("Invalid TOTP envelope");
-  const decipher = createDecipheriv("aes-256-gcm", configured.key, iv);
-  decipher.setAAD(Buffer.from(`evora-totp:v1:${id}`)); decipher.setAuthTag(tag);
-  const plain = Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
+  const [version, keyId, iv, authTag, ciphertext, ...extra] = value.split(".");
+  if (version !== "v1" || !keyId || !iv || !authTag || !ciphertext || extra.length) throw new Error("Invalid TOTP envelope");
+  const envelope: AuthenticatedEnvelope = { keyId, iv, authTag, ciphertext };
+  const plain = decryptAes256Gcm(envelope, totpEncryptionKey(), "evora-totp");
   if (!decodeBase32(plain)) throw new Error("Invalid TOTP secret payload");
   return plain;
 }

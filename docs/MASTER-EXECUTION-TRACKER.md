@@ -79,3 +79,12 @@ BLOCKED for missing spec) is superseded; see git history.
 - **Implemented:** HMAC double-submit CSRF in addition to Origin validation for mutations; common `csrfFetch` client helper across auth/account/session/2FA/cart/checkout; account-security UI localized AR/EN and styled for RTL/LTR and theme variants.
 - **Verification:** see Wave 2B entry in `docs/VERIFICATION-LOG.md`. Local typecheck, lint, build, test suite, diff check and header scan recorded there. The complete suite has skipped PostgreSQL-only tests because `TEST_DATABASE_URL` was not provided; PGlite migration/lifecycle checks pass.
 - **Status:** implementation and requested local gates are complete. Real PostgreSQL, browser, SMTP and Google OAuth end-to-end verification remain NOT RUN (B-02); do not interpret this entry as production validation or as closure of other tracker scopes, the truncated route matrix, or the broader security backlog.
+
+## Wave 3A — checkout integrity and encrypted fulfillment (2026-11-25)
+
+**Branch:** `arena/9dd6dc80-web-stor` · no production payment, database, or fulfillment services contacted.
+
+- **Implemented:** transactional checkout with row locks, server-owned current prices/stock, bounded integer-cent totals, unique user/cart-scoped HMAC idempotency, and a direct production guard in the demo-order function. The demo wallet remains an explicit zero and demo orders remain unpaid: no wallet balance or payment ledger is invented.
+- **Implemented:** additive `0007_encrypted_fulfillment_vault` schema and AES-256-GCM inventory envelope; product-specific targets are normalized at cart input and revalidated/snapshotted at checkout. Account order history does not select plaintext delivery codes; reveal is authenticated, owner-scoped, CSRF/rate limited, one-time, no-store, audited, and presented through bilingual reveal/copy UI.
+- **Verification:** local typecheck, lint, full test suite, production build, header scan and `git diff --check` passed; see Wave 3A in `docs/VERIFICATION-LOG.md`. Six PostgreSQL-only tests were skipped because `TEST_DATABASE_URL` was not provided. Real PostgreSQL, browser, payment-provider and production fulfillment checks remain environment-dependent and are not represented as completed.
+- **Detailed control record:** `docs/security/S-23.md`.

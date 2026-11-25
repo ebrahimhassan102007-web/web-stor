@@ -196,6 +196,8 @@ test("S-17: production env validation fails fast on weak/partial configuration",
     APP_ORIGIN: "https://shop.example.com",
     TOTP_ENCRYPTION_KEY: "ab".repeat(32),
     TOTP_ENCRYPTION_KEY_ID: "totp-key-1",
+    FULFILLMENT_ENCRYPTION_KEY: "cd".repeat(32),
+    FULFILLMENT_ENCRYPTION_KEY_ID: "fulfillment-key-1",
     DATABASE_URL: "postgres://u:p@h/db",
   });
   assert.deepEqual(good, []);

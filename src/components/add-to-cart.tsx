@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useCart } from "./cart-provider";
 import { useI18n } from "./locale-provider";
 import { REGION_CODES, type RegionCode } from "@/lib/i18n/dictionary";
+import { validateFulfillmentTarget } from "@/lib/validation";
 
 export function AddToCart({
   productId,
@@ -23,6 +24,7 @@ export function AddToCart({
   const { t } = useI18n();
   const [quantity, setQuantity] = useState(1);
   const [playerId, setPlayerId] = useState("");
+  const [activationEmail, setActivationEmail] = useState("");
   const [region, setRegion] = useState<RegionCode>("global");
   const [state, setState] = useState<"idle" | "busy" | "added" | "error">(
     "idle",
@@ -37,7 +39,9 @@ export function AddToCart({
       ? playerId.trim() || undefined
       : inputType === "region"
         ? region
-        : undefined;
+        : inputType === "activation-email"
+          ? activationEmail.trim() || undefined
+          : undefined;
 
   async function add() {
     if (!inStock || state === "busy") return;
@@ -47,12 +51,18 @@ export function AddToCart({
       setMessage(t.add.playerIdRequired);
       return;
     }
+    const target = validateFulfillmentTarget(inputType, inputValue);
+    if (!target.ok) {
+      setState("error");
+      setMessage(t.add.targetInvalid);
+      return;
+    }
     setState("busy");
     try {
       const res = await csrfFetch("/api/cart/items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId, quantity, inputValue }),
+        body: JSON.stringify({ productId, quantity, inputValue: target.value ?? undefined }),
       });
       const body = await res.json().catch(() => null);
       if (res.ok && body?.ok) {
@@ -64,7 +74,9 @@ export function AddToCart({
         setMessage(
           body?.error === "OUT_OF_STOCK"
             ? t.add.outOfStock
-            : body?.error === "RATE_LIMITED"
+            : body?.error === "INVALID_FULFILLMENT_TARGET"
+              ? t.add.targetInvalid
+              : body?.error === "RATE_LIMITED"
               ? t.add.errRateLimited
               : t.add.errAdd,
         );
@@ -106,6 +118,31 @@ export function AddToCart({
             className="input-dark"
           />
           <p className="mt-1.5 text-xs text-muted">{t.product.playerIdHint}</p>
+        </div>
+      )}
+
+      {!compact && inStock && inputType === "activation-email" && (
+        <div>
+          <label htmlFor={`activation-email-${productId}`} className="mb-1.5 block text-sm font-medium">
+            ✉️ {t.product.activationEmailLabel}
+          </label>
+          <input
+            id={`activation-email-${productId}`}
+            type="email"
+            dir="ltr"
+            autoComplete="email"
+            maxLength={254}
+            required
+            aria-invalid={state === "error"}
+            value={activationEmail}
+            onChange={(e) => {
+              setActivationEmail(e.target.value);
+              if (state === "error") { setState("idle"); setMessage(""); }
+            }}
+            placeholder={t.product.activationEmailPlaceholder}
+            className="input-dark"
+          />
+          <p className="mt-1.5 text-xs text-muted">{t.product.activationEmailHint}</p>
         </div>
       )}
 

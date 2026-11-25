@@ -76,6 +76,7 @@ export const products = pgTable(
     index("products_featured_idx").on(t.featured),
     check("products_price_positive", sql`${t.priceCents} > 0`),
     check("products_stock_nonnegative", sql`${t.stock} >= 0`),
+    check("products_input_type_known", sql`${t.inputType} IN ('none','player-id','region','activation-email')`),
   ],
 );
 
@@ -136,6 +137,8 @@ export const orders = pgTable(
       onDelete: "set null",
     }),
     orderNumber: varchar("order_number", { length: 32 }).notNull(),
+    /** HMAC-scoped checkout request key digest; raw client keys are never stored. */
+    idempotencyKey: varchar("idempotency_key", { length: 64 }),
     status: varchar("status", { length: 24 }).notNull().default("confirmed"),
     customerName: varchar("customer_name", { length: 128 }).notNull(),
     email: varchar("email", { length: 254 }).notNull(),
@@ -156,6 +159,7 @@ export const orders = pgTable(
   },
   (t) => [
     uniqueIndex("orders_number_idx").on(t.orderNumber),
+    uniqueIndex("orders_idempotency_key_idx").on(t.idempotencyKey),
     index("orders_email_idx").on(t.email),
     index("orders_user_idx").on(t.userId),
     check(
@@ -191,11 +195,38 @@ export const orderItems = pgTable(
      * "player-id:<value>" or "region:<code>" (null for plain codes).
      */
     deliveryInfo: varchar("delivery_info", { length: 256 }),
+    fulfillmentTarget: jsonb("fulfillment_target").$type<{ type: string; value: string } | null>(),
   },
   (t) => [
     index("order_items_order_idx").on(t.orderId),
     check("order_items_quantity_range", sql`${t.quantity} BETWEEN 1 AND 99`),
     check("order_items_price_positive", sql`${t.unitPriceCents} > 0`),
+    check("order_items_fulfillment_target_shape", sql`${t.fulfillmentTarget} IS NULL OR (jsonb_typeof(${t.fulfillmentTarget}) = 'object' AND ${t.fulfillmentTarget} ->> 'type' IN ('player-id','region','activation-email') AND jsonb_typeof(${t.fulfillmentTarget} -> 'value') = 'string' AND length(btrim(${t.fulfillmentTarget} ->> 'value')) > 0)`),
+  ],
+);
+
+/** Encrypted inventory and one-time-per-order-item fulfillment reveal state. */
+export const fulfillmentVault = pgTable(
+  "fulfillment_vault",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: integer("product_id").notNull().references(() => products.id, { onDelete: "restrict" }),
+    orderItemId: integer("order_item_id").references(() => orderItems.id, { onDelete: "cascade" }),
+    codeIndex: integer("code_index").notNull().default(0),
+    ciphertext: text("ciphertext").notNull(),
+    iv: varchar("iv", { length: 32 }).notNull(),
+    authTag: varchar("auth_tag", { length: 32 }).notNull(),
+    keyId: varchar("key_id", { length: 64 }).notNull(),
+    revealedAt: timestamp("revealed_at", { withTimezone: true }),
+    revealCount: integer("reveal_count").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("fulfillment_vault_product_available_idx").on(t.productId, t.createdAt).where(sql`${t.orderItemId} IS NULL`),
+    index("fulfillment_vault_order_item_idx").on(t.orderItemId),
+    uniqueIndex("fulfillment_vault_item_code_idx").on(t.orderItemId, t.codeIndex).where(sql`${t.orderItemId} IS NOT NULL`),
+    check("fulfillment_vault_code_index_nonnegative", sql`${t.codeIndex} >= 0`),
+    check("fulfillment_vault_reveal_count_nonnegative", sql`${t.revealCount} >= 0`),
   ],
 );
 

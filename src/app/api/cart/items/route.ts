@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
     });
     if (result.error === "missing") return jsonError("PRODUCT_NOT_FOUND", 404);
     if (result.error === "out-of-stock") return jsonError("OUT_OF_STOCK", 409);
+    if (result.error === "invalid-target") return jsonError("INVALID_FULFILLMENT_TARGET", 400);
 
     return jsonOk(await getCartSummary(cartId), { status: 201 });
   } catch (error) {

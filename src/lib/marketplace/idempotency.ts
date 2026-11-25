@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 
 /**
  * Idempotency keys for financial writes.
@@ -42,6 +42,16 @@ export function isClientIdempotencyKey(value: unknown): value is string {
  */
 export function resolveClientIdempotencyKey(value: unknown): string {
   return isClientIdempotencyKey(value) ? value : `srv-${randomUUID()}`;
+}
+
+/** Store only a keyed digest, scoped to the authenticated account or guest cart. */
+export function scopedCheckoutIdempotencyDigest(scope: string, clientKey: string, secret: string): string {
+  if (!scope || scope.length > 128 || !isClientIdempotencyKey(clientKey) || secret.length < 32) {
+    throw new Error("Invalid checkout idempotency input");
+  }
+  return createHmac("sha256", secret)
+    .update(`evora-checkout-idempotency\\0${scope}\\0${clientKey}`)
+    .digest("hex");
 }
 
 function requirePositiveSafeInteger(value: number, label: string): void {
