@@ -9,13 +9,22 @@ import { db, securityAuditLog } from "@/lib/db";
 export type SecurityEvent =
   | "login_success"
   | "login_failed"
+  | "password_reset_issued"
+  | "password_reset_completed"
+  | "password_changed"
+  | "sessions_revoked_others"
   | "register"
   | "email_verified"
   | "google_linked"
   | "logout"
   | "sessions_revoked_all"
   | "admin_access"
-  | "admin_denied";
+  | "admin_denied"
+  | "totp_setup_started"
+  | "totp_enabled"
+  | "totp_disabled"
+  | "totp_recovery_regenerated"
+  | "two_factor_login";
 
 export async function recordSecurityEvent(
   event: SecurityEvent,

@@ -53,7 +53,7 @@ test(
 
       const freshUrl = databaseUrl(target.connectionString, freshName);
       const fresh = await migratePostgres({ connectionString: freshUrl });
-      assert.equal(fresh.applied.length, 5);
+      assert.equal(fresh.applied.length, 7);
       const freshAgain = await migratePostgres({ connectionString: freshUrl });
       assert.equal(freshAgain.operations.every((operation) => operation.action === "unchanged"), true);
 
@@ -72,6 +72,10 @@ test(
           "seller_profiles",
           "seller_application_events",
           "marketplace_audit_events",
+          "password_reset_tokens",
+          "user_totp",
+          "totp_recovery_codes",
+          "pending_two_factor_challenges",
         ]) {
           assert.ok(tables.rows.some((row) => row.tablename === table), table);
         }
@@ -117,6 +121,8 @@ test(
         "0002_authentication",
         "0003_hardening",
         "0004_marketplace_identity",
+        "0005_password_reset_tokens",
+        "0006_totp_two_factor",
       ]);
 
       const upgradedClient = new Client({ connectionString: legacyUrl });

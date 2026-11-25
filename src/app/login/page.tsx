@@ -11,6 +11,7 @@ type SearchParams = Promise<{
   email?: string | string[];
   authError?: string | string[];
   next?: string | string[];
+  twoFactor?: string | string[];
 }>;
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -40,13 +41,15 @@ export default async function LoginPage({
   const nextPath = safeReturnPath(
     typeof params.next === "string" ? params.next : undefined,
   );
-  if (user) redirect(nextPath);
+  const initialTwoFactor = params.twoFactor === "1";
+  if (user && !initialTwoFactor) redirect(nextPath);
 
   return (
     <AuthPanel
       initialEmail={typeof params.email === "string" ? params.email.slice(0, 254) : ""}
       initialError={typeof params.authError === "string" ? params.authError : undefined}
       nextPath={nextPath}
+      initialTwoFactor={initialTwoFactor}
     />
   );
 }

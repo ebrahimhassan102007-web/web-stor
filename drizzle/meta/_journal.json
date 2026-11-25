@@ -36,6 +36,20 @@
       "when": 1793214544762,
       "tag": "0004_marketplace_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795597569371,
+      "tag": "0005_password_reset_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795597569372,
+      "tag": "0006_totp_two_factor",
+      "breakpoints": true
     }
   ]
 }

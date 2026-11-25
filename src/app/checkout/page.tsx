@@ -1,5 +1,7 @@
 "use client";
 
+import { csrfFetch } from "@/lib/security/csrf-client";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -41,7 +43,7 @@ export default function CheckoutPage() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/cart", { cache: "no-store" });
+      const res = await csrfFetch("/api/cart", { cache: "no-store" });
       const body = await res.json();
       if (body?.ok) setCart(body.data);
     } catch {
@@ -75,7 +77,7 @@ export default function CheckoutPage() {
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/checkout", {
+      const res = await csrfFetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsed.data),

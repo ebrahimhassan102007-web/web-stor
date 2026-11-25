@@ -25,4 +25,4 @@ below replace it. Nothing here was silently dropped.
 - Contrast: small white-on-red text in dark theme (3.76:1) awaits owner's color decision (see CONTRAST-REPORT).
 
 ## B-05 — Database role for migrations
-- Migration 0003 must run before deploying this code (`npm run db:migrate` with existing ALLOW_* guards). The app refuses to boot unconfigured in production by design (S-17).
+- Migrations 0003 through 0006 must be applied in order before deploying the corresponding code (`npm run db:migrate` with existing ALLOW_* guards). The app refuses to boot unconfigured in production by design (S-17). Wave 2B's migration files were exercised with PGlite, not a live PostgreSQL target. The migration command remains guarded; do not use production for verification.

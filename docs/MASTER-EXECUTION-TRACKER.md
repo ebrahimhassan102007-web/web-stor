@@ -2,7 +2,7 @@
 
 **Branch at baseline:** `arena/a703a62a-web-stor` · **Environment:** local sandbox (PGlite + dev server on localhost). No production contact.
 
-> The baseline below is historical. Current follow-up work and checks are appended under 2026-11-25; the current working branch is `arena/bed7992c-web-stor`.
+> The baseline below is historical. Follow-up work is recorded in dated sections; the current working branch is `arena/9dd6dc80-web-stor`.
 
 Status vocabulary: DONE = implemented + verification recorded · PARTIAL = implemented in part, remainder named · NOT RUN = not executed (never reported as done) · BLOCKED = see BLOCKED.md.
 
@@ -57,7 +57,7 @@ BLOCKED for missing spec) is superseded; see git history.
 
 ## Follow-up hardening — 2026-11-25 (current branch)
 
-**Branch:** `arena/bed7992c-web-stor` · local-only validation; no production systems or credentials used.
+**Branch:** `arena/9dd6dc80-web-stor` · local-only validation; no production systems or credentials used.
 
 - Added S-21: streamed JSON defaults to a 16 KiB cap, rejects >32 nesting levels, malformed UTF-8, and strips prototype-mutating keys before route schemas run.
 - Added NFKC, Arabic/Persian digit folding, and invisible/bidi control removal to validated auth and commerce text. Password values remain byte-exact.
@@ -68,3 +68,14 @@ BLOCKED for missing spec) is superseded; see git history.
 **Verification:** `npm test` 111 pass / 0 fail / 6 skipped (PostgreSQL unavailable); `npm run typecheck`, `npm run lint`, `npm run build`, and local header scan all pass. `npm run test:e2e` was attempted but the production web server failed closed without DB/secrets, before browser launch; suite result remains NOT RUN.
 
 **Not complete:** The user's requested full 10-pass audit, password reset/change, TOTP, vault, wallet ledger/promos, dispute flow, admin command center, marketplace UX and comprehensive route-matrix testing are not delivered by this focused follow-up. Existing blocked controls and external deployment responsibilities remain open.
+
+## Wave 2B — account security and authentication hardening (2026-11-25)
+
+**Branch:** `arena/9dd6dc80-web-stor` · no production services or credentials used.
+
+- **Implemented:** password reset with single-use token storage and bilingual mail; authenticated password change with session rotation and other-session revocation; session revoke-other-devices action.
+- **Implemented:** additive migrations `0005_password_reset_tokens` and `0006_totp_two_factor`; encrypted TOTP enrollment, replay protection, single-use hashed recovery codes and expiring hashed pending challenges.
+- **Implemented:** 2FA step-up for email/password login, email verification completion, and Google OAuth callback. No authenticated session is issued until challenge validation; challenge consumes atomically before fresh session creation.
+- **Implemented:** HMAC double-submit CSRF in addition to Origin validation for mutations; common `csrfFetch` client helper across auth/account/session/2FA/cart/checkout; account-security UI localized AR/EN and styled for RTL/LTR and theme variants.
+- **Verification:** see Wave 2B entry in `docs/VERIFICATION-LOG.md`. Local typecheck, lint, build, test suite, diff check and header scan recorded there. The complete suite has skipped PostgreSQL-only tests because `TEST_DATABASE_URL` was not provided; PGlite migration/lifecycle checks pass.
+- **Status:** implementation and requested local gates are complete. Real PostgreSQL, browser, SMTP and Google OAuth end-to-end verification remain NOT RUN (B-02); do not interpret this entry as production validation or as closure of other tracker scopes, the truncated route matrix, or the broader security backlog.

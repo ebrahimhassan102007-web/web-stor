@@ -1,5 +1,7 @@
 "use client";
 
+import { csrfFetch } from "@/lib/security/csrf-client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/locale-provider";
@@ -15,7 +17,7 @@ export function SignOutButton() {
     setBusy(true);
     setError(false);
     try {
-      const response = await fetch("/api/auth/logout", { method: "POST" });
+      const response = await csrfFetch("/api/auth/logout", { method: "POST" });
       const body = await response.json().catch(() => null);
       if (!response.ok || !body?.ok) throw new Error("sign-out-failed");
       router.replace("/");

@@ -59,18 +59,16 @@ export function getAppOrigin(
     return parseOrigin(process.env.APP_ORIGIN);
   }
 
-  const forwardedHost = requestHeaders?.get("x-forwarded-host");
-  const host = forwardedHost ?? requestHeaders?.get("host");
-  const forwardedProtocol = requestHeaders?.get("x-forwarded-proto");
-  if (host && !host.includes(",") && host.trim() === host) {
-    const protocol = forwardedProtocol
-      ? forwardedProtocol.split(",")[0].trim()
-      : new URL(requestOrigin).protocol.slice(0, -1);
-    if (protocol === "http" || protocol === "https") {
-      return parseOrigin(`${protocol}://${host}`);
+  const requestUrl = new URL(requestOrigin);
+  if (process.env.TRUST_PROXY_IP_HEADERS === "true") {
+    const host = requestHeaders?.get("x-forwarded-host");
+    const protocol = requestHeaders?.get("x-forwarded-proto")?.split(",")[0]?.trim();
+    if (host && !host.includes(",") && host.trim() === host && (protocol === "http" || protocol === "https")) {
+      const trustedOrigin = parseOrigin(`${protocol}://${host}`);
+      if (trustedOrigin) return trustedOrigin;
     }
   }
-  return parseOrigin(process.env.APP_ORIGIN) ?? parseOrigin(requestOrigin);
+  return parseOrigin(process.env.APP_ORIGIN) ?? requestUrl.origin;
 }
 
 export function googleAuthorizationUrl(input: {

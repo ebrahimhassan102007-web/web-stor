@@ -1,5 +1,7 @@
 "use client";
 
+import { csrfFetch } from "@/lib/security/csrf-client";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/locale-provider";
@@ -23,7 +25,7 @@ export function AccountSessions() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/auth/sessions", { headers: { accept: "application/json" } })
+    csrfFetch("/api/auth/sessions", { headers: { accept: "application/json" } })
       .then((res) => (res.ok ? res.json() : null))
       .then((body) => {
         if (!cancelled) setSessions(body?.data?.sessions ?? []);
@@ -36,12 +38,24 @@ export function AccountSessions() {
     };
   }, []);
 
+  async function revokeOthers() {
+    if (busy) return;
+    setBusy(true); setError(false);
+    try {
+      const res = await csrfFetch("/api/auth/sessions", { method: "DELETE" });
+      const body = await res.json().catch(() => null);
+      if (!res.ok || !body?.ok) throw new Error("revoke-failed");
+      setSessions((current) => current?.filter((session) => session.current) ?? []);
+    } catch { setError(true); }
+    finally { setBusy(false); }
+  }
+
   async function signOutEverywhere() {
     if (busy) return;
     setBusy(true);
     setError(false);
     try {
-      const res = await fetch("/api/auth/sessions", { method: "POST" });
+      const res = await csrfFetch("/api/auth/sessions", { method: "POST" });
       const body = await res.json().catch(() => null);
       if (!res.ok || !body?.ok) throw new Error("revoke-failed");
       router.replace("/");
@@ -84,7 +98,11 @@ export function AccountSessions() {
           {ar ? "حصلت مشكلة، جرّب تاني." : "Something went wrong. Please try again."}
         </p>
       ) : null}
-      <button type="button" onClick={signOutEverywhere} disabled={busy} className="btn-ghost mt-4">
+      <div className="mt-4 flex flex-wrap gap-2">
+      <button type="button" onClick={revokeOthers} disabled={busy} className="btn-ghost">
+        {ar ? "إنهاء الجلسات الأخرى" : "Revoke other sessions"}
+      </button>
+      <button type="button" onClick={signOutEverywhere} disabled={busy} className="btn-ghost">
         {busy
           ? ar
             ? "بنخرج من كل الأجهزة…"
@@ -93,6 +111,7 @@ export function AccountSessions() {
             ? "تسجيل الخروج من كل الأجهزة"
             : "Sign out of all devices"}
       </button>
+      </div>
     </section>
   );
 }

@@ -7,10 +7,11 @@ import { emailLoginSchema } from "@/lib/security/auth-validation";
 import { readAuthJson } from "@/lib/security/auth-http";
 import { enforceAuthRateLimit, isAuthSecretConfigured } from "@/lib/security/auth-rate-limit";
 import { isEmailDeliveryConfigured } from "@/lib/security/email";
-import { verifyPassword } from "@/lib/security/auth-core";
+import { safeReturnPath, verifyPassword } from "@/lib/security/auth-core";
 import { createAccountSession } from "@/lib/security/account-session";
 import { recordSecurityEvent } from "@/lib/security/audit-log";
 import { issueEmailVerification } from "@/lib/security/email-verification";
+import { isTwoFactorEnabled, startTwoFactorChallenge } from "@/lib/security/two-factor";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,10 @@ export async function POST(request: NextRequest) {
       return jsonOk({ verificationRequired: true }, { status: 202 });
     }
 
+    if (await isTwoFactorEnabled(user.id)) {
+      await startTwoFactorChallenge(user.id, "email", safeReturnPath(parsed.data.returnTo));
+      return jsonOk({ twoFactorRequired: true });
+    }
     await createAccountSession(user.id);
     await recordSecurityEvent("login_success", user.id);
     return jsonOk({ authenticated: true });

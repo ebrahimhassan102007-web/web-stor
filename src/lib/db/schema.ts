@@ -248,6 +248,71 @@ export const emailVerificationCodes = pgTable(
   (t) => [index("email_verification_codes_expiry_idx").on(t.expiresAt)],
 );
 
+export const passwordResetTokens = pgTable(
+  "password_reset_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("password_reset_tokens_hash_idx").on(t.tokenHash),
+    uniqueIndex("password_reset_tokens_user_idx").on(t.userId),
+    index("password_reset_tokens_expiry_idx").on(t.expiresAt),
+  ],
+);
+
+export const userTotp = pgTable(
+  "user_totp",
+  {
+    userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+    /** AES-256-GCM authenticated envelope; plaintext TOTP secret is never persisted. */
+    encryptedSecret: varchar("encrypted_secret", { length: 512 }).notNull(),
+    enabledAt: timestamp("enabled_at", { withTimezone: true }),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    lastAcceptedCounter: integer("last_accepted_counter"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [check("user_totp_counter_nonnegative", sql`${t.lastAcceptedCounter} IS NULL OR ${t.lastAcceptedCounter} >= 0`)],
+);
+
+export const totpRecoveryCodes = pgTable(
+  "totp_recovery_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    codeHash: varchar("code_hash", { length: 64 }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("totp_recovery_codes_hash_idx").on(t.codeHash), index("totp_recovery_codes_user_idx").on(t.userId)],
+);
+
+export const pendingTwoFactorChallenges = pgTable(
+  "pending_two_factor_challenges",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+    authMethod: varchar("auth_method", { length: 8 }).notNull(),
+    returnTo: varchar("return_to", { length: 512 }).notNull().default("/account"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    attempts: integer("attempts").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("pending_two_factor_token_hash_idx").on(t.tokenHash),
+    index("pending_two_factor_user_idx").on(t.userId),
+    index("pending_two_factor_expiry_idx").on(t.expiresAt),
+    check("pending_two_factor_auth_method_known", sql`${t.authMethod} IN ('email','google')`),
+    check("pending_two_factor_attempts_nonnegative", sql`${t.attempts} >= 0`),
+  ],
+);
+
 export const accountSessions = pgTable(
   "account_sessions",
   {

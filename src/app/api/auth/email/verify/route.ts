@@ -6,6 +6,8 @@ import { readAuthJson } from "@/lib/security/auth-http";
 import { enforceAuthRateLimit, isAuthSecretConfigured } from "@/lib/security/auth-rate-limit";
 import { consumeEmailVerification } from "@/lib/security/email-verification";
 import { createAccountSession } from "@/lib/security/account-session";
+import { isTwoFactorEnabled, startTwoFactorChallenge } from "@/lib/security/two-factor";
+import { safeReturnPath } from "@/lib/security/auth-core";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +37,10 @@ export async function POST(request: NextRequest) {
     if (result.status === "locked") return jsonError("CODE_LOCKED", 429);
     if (result.status !== "verified") return jsonError("CODE_INVALID", 400);
 
+    if (await isTwoFactorEnabled(result.userId)) {
+      await startTwoFactorChallenge(result.userId, "email", safeReturnPath(parsed.data.returnTo));
+      return jsonOk({ twoFactorRequired: true });
+    }
     await createAccountSession(result.userId);
     return jsonOk({ authenticated: true });
   } catch {

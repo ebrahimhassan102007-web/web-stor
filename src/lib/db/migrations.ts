@@ -354,11 +354,35 @@ const MARKETPLACE_IDENTITY_REQUIREMENT: Requirement = {
   ],
 };
 
+const PASSWORD_RESET_REQUIREMENT: Requirement = {
+  tables: ["password_reset_tokens"],
+  columns: { password_reset_tokens: {
+    id: "uuid", user_id: "uuid", token_hash: "character varying",
+    expires_at: "timestamp with time zone", consumed_at: "timestamp with time zone",
+    created_at: "timestamp with time zone",
+  } },
+  indexes: ["password_reset_tokens_hash_idx", "password_reset_tokens_user_idx", "password_reset_tokens_expiry_idx"],
+  constraints: ["password_reset_tokens_user_id_users_id_fk"],
+};
+
+const TWO_FACTOR_REQUIREMENT: Requirement = {
+  tables: ["user_totp", "totp_recovery_codes", "pending_two_factor_challenges"],
+  columns: {
+    user_totp: { user_id: "uuid", encrypted_secret: "character varying", enabled_at: "timestamp with time zone", verified_at: "timestamp with time zone", last_accepted_counter: "integer", updated_at: "timestamp with time zone" },
+    totp_recovery_codes: { id: "uuid", user_id: "uuid", code_hash: "character varying", used_at: "timestamp with time zone", created_at: "timestamp with time zone" },
+    pending_two_factor_challenges: { id: "uuid", user_id: "uuid", token_hash: "character varying", auth_method: "character varying", return_to: "character varying", expires_at: "timestamp with time zone", consumed_at: "timestamp with time zone", attempts: "integer", created_at: "timestamp with time zone" },
+  },
+  indexes: ["totp_recovery_codes_hash_idx", "totp_recovery_codes_user_idx", "pending_two_factor_token_hash_idx", "pending_two_factor_user_idx", "pending_two_factor_expiry_idx"],
+  constraints: ["user_totp_counter_nonnegative", "user_totp_user_id_users_id_fk", "totp_recovery_codes_user_id_users_id_fk", "pending_two_factor_auth_method_known", "pending_two_factor_attempts_nonnegative", "pending_two_factor_challenges_user_id_users_id_fk"],
+};
+
 const REQUIREMENTS: Readonly<Record<string, Requirement>> = {
   "0000_init": BASELINE_REQUIREMENT,
   "0001_evora-digital": DIGITAL_REQUIREMENT,
   "0002_authentication": AUTH_REQUIREMENT,
   "0004_marketplace_identity": MARKETPLACE_IDENTITY_REQUIREMENT,
+  "0005_password_reset_tokens": PASSWORD_RESET_REQUIREMENT,
+  "0006_totp_two_factor": TWO_FACTOR_REQUIREMENT,
 };
 
 async function rows<T extends Record<string, unknown>>(

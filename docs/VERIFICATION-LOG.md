@@ -83,3 +83,20 @@ Local repository checks only. No production services were contacted.
 | API cache probe | `GET /api/auth/session` local | 200; `Cache-Control: private, no-store, no-cache, must-revalidate`; `Vary` includes `Cookie`. |
 | Playwright | `npm run test:e2e` | Attempted; blocked before browser launch because the standalone production web server failed its fail-closed startup checks (no `SESSION_SECRET`, `AUTH_SECRET`, or `DATABASE_URL`). Command timed out while Playwright retried; browser suite result is NOT RUN. |
 | Real PostgreSQL / auth E2E / OAuth | — | NOT RUN; no PostgreSQL credentials, SMTP, or Google credentials supplied. |
+
+## Wave 2B verification — 2026-11-25 (`arena/9dd6dc80-web-stor`)
+
+Local repository checks only. No production DB, SMTP provider, Google OAuth account, or browser was contacted.
+
+| Check | Command | Actual result |
+|---|---|---|
+| Typecheck | `npm run typecheck` | Exit 0 |
+| Lint | `npm run lint` | Exit 0, no warnings |
+| Full test suite | `npm test` | **116 passed, 0 failed, 6 skipped** (122 total). Six skips are real-PostgreSQL cases because `TEST_DATABASE_URL` was not set. PGlite migration/TOTP lifecycle and route/CSRF checks passed. |
+| Production build | `npm run build` | Exit 0; Next.js 16.4.2 build and route generation completed. |
+| Security headers | `node scripts/scan-headers.mjs http://localhost:3000` | **ALL HEADER CHECKS PASSED** for `/`, `/login`, `/account`, `/products` on the locally started dev server. |
+| Whitespace/conflict check | `git diff --check` | Exit 0 |
+| Dependency gate | `npm audit --audit-level=high` | Exit 0 at the high-severity threshold; **12 moderate advisories remain** (Next.js and development-tool dependency chains), so this is not a clean zero-advisory audit. |
+| Real PostgreSQL / browser / OAuth / SMTP | — | NOT RUN. The environment had no disposable test DB URL or test provider credentials; browser execution was not attempted. |
+
+No production database or service was contacted. The guarded migrations were applied only in the PGlite integration harness. Outstanding environment-dependent validation is tracked in `docs/BLOCKED.md` B-02/B-05.

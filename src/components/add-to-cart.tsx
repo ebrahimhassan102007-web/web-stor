@@ -1,5 +1,7 @@
 "use client";
 
+import { csrfFetch } from "@/lib/security/csrf-client";
+
 import { useState } from "react";
 import { useCart } from "./cart-provider";
 import { useI18n } from "./locale-provider";
@@ -47,7 +49,7 @@ export function AddToCart({
     }
     setState("busy");
     try {
-      const res = await fetch("/api/cart/items", {
+      const res = await csrfFetch("/api/cart/items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productId, quantity, inputValue }),

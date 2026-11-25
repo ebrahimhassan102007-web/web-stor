@@ -1,5 +1,7 @@
 "use client";
 
+import { csrfFetch } from "@/lib/security/csrf-client";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -11,12 +13,13 @@ type AuthPanelProps = {
   initialEmail?: string;
   initialError?: string;
   nextPath?: string;
+  initialTwoFactor?: boolean;
 };
 
 type ApiBody = {
   ok?: boolean;
   error?: string;
-  data?: { authenticated?: boolean; verificationRequired?: boolean };
+  data?: { authenticated?: boolean; verificationRequired?: boolean; twoFactorRequired?: boolean; redirectTo?: string };
 };
 
 type AuthErrorDictionary = ReturnType<typeof useI18n>["t"]["auth"]["errors"];
@@ -43,6 +46,7 @@ function localizeAuthError(code: string | undefined, errors: AuthErrorDictionary
     google_unavailable: errors.googleUnavailable,
     google_cancelled: errors.googleCancelled,
     google_failed: errors.googleFailed,
+    TWO_FACTOR_INVALID: errors.twoFactorInvalid,
   };
   return mapping[code] ?? errors.generic;
 }
@@ -57,11 +61,13 @@ export function AuthPanel({
   initialEmail = "",
   initialError,
   nextPath = "/account",
+  initialTwoFactor = false,
 }: AuthPanelProps) {
   const router = useRouter();
   const { locale, t } = useI18n();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [stage, setStage] = useState<"credentials" | "verification">("credentials");
+  const [stage, setStage] = useState<"credentials" | "verification" | "two-factor">(initialTwoFactor ? "two-factor" : "credentials");
+  const [twoFactorCode, setTwoFactorCode] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
@@ -98,10 +104,11 @@ export function AuthPanel({
       email,
       password,
       locale,
+      returnTo: destinationPath(nextPath),
     };
 
     try {
-      const response = await fetch(endpoint, {
+      const response = await csrfFetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -113,6 +120,13 @@ export function AuthPanel({
         return;
       }
 
+      if (body.data?.twoFactorRequired) {
+        setPassword("");
+        setStage("two-factor");
+        setTwoFactorCode("");
+        setBusy(false);
+        return;
+      }
       if (body.data?.authenticated) {
         finishSignIn();
         return;
@@ -137,14 +151,21 @@ export function AuthPanel({
     setNotice("");
 
     try {
-      const response = await fetch("/api/auth/email/verify", {
+      const response = await csrfFetch("/api/auth/email/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code: code.join("") }),
+        body: JSON.stringify({ email, code: code.join(""), returnTo: destinationPath(nextPath) }),
       });
       const body = (await response.json().catch(() => null)) as ApiBody | null;
       if (!response.ok || !body?.ok) {
         setErrorCode(body?.error ?? "UNKNOWN");
+        setBusy(false);
+        return;
+      }
+      if (body.data?.twoFactorRequired) {
+        setStage("two-factor");
+        setTwoFactorCode("");
+        setNotice("");
         setBusy(false);
         return;
       }
@@ -156,13 +177,32 @@ export function AuthPanel({
     }
   }
 
+  async function submitTwoFactor(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy || !twoFactorCode.trim()) return;
+    setBusy(true); setErrorCode("");
+    try {
+      const response = await csrfFetch("/api/auth/two-factor/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: twoFactorCode.trim() }),
+      });
+      const body = await response.json() as ApiBody;
+      if (!response.ok || !body.ok || !body.data?.authenticated) {
+        setErrorCode(body.error ?? "TWO_FACTOR_INVALID"); setBusy(false); return;
+      }
+      router.replace(destinationPath(body.data.redirectTo ?? nextPath));
+      router.refresh();
+    } catch { setErrorCode("UNKNOWN"); setBusy(false); }
+  }
+
   async function resendCode() {
     if (busy || cooldown > 0) return;
     setBusy(true);
     setErrorCode("");
     setNotice("");
     try {
-      const response = await fetch("/api/auth/email/resend", {
+      const response = await csrfFetch("/api/auth/email/resend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, locale }),
@@ -276,16 +316,20 @@ export function AuthPanel({
           <h1 className="title-luxe mt-2 text-2xl sm:text-3xl">
             {stage === "verification"
               ? t.auth.verificationTitle
-              : mode === "signin"
-                ? t.auth.signInTitle
-                : t.auth.signUpTitle}
+              : stage === "two-factor"
+                ? t.auth.twoFactor.challengeTitle
+                : mode === "signin"
+                  ? t.auth.signInTitle
+                  : t.auth.signUpTitle}
           </h1>
           <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">
             {stage === "verification"
               ? fill(t.auth.verificationSubtitle, { email })
-              : mode === "signin"
-                ? t.auth.signInSubtitle
-                : t.auth.signUpSubtitle}
+              : stage === "two-factor"
+                ? t.auth.twoFactor.challengeHint
+                : mode === "signin"
+                  ? t.auth.signInSubtitle
+                  : t.auth.signUpSubtitle}
           </p>
         </div>
 
@@ -406,6 +450,7 @@ export function AuthPanel({
                   <p className="mt-1.5 text-xs text-muted">{t.auth.passwordHint}</p>
                 )}
               </div>
+              {mode === "signin" && <p className="text-end text-sm"><Link className="text-primary hover:underline" href="/forgot-password">{locale === "ar" ? "نسيت كلمة المرور؟" : "Forgot password?"}</Link></p>}
               <button type="submit" disabled={busy} className="btn-primary w-full py-3 text-base">
                 {busy
                   ? t.auth.working
@@ -415,7 +460,7 @@ export function AuthPanel({
               </button>
             </form>
           </>
-        ) : (
+        ) : stage === "verification" ? (
           <>
             <form onSubmit={submitCode} className="mt-7" noValidate>
               <fieldset>
@@ -473,6 +518,13 @@ export function AuthPanel({
               {t.auth.changeEmail}
             </button>
           </>
+        ) : (
+          <form onSubmit={submitTwoFactor} className="mt-7 space-y-4" noValidate>
+            <label htmlFor="two-factor-code" className="block text-sm font-medium">{t.auth.twoFactor.code}</label>
+            <input id="two-factor-code" value={twoFactorCode} onChange={(event) => setTwoFactorCode(normalizeVerificationDigits(event.target.value).slice(0, 32))} autoComplete="one-time-code" className="input-dark" dir="ltr" autoFocus />
+            <button type="submit" disabled={busy || !twoFactorCode.trim()} className="btn-primary w-full py-3 text-base">{busy ? t.auth.verifying : t.auth.twoFactor.verifyChallenge}</button>
+            <button type="button" onClick={() => { setStage("credentials"); setErrorCode(""); setTwoFactorCode(""); }} className="w-full text-sm text-muted hover:text-foreground">{t.auth.changeEmail}</button>
+          </form>
         )}
 
         <p className="mt-7 text-center text-xs text-muted">
