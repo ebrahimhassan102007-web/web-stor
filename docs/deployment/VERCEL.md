@@ -184,6 +184,41 @@ worth checking:
    `npx vercel inspect dpl_<id> --logs` (this is the command Vercel prints in the
    failing commit status).
 
+## 5. Live status — is the deployed site actually reachable?
+
+Recorded 2026-11-25 from outside the Vercel account.
+
+| URL | Result |
+| --- | --- |
+| `https://web-stor-ebrahim24.vercel.app` (production alias of project `ebrahim24/web-stor`) | **HTTP 200 "Protected Deployment – Vercel" login wall** |
+| `https://web-stor-git-main-ebrahim24.vercel.app` (branch alias for `main`) | same login wall |
+| `https://web-stor-ebrahim24.vercel.app/robots.txt` (static asset) | same login wall |
+| `https://web-stor.vercel.app` | **a different project** ("islam store", fakestoreapi catalogue) — not this repository |
+
+A green deployment status means the build and upload succeeded; it does **not** mean
+the store is public. Every path, static assets included, is answered by Vercel's
+authentication screen, so **Deployment Protection → Vercel Authentication is enabled
+for the production target**.
+
+### Turning the wall off
+
+1. **Project → Settings → Deployment Protection**.
+2. Under **Vercel Authentication**, choose **Standard Protection** (protects Preview
+   deployments only) — or **Disabled** if previews should be public too.
+3. **Save**, then **Deployments → latest → Redeploy** (or purge the alias).
+4. Verify from a logged-out browser / plain curl:
+
+   ```bash
+   curl -sS -o /dev/null -w '%{http_code}\n' https://web-stor-ebrahim24.vercel.app/      # expect 200
+   curl -sS https://web-stor-ebrahim24.vercel.app/ | grep -c 'E-Vora'                     # expect >= 1
+   curl -sS -o /dev/null -w '%{http_code}\n' https://web-stor-ebrahim24.vercel.app/admin # expect 404
+   ```
+
+5. If `/` answers **500** while `/robots.txt` answers 200, the deployment is correct
+   and the *runtime environment* is incomplete — go back to section 2 (a missing
+   `DATABASE_URL`/secret fails closed by design) and check
+   **Deployments → Functions → Logs** for `Invalid environment configuration`.
+
 ### What was hardened in the repository anyway
 
 - `assertValidEnv()` no longer runs during the build phase (defence in depth: a future
