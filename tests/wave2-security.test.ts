@@ -36,7 +36,16 @@ test("TOTP encryption authenticates ciphertext and key id; recovery codes are on
     const secret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
     const envelope = encryptTotpSecret(secret);
     assert.equal(decryptTotpSecret(envelope), secret);
-    assert.throws(() => decryptTotpSecret(`${envelope.slice(0, -1)}x`));
+    // Tamper a *decoded* byte of the auth tag, not the last base64 character:
+    // base64url padding bits can make a one-character edit decode to the same
+    // bytes, which made this assertion flaky.
+    const parts = envelope.split(".");
+    const tag = parts[3]!;
+    const flipped = `${tag[0] === "A" ? "B" : "A"}${tag.slice(1)}`;
+    assert.throws(() => decryptTotpSecret([parts[0], parts[1], parts[2], flipped, parts[4]].join(".")));
+    const cipher = parts[4]!;
+    const flippedCipher = `${cipher[0] === "A" ? "B" : "A"}${cipher.slice(1)}`;
+    assert.throws(() => decryptTotpSecret([parts[0], parts[1], parts[2], parts[3], flippedCipher].join(".")));
     process.env.TOTP_ENCRYPTION_KEY_ID = "rotated-key";
     assert.throws(() => decryptTotpSecret(envelope));
   } finally {

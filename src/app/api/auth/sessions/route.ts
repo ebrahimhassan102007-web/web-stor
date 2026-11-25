@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { jsonError, jsonOk } from "@/lib/http";
-import { verifySameOrigin } from "@/lib/security/csrf";
+import { guardMutatingRequest } from "@/lib/security/request-guard";
 import {
   getCurrentAccountUser,
   listAccountSessions,
@@ -33,7 +33,8 @@ export async function GET() {
 
 /** DELETE /api/auth/sessions — revoke all other devices, retaining this session. */
 export async function DELETE(request: NextRequest) {
-  if (!verifySameOrigin(request)) return jsonError("REQUEST_REJECTED", 403);
+  const guard = await guardMutatingRequest(request);
+  if (guard) return guard;
   try {
     const user = await getCurrentAccountUser();
     if (!user) return jsonError("UNAUTHENTICATED", 401);
@@ -45,7 +46,8 @@ export async function DELETE(request: NextRequest) {
 
 /** POST /api/auth/sessions — sign out of ALL devices (S-09). */
 export async function POST(request: NextRequest) {
-  if (!verifySameOrigin(request)) return jsonError("REQUEST_REJECTED", 403);
+  const guard = await guardMutatingRequest(request);
+  if (guard) return guard;
   try {
     const user = await getCurrentAccountUser();
     if (!user) return jsonError("UNAUTHENTICATED", 401);

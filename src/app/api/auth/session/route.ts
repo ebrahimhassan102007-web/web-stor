@@ -1,9 +1,12 @@
 import { jsonError, jsonOk } from "@/lib/http";
 import { getCurrentAccountUser } from "@/lib/security/account-session";
+import { scheduleEphemeralHygiene } from "@/lib/db/hygiene-schedule";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  // S-25: bounded ephemeral cleanup runs after the response, at most hourly.
+  scheduleEphemeralHygiene();
   try {
     const user = await getCurrentAccountUser();
     return jsonOk({

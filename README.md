@@ -141,6 +141,7 @@ No production migration is performed by this repository's checks. Do not point l
 | `npm run db:migrate` | Explicit transactional fresh install or guarded legacy upgrade |
 | `npm run db:seed` | Add missing demo catalogue rows only; never migrates or deletes |
 | `npm run db:push` | Drizzle Kit prototyping on an explicitly selected disposable database only |
+| `npm run ops` | **Local-only** owner administration (bans, promos, orders/refunds, hygiene). Refuses to run inside the web app; there is no web admin. See `docs/security/S-25.md` |
 | `npm run lint` / `typecheck` / `test` | ESLint, strict TypeScript and the complete test suite |
 
 ## Tests and CI

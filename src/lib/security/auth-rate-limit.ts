@@ -8,6 +8,7 @@ import {
   type AuthRatePolicy,
 } from "@/lib/security/auth-rate-policy";
 import { getAuthSecret } from "@/lib/security/auth-core";
+import { recordThreat } from "@/lib/security/threat-shield";
 
 export {
   FALLBACK_CLIENT_MULTIPLIER,
@@ -68,6 +69,10 @@ export async function enforceAuthRateLimit(
   for (const plan of plans) {
     const digest = bucketDigest(scope, plan.kind, plan.value);
     if (!(await takeBucket(digest, plan.limit, policy.windowMs))) {
+      // S-25 tier 2: repeated brute force against an auth scope feeds the
+      // progressive cooldown (15m -> 2h -> 24h). Never permanent, so a shared
+      // ISP address cannot be locked out by someone else's guessing.
+      await recordThreat(request, "rate_limit_abuse", { detail: scope });
       return false;
     }
   }

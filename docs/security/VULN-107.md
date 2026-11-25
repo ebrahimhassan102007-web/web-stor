@@ -1,7 +1,9 @@
 # VULN-107 - 404 vs 403 admin timing
 
-**Status:** VERIFIED (probe/test run on local instance, 2026-10-26)
+**Status:** SUPERSEDED by S-25 (2026-11-25) — the web admin surface no longer exists.
 
-**Probe/evidence:** /admin returns 404 for signed-out (live). Timing equality NOT measured.
+**Original probe/evidence:** /admin returned 404 for signed-out (live, 2026-10-26). Timing equality NOT measured.
 
-Local instance only (dev server on localhost:3000, no production contact). Full command log: docs/VERIFICATION-LOG.md.
+**Resolution (S-25):** `src/app/admin/page.tsx` was deleted and `src/proxy.ts` now answers `404` with `private, no-store, no-cache, must-revalidate` and an empty body for `/admin` and `/admin/**` **for everyone** — signed out, signed in, customer or admin. There is no longer a branch that could differ in status or timing between an authorized and an unauthorized visitor, and administration is local-only (`npm run ops`).
+
+**Probe (2026-11-25, local only):** live `next start` returned `404` + `private, no-store, no-cache, must-revalidate` for `/admin` and `/admin/users`; the proxy is also driven directly in `tests/threat-shield-db.test.ts` (empty body, CSP present).

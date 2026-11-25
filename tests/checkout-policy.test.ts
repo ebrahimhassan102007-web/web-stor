@@ -22,7 +22,7 @@ test("production checkout fails closed before reading or mutating anything", () 
   const guard = handler.indexOf("resolveCheckoutMode()");
   assert.notEqual(guard, -1);
   for (const laterOperation of [
-    "verifySameOrigin(req)",
+    "guardMutatingRequest(req)",
     "readJsonBody(req",
     "getExistingCartId()",
     "recordDemoOrder(db",

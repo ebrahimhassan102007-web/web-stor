@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db, users } from "@/lib/db";
 import { jsonError, jsonOk } from "@/lib/http";
 import { getCurrentAccountUser } from "@/lib/security/account-session";
-import { verifySameOrigin } from "@/lib/security/csrf";
+import { guardMutatingRequest } from "@/lib/security/request-guard";
 import { readAuthJson } from "@/lib/security/auth-http";
 import { verifyPassword } from "@/lib/security/auth-core";
 import { setupTotp } from "@/lib/security/two-factor";
@@ -12,7 +12,8 @@ import { enforceAuthRateLimit } from "@/lib/security/auth-rate-limit";
 
 export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
-  if (!verifySameOrigin(request)) return jsonError("REQUEST_REJECTED", 403);
+  const guard = await guardMutatingRequest(request);
+  if (guard) return guard;
   const user = await getCurrentAccountUser();
   if (!user) return jsonError("AUTH_REQUIRED", 401);
   const body = await readAuthJson(request);

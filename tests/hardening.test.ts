@@ -110,7 +110,7 @@ test("S-07: bounded JSON reader enforces content-type and byte caps (incl. chunk
   assert.equal(parsed.ok, true);
 });
 
-test("S-07: JSON reader rejects excess nesting and strips prototype-mutating keys", async () => {
+test("S-07/S-25: JSON reader rejects excess nesting and refuses prototype-mutating keys", async () => {
   const nested = new Request("http://localhost/", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -124,11 +124,19 @@ test("S-07: JSON reader rejects excess nesting and strips prototype-mutating key
     body: '{"safe":{"constructor":{"prototype":{"polluted":true}},"prototype":1},"__proto__":{"polluted":true}}',
   });
   const result = await readJsonBody(attack);
-  assert.equal(result.ok, true);
-  if (result.ok) {
-    assert.deepEqual(result.value, { safe: {} });
-    assert.equal(Object.prototype.hasOwnProperty.call(Object.prototype, "polluted"), false);
-  }
+  // S-25 tightened this from "silently stripped" to "rejected and signalled":
+  // a body reaching for a prototype is an attack, not a typo.
+  assert.deepEqual(result, { ok: false, reason: "prototype-pollution" });
+  assert.equal(Object.prototype.hasOwnProperty.call(Object.prototype, "polluted"), false);
+
+  const benign = new Request("http://localhost/", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: '{"safe":{"nested":true}}',
+  });
+  const parsed = await readJsonBody(benign);
+  assert.equal(parsed.ok, true);
+  if (parsed.ok) assert.deepEqual(parsed.value, { safe: { nested: true } });
 });
 
 test("input normalization applies NFKC, digit folding, and removes bidi/invisible controls", () => {

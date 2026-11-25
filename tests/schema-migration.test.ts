@@ -41,6 +41,8 @@ test("a clean embedded PostgreSQL database applies all migrations and additive s
         "promo_codes",
         "promo_redemptions",
         "security_audit_log",
+        "security_bans",
+        "security_threat_events",
         "seller_application_events",
         "seller_profiles",
         "totp_recovery_codes",

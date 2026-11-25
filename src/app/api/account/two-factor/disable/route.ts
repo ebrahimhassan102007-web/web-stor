@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db, users } from "@/lib/db";
 import { jsonError, jsonOk } from "@/lib/http";
 import { getCurrentAccountUser } from "@/lib/security/account-session";
-import { verifySameOrigin } from "@/lib/security/csrf";
+import { guardMutatingRequest } from "@/lib/security/request-guard";
 import { readAuthJson } from "@/lib/security/auth-http";
 import { verifyPassword } from "@/lib/security/auth-core";
 import { normalizeSecurityInput, normalizeVerificationDigits } from "@/lib/security/digits";
@@ -15,7 +15,8 @@ import { enforceAuthRateLimit } from "@/lib/security/auth-rate-limit";
 const schema = z.object({ code: z.string().transform(normalizeSecurityInput).transform(normalizeVerificationDigits).pipe(z.string().min(6).max(32)).optional(), password: z.string().max(128).optional() });
 export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
-  if (!verifySameOrigin(request)) return jsonError("REQUEST_REJECTED", 403);
+  const guard = await guardMutatingRequest(request);
+  if (guard) return guard;
   const user = await getCurrentAccountUser();
   if (!user) return jsonError("AUTH_REQUIRED", 401);
   const body = await readAuthJson(request);

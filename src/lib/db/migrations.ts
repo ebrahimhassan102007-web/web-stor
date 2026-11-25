@@ -407,6 +407,35 @@ const WALLET_PROMO_REQUIREMENT: Requirement = {
   indexes: ["wallet_ledger_idempotency_idx", "wallet_ledger_user_created_idx", "wallet_ledger_order_idx", "promo_codes_code_idx", "promo_redemptions_order_idx", "promo_redemptions_user_idx", "promo_redemptions_key_idx", "promo_codes_public_active_idx", "orders_promo_code_idx"],
 };
 
+const THREAT_SHIELD_REQUIREMENT: Requirement = {
+  tables: ["security_threat_events", "security_bans"],
+  columns: {
+    security_threat_events: {
+      id: "uuid", actor_kind: "character varying", actor_key: "character varying",
+      user_id: "uuid", signal: "character varying", tier: "integer",
+      path: "character varying", method: "character varying", detail: "character varying",
+      occurred_at: "timestamp with time zone",
+    },
+    security_bans: {
+      id: "uuid", actor_key: "character varying", actor_kind: "character varying",
+      tier: "integer", signal: "character varying", strikes: "integer",
+      permanent: "boolean", active: "boolean", starts_at: "timestamp with time zone",
+      last_strike_at: "timestamp with time zone", expires_at: "timestamp with time zone",
+      lifted_at: "timestamp with time zone", created_at: "timestamp with time zone",
+    },
+  },
+  indexes: [
+    "security_bans_actor_idx", "security_bans_active_idx", "security_bans_last_strike_idx",
+    "security_threat_events_actor_idx", "security_threat_events_occurred_idx",
+  ],
+  constraints: [
+    "security_threat_events_kind_known", "security_threat_events_tier_known",
+    "security_threat_events_user_id_users_id_fk",
+    "security_bans_kind_known", "security_bans_tier_known", "security_bans_strikes_positive",
+    "security_bans_permanent_has_no_expiry", "security_bans_expiry_after_start",
+  ],
+};
+
 const REQUIREMENTS: Readonly<Record<string, Requirement>> = {
   "0000_init": BASELINE_REQUIREMENT,
   "0001_evora-digital": DIGITAL_REQUIREMENT,
@@ -416,6 +445,7 @@ const REQUIREMENTS: Readonly<Record<string, Requirement>> = {
   "0006_totp_two_factor": TWO_FACTOR_REQUIREMENT,
   "0007_encrypted_fulfillment_vault": FULFILLMENT_VAULT_REQUIREMENT,
   "0008_wallet_ledger_and_promos": WALLET_PROMO_REQUIREMENT,
+  "0009_security_threat_shield": THREAT_SHIELD_REQUIREMENT,
 };
 
 async function rows<T extends Record<string, unknown>>(

@@ -2,18 +2,29 @@
  * Shared bounded JSON body reader for every JSON API route (S-07).
  *
  * Rejects oversized streamed bodies before parsing, enforces a shallow
- * structural limit, and strips prototype-mutating keys. Callers must still
- * validate values with route-specific schemas.
+ * structural limit, and rejects (`prototype-pollution`) any body that carries
+ * prototype-mutating keys. Callers must still validate values with
+ * route-specific schemas; `request-guard` turns the rejection into a tier-1
+ * threat signal.
  */
 export type JsonBodyResult =
   | { ok: true; value: unknown }
-  | { ok: false; reason: "too-large" | "unsupported-media" | "invalid" | "too-deep" };
+  | {
+      ok: false;
+      reason:
+        | "too-large"
+        | "unsupported-media"
+        | "invalid"
+        | "too-deep"
+        | "prototype-pollution";
+    };
 
 export const JSON_BODY_STATUS = {
   "too-large": 413,
   "unsupported-media": 415,
   invalid: 400,
   "too-deep": 400,
+  "prototype-pollution": 400,
 } as const;
 
 const BLOCKED_KEYS = new Set(["__proto__", "constructor", "prototype"]);
@@ -37,6 +48,19 @@ function exceedsNestingDepth(text: string, maxDepth: number): boolean {
     } else if (char === "}" || char === "]") {
       depth -= 1;
     }
+  }
+  return false;
+}
+
+/** True when any nested object key would mutate a prototype. */
+function containsDangerousKeys(value: unknown, depth = 0): boolean {
+  if (depth > 32 || value === null || typeof value !== "object") return false;
+  if (Array.isArray(value)) {
+    return value.some((entry) => containsDangerousKeys(entry, depth + 1));
+  }
+  for (const [key, child] of Object.entries(value)) {
+    if (BLOCKED_KEYS.has(key)) return true;
+    if (containsDangerousKeys(child, depth + 1)) return true;
   }
   return false;
 }
@@ -107,7 +131,11 @@ export async function readJsonBody(
   try {
     const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     if (exceedsNestingDepth(text, maxDepth)) return { ok: false, reason: "too-deep" };
-    return { ok: true, value: stripDangerousKeys(JSON.parse(text) as unknown) };
+    const parsed = JSON.parse(text) as unknown;
+    // Fail closed instead of silently sanitizing: a body that tries to reach
+    // `__proto__`/`constructor`/`prototype` is an attack, not a typo.
+    if (containsDangerousKeys(parsed)) return { ok: false, reason: "prototype-pollution" };
+    return { ok: true, value: stripDangerousKeys(parsed) };
   } catch {
     return { ok: false, reason: "invalid" };
   }

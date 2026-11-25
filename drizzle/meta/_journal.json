@@ -64,6 +64,13 @@
       "when": 1795620000000,
       "tag": "0008_wallet_ledger_and_promos",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795620001000,
+      "tag": "0009_security_threat_shield",
+      "breakpoints": true
     }
   ]
 }

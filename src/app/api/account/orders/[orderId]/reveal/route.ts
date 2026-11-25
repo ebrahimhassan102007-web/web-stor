@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { jsonError, jsonOk } from "@/lib/http";
 import { getCurrentAccountUser } from "@/lib/security/account-session";
-import { verifySameOrigin } from "@/lib/security/csrf";
+import { guardMutatingRequest } from "@/lib/security/request-guard";
 import { enforceAuthRateLimit } from "@/lib/security/auth-rate-limit";
 import { recordSecurityEvent } from "@/lib/security/audit-log";
 import { db } from "@/lib/db";
@@ -12,7 +12,8 @@ type Context = { params: Promise<{ orderId: string }> };
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(request: NextRequest, context: Context) {
-  if (!verifySameOrigin(request)) return jsonError("REQUEST_REJECTED", 403);
+  const guard = await guardMutatingRequest(request);
+  if (guard) return guard;
   const user = await getCurrentAccountUser();
   if (!user) return jsonError("AUTH_REQUIRED", 401);
   const { orderId } = await context.params;

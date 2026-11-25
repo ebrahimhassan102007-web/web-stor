@@ -2,7 +2,8 @@ import type { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, users } from "@/lib/db";
 import { jsonError, jsonOk } from "@/lib/http";
-import { verifySameOrigin } from "@/lib/security/csrf";
+import { guardMutatingRequest, rejectHoneypot } from "@/lib/security/request-guard";
+import { isHoneypotTripped } from "@/lib/security/honeypot";
 import { emailLoginSchema } from "@/lib/security/auth-validation";
 import { readAuthJson } from "@/lib/security/auth-http";
 import { enforceAuthRateLimit, isAuthSecretConfigured } from "@/lib/security/auth-rate-limit";
@@ -16,11 +17,13 @@ import { isTwoFactorEnabled, startTwoFactorChallenge } from "@/lib/security/two-
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
-  if (!verifySameOrigin(request)) return jsonError("REQUEST_REJECTED", 403);
+  const guard = await guardMutatingRequest(request);
+  if (guard) return guard;
   if (!isAuthSecretConfigured()) return jsonError("AUTH_NOT_CONFIGURED", 503);
 
   const body = await readAuthJson(request);
   if (!body.ok) return jsonError("INVALID_BODY", 400);
+  if (isHoneypotTripped(body.value)) return rejectHoneypot(request);
   const parsed = emailLoginSchema.safeParse(body.value);
   if (!parsed.success) return jsonError("INVALID_INPUT", 400);
   const { email, password, locale } = parsed.data;
