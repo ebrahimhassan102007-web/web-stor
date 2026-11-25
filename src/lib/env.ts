@@ -19,6 +19,18 @@ export function validateEnv(env: EnvLike = process.env): string[] {
   };
   secret("SESSION_SECRET", 32);
   secret("AUTH_SECRET", 32);
+  const totpKey = env.TOTP_ENCRYPTION_KEY?.trim() ?? "";
+  const totpKeyId = env.TOTP_ENCRYPTION_KEY_ID?.trim() ?? "";
+  if (isProd && (!totpKey || !totpKeyId)) errors.push("TOTP_ENCRYPTION_KEY and TOTP_ENCRYPTION_KEY_ID are required in production");
+  if (totpKey && !/^(?:[a-fA-F0-9]{64}|[A-Za-z0-9_-]{43})$/.test(totpKey)) errors.push("TOTP_ENCRYPTION_KEY must encode exactly 32 bytes as hex or base64url");
+  if (totpKeyId && !/^[A-Za-z0-9._-]{1,64}$/.test(totpKeyId)) errors.push("TOTP_ENCRYPTION_KEY_ID is invalid");
+  if (Boolean(totpKey) !== Boolean(totpKeyId)) errors.push("TOTP key and key id must be configured together");
+  const fulfillmentKey = env.FULFILLMENT_ENCRYPTION_KEY?.trim() ?? "";
+  const fulfillmentKeyId = env.FULFILLMENT_ENCRYPTION_KEY_ID?.trim() ?? "";
+  if (isProd && (!fulfillmentKey || !fulfillmentKeyId)) errors.push("FULFILLMENT_ENCRYPTION_KEY and FULFILLMENT_ENCRYPTION_KEY_ID are required in production");
+  if (fulfillmentKey && !/^(?:[a-fA-F0-9]{64}|[A-Za-z0-9_-]{43})$/.test(fulfillmentKey)) errors.push("FULFILLMENT_ENCRYPTION_KEY must encode exactly 32 bytes as hex or base64url");
+  if (fulfillmentKeyId && !/^[A-Za-z0-9._-]{1,64}$/.test(fulfillmentKeyId)) errors.push("FULFILLMENT_ENCRYPTION_KEY_ID is invalid");
+  if (Boolean(fulfillmentKey) !== Boolean(fulfillmentKeyId)) errors.push("Fulfillment key and key id must be configured together");
 
   if (isProd && !env.DATABASE_URL?.trim()) {
     errors.push("DATABASE_URL must be set in production");

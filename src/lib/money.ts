@@ -20,6 +20,24 @@ function formatterFor(locale: Locale): Intl.NumberFormat {
   return fmt;
 }
 
+export const MAX_STORED_CENTS = 2_147_483_647;
+
+/** Integer-only server pricing that fits the existing PostgreSQL INTEGER columns. */
+export function calculateSubtotalCents(lines: readonly { priceCents: number; quantity: number }[]): number {
+  let total = 0;
+  for (const line of lines) {
+    if (!Number.isSafeInteger(line.priceCents) || line.priceCents <= 0 || !Number.isInteger(line.quantity) || line.quantity < 1 || line.quantity > 99) {
+      throw new Error("Invalid line price or quantity");
+    }
+    const lineTotal = line.priceCents * line.quantity;
+    if (!Number.isSafeInteger(lineTotal) || total > MAX_STORED_CENTS - lineTotal) {
+      throw new Error("Order total exceeds the stored money range");
+    }
+    total += lineTotal;
+  }
+  return total;
+}
+
 export function formatCents(cents: number, locale: Locale = "en"): string {
   return formatterFor(locale).format(cents / 100);
 }

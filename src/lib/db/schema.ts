@@ -76,6 +76,7 @@ export const products = pgTable(
     index("products_featured_idx").on(t.featured),
     check("products_price_positive", sql`${t.priceCents} > 0`),
     check("products_stock_nonnegative", sql`${t.stock} >= 0`),
+    check("products_input_type_known", sql`${t.inputType} IN ('none','player-id','region','activation-email')`),
   ],
 );
 
@@ -136,6 +137,8 @@ export const orders = pgTable(
       onDelete: "set null",
     }),
     orderNumber: varchar("order_number", { length: 32 }).notNull(),
+    /** HMAC-scoped checkout request key digest; raw client keys are never stored. */
+    idempotencyKey: varchar("idempotency_key", { length: 64 }),
     status: varchar("status", { length: 24 }).notNull().default("confirmed"),
     customerName: varchar("customer_name", { length: 128 }).notNull(),
     email: varchar("email", { length: 254 }).notNull(),
@@ -156,6 +159,7 @@ export const orders = pgTable(
   },
   (t) => [
     uniqueIndex("orders_number_idx").on(t.orderNumber),
+    uniqueIndex("orders_idempotency_key_idx").on(t.idempotencyKey),
     index("orders_email_idx").on(t.email),
     index("orders_user_idx").on(t.userId),
     check(
@@ -191,11 +195,38 @@ export const orderItems = pgTable(
      * "player-id:<value>" or "region:<code>" (null for plain codes).
      */
     deliveryInfo: varchar("delivery_info", { length: 256 }),
+    fulfillmentTarget: jsonb("fulfillment_target").$type<{ type: string; value: string } | null>(),
   },
   (t) => [
     index("order_items_order_idx").on(t.orderId),
     check("order_items_quantity_range", sql`${t.quantity} BETWEEN 1 AND 99`),
     check("order_items_price_positive", sql`${t.unitPriceCents} > 0`),
+    check("order_items_fulfillment_target_shape", sql`${t.fulfillmentTarget} IS NULL OR (jsonb_typeof(${t.fulfillmentTarget}) = 'object' AND ${t.fulfillmentTarget} ->> 'type' IN ('player-id','region','activation-email') AND jsonb_typeof(${t.fulfillmentTarget} -> 'value') = 'string' AND length(btrim(${t.fulfillmentTarget} ->> 'value')) > 0)`),
+  ],
+);
+
+/** Encrypted inventory and one-time-per-order-item fulfillment reveal state. */
+export const fulfillmentVault = pgTable(
+  "fulfillment_vault",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: integer("product_id").notNull().references(() => products.id, { onDelete: "restrict" }),
+    orderItemId: integer("order_item_id").references(() => orderItems.id, { onDelete: "cascade" }),
+    codeIndex: integer("code_index").notNull().default(0),
+    ciphertext: text("ciphertext").notNull(),
+    iv: varchar("iv", { length: 32 }).notNull(),
+    authTag: varchar("auth_tag", { length: 32 }).notNull(),
+    keyId: varchar("key_id", { length: 64 }).notNull(),
+    revealedAt: timestamp("revealed_at", { withTimezone: true }),
+    revealCount: integer("reveal_count").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("fulfillment_vault_product_available_idx").on(t.productId, t.createdAt).where(sql`${t.orderItemId} IS NULL`),
+    index("fulfillment_vault_order_item_idx").on(t.orderItemId),
+    uniqueIndex("fulfillment_vault_item_code_idx").on(t.orderItemId, t.codeIndex).where(sql`${t.orderItemId} IS NOT NULL`),
+    check("fulfillment_vault_code_index_nonnegative", sql`${t.codeIndex} >= 0`),
+    check("fulfillment_vault_reveal_count_nonnegative", sql`${t.revealCount} >= 0`),
   ],
 );
 
@@ -246,6 +277,71 @@ export const emailVerificationCodes = pgTable(
       .defaultNow(),
   },
   (t) => [index("email_verification_codes_expiry_idx").on(t.expiresAt)],
+);
+
+export const passwordResetTokens = pgTable(
+  "password_reset_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("password_reset_tokens_hash_idx").on(t.tokenHash),
+    uniqueIndex("password_reset_tokens_user_idx").on(t.userId),
+    index("password_reset_tokens_expiry_idx").on(t.expiresAt),
+  ],
+);
+
+export const userTotp = pgTable(
+  "user_totp",
+  {
+    userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+    /** AES-256-GCM authenticated envelope; plaintext TOTP secret is never persisted. */
+    encryptedSecret: varchar("encrypted_secret", { length: 512 }).notNull(),
+    enabledAt: timestamp("enabled_at", { withTimezone: true }),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    lastAcceptedCounter: integer("last_accepted_counter"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [check("user_totp_counter_nonnegative", sql`${t.lastAcceptedCounter} IS NULL OR ${t.lastAcceptedCounter} >= 0`)],
+);
+
+export const totpRecoveryCodes = pgTable(
+  "totp_recovery_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    codeHash: varchar("code_hash", { length: 64 }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("totp_recovery_codes_hash_idx").on(t.codeHash), index("totp_recovery_codes_user_idx").on(t.userId)],
+);
+
+export const pendingTwoFactorChallenges = pgTable(
+  "pending_two_factor_challenges",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+    authMethod: varchar("auth_method", { length: 8 }).notNull(),
+    returnTo: varchar("return_to", { length: 512 }).notNull().default("/account"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    attempts: integer("attempts").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("pending_two_factor_token_hash_idx").on(t.tokenHash),
+    index("pending_two_factor_user_idx").on(t.userId),
+    index("pending_two_factor_expiry_idx").on(t.expiresAt),
+    check("pending_two_factor_auth_method_known", sql`${t.authMethod} IN ('email','google')`),
+    check("pending_two_factor_attempts_nonnegative", sql`${t.attempts} >= 0`),
+  ],
 );
 
 export const accountSessions = pgTable(

@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db, accountSessions, emailVerificationCodes, googleOAuthStates, users } from "@/lib/db";
 import { planGoogleLink } from "@/lib/security/google-link";
 import { createAccountSession } from "@/lib/security/account-session";
+import { isTwoFactorEnabled, startTwoFactorChallenge } from "@/lib/security/two-factor";
 import { enforceAuthRateLimit, isAuthSecretConfigured } from "@/lib/security/auth-rate-limit";
 import { safeReturnPath, secureStringEqual } from "@/lib/security/auth-core";
 import {
@@ -228,8 +229,15 @@ export async function GET(request: NextRequest) {
     });
 
     const userId = await findOrCreateGoogleUser(identity);
-    await createAccountSession(userId);
     const returnTo = safeReturnPath(state.returnTo);
+    if (await isTwoFactorEnabled(userId)) {
+      await startTwoFactorChallenge(userId, "google", returnTo);
+      return NextResponse.redirect(new URL("/login?twoFactor=1", origin), {
+        status: 303,
+        headers: { "Cache-Control": "private, no-store, no-cache, must-revalidate", Vary: "Cookie" },
+      });
+    }
+    await createAccountSession(userId);
     return NextResponse.redirect(new URL(returnTo, origin), {
       status: 303,
       headers: {

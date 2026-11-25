@@ -5,6 +5,8 @@ import { AccountProfileForm } from "@/components/account-profile-form";
 import { AccountNav } from "@/components/account-nav";
 import { SignOutButton } from "@/components/sign-out-button";
 import { AccountSessions } from "@/components/account-sessions";
+import { AccountPasswordForm } from "@/components/account-password-form";
+import { TwoFactorCard } from "@/components/two-factor-card";
 import { getI18n } from "@/lib/i18n/server";
 import { getCurrentAccountUser } from "@/lib/security/account-session";
 import { fill } from "@/lib/i18n/dictionary";
@@ -89,6 +91,8 @@ export default async function AccountPage() {
           <span className="badge-neutral">{fill(t.auth.memberSince, { date: createdDate })}</span>
         </div>
         <AccountProfileForm initialName={user.displayName} email={user.email} emailVerified={Boolean(user.emailVerifiedAt)} googleLinked={user.googleLinked} passwordLoginEnabled={user.passwordLoginEnabled} />
+        <AccountPasswordForm enabled={user.passwordLoginEnabled} />
+        <TwoFactorCard />
         <AccountSessions />
         <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-edge pt-5"><p className="text-xs text-muted">{fill(t.auth.memberSince, { date: createdDate })}</p><SignOutButton /></div>
       </section>

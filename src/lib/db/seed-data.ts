@@ -8,7 +8,7 @@
  * can switch language without extra translation lookups.
  */
 
-export type DeliveryInputType = "none" | "player-id" | "region";
+export type DeliveryInputType = "none" | "player-id" | "region" | "activation-email";
 
 export const SEED_CATEGORIES = [
   {

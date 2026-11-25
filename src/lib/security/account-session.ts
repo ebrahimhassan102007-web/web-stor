@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, gt, lt } from "drizzle-orm";
+import { and, eq, gt, lt, ne } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { db, accountSessions, users } from "@/lib/db";
 import { isSessionLive } from "@/lib/security/account-session-policy";
@@ -122,6 +122,30 @@ export async function createAccountSession(userId: string): Promise<void> {
   store.set(ACCOUNT_SESSION_COOKIE, token, cookieOptions(SESSION_TTL_SECONDS));
 }
 
+/** Change credentials, rotate this browser's session token, revoke every other session atomically. */
+export async function changePasswordAndRotateSession(input: { userId: string; expectedPasswordHash: string; nextPasswordHash: string }): Promise<boolean> {
+  const store = await cookies();
+  const oldToken = store.get(ACCOUNT_SESSION_COOKIE)?.value;
+  if (!isOpaqueToken(oldToken)) return false;
+  const oldHash = hashOpaqueToken(oldToken);
+  const token = createOpaqueSessionToken();
+  const now = new Date();
+  const changed = await db.transaction(async (tx) => {
+    const [session] = await tx.select({ id: accountSessions.id }).from(accountSessions)
+      .where(and(eq(accountSessions.userId, input.userId), eq(accountSessions.tokenHash, oldHash), gt(accountSessions.expiresAt, now)))
+      .for("update").limit(1);
+    if (!session) return false;
+    const [updated] = await tx.update(users).set({ passwordHash: input.nextPasswordHash, updatedAt: now })
+      .where(and(eq(users.id, input.userId), eq(users.passwordHash, input.expectedPasswordHash))).returning({ id: users.id });
+    if (!updated) return false;
+    await tx.update(accountSessions).set({ tokenHash: hashOpaqueToken(token), expiresAt: new Date(now.getTime() + SESSION_TTL_MS), lastUsedAt: now }).where(eq(accountSessions.id, session.id));
+    await tx.delete(accountSessions).where(and(eq(accountSessions.userId, input.userId), ne(accountSessions.id, session.id)));
+    return true;
+  });
+  if (changed) store.set(ACCOUNT_SESSION_COOKIE, token, cookieOptions(SESSION_TTL_SECONDS));
+  return changed;
+}
+
 /** Revoke the current database session and expire its browser cookie. */
 export async function clearAccountSession(): Promise<void> {
   const store = await cookies();
@@ -132,6 +156,15 @@ export async function clearAccountSession(): Promise<void> {
       .where(eq(accountSessions.tokenHash, hashOpaqueToken(token)));
   }
   store.set(ACCOUNT_SESSION_COOKIE, "", cookieOptions(0));
+}
+
+/** Revoke all sessions except the authenticated current browser. */
+export async function revokeOtherAccountSessions(userId: string): Promise<number> {
+  const store = await cookies();
+  const token = store.get(ACCOUNT_SESSION_COOKIE)?.value;
+  if (!isOpaqueToken(token)) return 0;
+  const removed = await db.delete(accountSessions).where(and(eq(accountSessions.userId, userId), ne(accountSessions.tokenHash, hashOpaqueToken(token)))).returning({ id: accountSessions.id });
+  return removed.length;
 }
 
 /** Revoke every session for a user ("sign out of all devices", S-09). */

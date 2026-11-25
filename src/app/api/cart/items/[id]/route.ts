@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { eq, and } from "drizzle-orm";
-import { db, cartItems, products } from "@/lib/db";
+import { db, cartItems, carts, products } from "@/lib/db";
 import { getExistingCartId } from "@/lib/security/session";
 import { verifySameOrigin } from "@/lib/security/csrf";
 import { enforceRateLimit, clientKey } from "@/lib/security/rate-limit";
@@ -43,30 +43,20 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     const cartId = await getExistingCartId();
     if (!cartId) return jsonError("Cart not found.", 404);
 
-    const [line] = await db
-      .select({
-        id: cartItems.id,
-        productId: cartItems.productId,
-        stock: products.stock,
-      })
-      .from(cartItems)
-      .innerJoin(products, eq(cartItems.productId, products.id))
-      .where(and(eq(cartItems.id, idParsed.data), eq(cartItems.cartId, cartId)))
-      .limit(1);
-
-    if (!line) return jsonError("Cart item not found.", 404);
-
-    const quantity = Math.min(parsed.data.quantity, line.stock);
-    if (quantity <= 0) {
-      await db
-        .delete(cartItems)
-        .where(and(eq(cartItems.id, line.id), eq(cartItems.cartId, cartId)));
-    } else {
-      await db
-        .update(cartItems)
-        .set({ quantity })
-        .where(and(eq(cartItems.id, line.id), eq(cartItems.cartId, cartId)));
-    }
+    const updated = await db.transaction(async (tx) => {
+      const [cart] = await tx.select({ id: carts.id }).from(carts).where(eq(carts.id, cartId)).for("update").limit(1);
+      if (!cart) return false;
+      const [line] = await tx.select({ id: cartItems.id, productId: cartItems.productId }).from(cartItems)
+        .where(and(eq(cartItems.id, idParsed.data), eq(cartItems.cartId, cartId))).for("update").limit(1);
+      if (!line) return false;
+      const [product] = await tx.select({ stock: products.stock }).from(products).where(eq(products.id, line.productId)).for("update").limit(1);
+      if (!product) return false;
+      const quantity = Math.min(parsed.data.quantity, product.stock);
+      if (quantity <= 0) await tx.delete(cartItems).where(and(eq(cartItems.id, line.id), eq(cartItems.cartId, cartId)));
+      else await tx.update(cartItems).set({ quantity }).where(and(eq(cartItems.id, line.id), eq(cartItems.cartId, cartId)));
+      return true;
+    });
+    if (!updated) return jsonError("Cart item not found.", 404);
 
     return jsonOk(await getCartSummary(cartId));
   } catch (err) {
@@ -88,9 +78,10 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
     const cartId = await getExistingCartId();
     if (!cartId) return jsonError("Cart not found.", 404);
 
-    await db
-      .delete(cartItems)
-      .where(and(eq(cartItems.id, idParsed.data), eq(cartItems.cartId, cartId)));
+    await db.transaction(async (tx) => {
+      await tx.select({ id: carts.id }).from(carts).where(eq(carts.id, cartId)).for("update").limit(1);
+      await tx.delete(cartItems).where(and(eq(cartItems.id, idParsed.data), eq(cartItems.cartId, cartId)));
+    });
 
     return jsonOk(await getCartSummary(cartId));
   } catch (err) {

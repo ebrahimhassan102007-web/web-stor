@@ -55,7 +55,7 @@ const db: NodePgDatabase<typeof schema> | null = pool
 async function resetDatabase(): Promise<void> {
   assert.ok(pool);
   await pool.query(
-    "TRUNCATE TABLE order_items, orders, cart_items, carts, products, categories RESTART IDENTITY CASCADE",
+    "TRUNCATE TABLE fulfillment_vault, order_items, orders, cart_items, carts, products, categories RESTART IDENTITY CASCADE",
   );
 }
 
@@ -82,14 +82,19 @@ test("the clean PostgreSQL schema includes storefront and authentication tables"
       "carts",
       "categories",
       "email_verification_codes",
+      "fulfillment_vault",
       "google_oauth_states",
       "marketplace_audit_events",
       "order_items",
       "orders",
+      "password_reset_tokens",
+      "pending_two_factor_challenges",
       "products",
       "security_audit_log",
       "seller_application_events",
       "seller_profiles",
+      "totp_recovery_codes",
+      "user_totp",
       "users",
     ],
   );
@@ -103,6 +108,9 @@ test("the clean PostgreSQL schema includes storefront and authentication tables"
     "auth_rate_limits_window_idx",
     "cart_items_cart_product_idx",
     "email_verification_codes_expiry_idx",
+    "fulfillment_vault_product_available_idx",
+    "fulfillment_vault_order_item_idx",
+    "orders_idempotency_key_idx",
     "google_oauth_states_expiry_idx",
     "orders_number_idx",
     "products_slug_idx",
@@ -285,6 +293,7 @@ test("demo checkout records an unpaid order without consuming stock or the cart"
 
   const result = await recordDemoOrder(db, {
     cartId: cart.id,
+    idempotencyKey: "a".repeat(64),
     shipping: {
       customerName: "Demo Customer",
       email: "demo@example.invalid",
@@ -325,6 +334,7 @@ test("demo checkout records an unpaid order without consuming stock or the cart"
   const before = (await db.select().from(orders)).length;
   const rejected = await recordDemoOrder(db, {
     cartId: cart.id,
+    idempotencyKey: "b".repeat(64),
     shipping: {
       customerName: "Demo Customer",
       email: "demo@example.invalid",

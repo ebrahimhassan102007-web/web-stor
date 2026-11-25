@@ -1,5 +1,7 @@
 "use client";
 
+import { csrfFetch } from "@/lib/security/csrf-client";
+
 import { useState } from "react";
 import { useI18n } from "@/components/locale-provider";
 
@@ -27,7 +29,7 @@ export function AccountProfileForm({
     setSaving(true);
     setMessageStatus(null);
     try {
-      const response = await fetch("/api/account/profile", {
+      const response = await csrfFetch("/api/account/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ displayName: name }),

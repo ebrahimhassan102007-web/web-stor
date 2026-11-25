@@ -5,6 +5,7 @@ import {
   getCurrentAccountUser,
   listAccountSessions,
   revokeAllAccountSessions,
+  revokeOtherAccountSessions,
 } from "@/lib/security/account-session";
 import { recordSecurityEvent } from "@/lib/security/audit-log";
 
@@ -28,6 +29,18 @@ export async function GET() {
   } catch {
     return jsonError("AUTH_UNAVAILABLE", 503);
   }
+}
+
+/** DELETE /api/auth/sessions — revoke all other devices, retaining this session. */
+export async function DELETE(request: NextRequest) {
+  if (!verifySameOrigin(request)) return jsonError("REQUEST_REJECTED", 403);
+  try {
+    const user = await getCurrentAccountUser();
+    if (!user) return jsonError("UNAUTHENTICATED", 401);
+    const revoked = await revokeOtherAccountSessions(user.id);
+    await recordSecurityEvent("sessions_revoked_others", user.id);
+    return jsonOk({ revoked });
+  } catch { return jsonError("AUTH_UNAVAILABLE", 503); }
 }
 
 /** POST /api/auth/sessions — sign out of ALL devices (S-09). */

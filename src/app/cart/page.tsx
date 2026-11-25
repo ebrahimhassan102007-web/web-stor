@@ -1,5 +1,7 @@
 "use client";
 
+import { csrfFetch } from "@/lib/security/csrf-client";
+
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useCart } from "@/components/cart-provider";
@@ -43,7 +45,7 @@ export default function CartPage() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/cart", { cache: "no-store" });
+      const res = await csrfFetch("/api/cart", { cache: "no-store" });
       const body = await res.json();
       if (body?.ok) setCart(body.data);
     } catch {
@@ -61,7 +63,7 @@ export default function CartPage() {
     setBusyLine(lineId);
     setError("");
     try {
-      const res = await fetch(`/api/cart/items/${lineId}`, {
+      const res = await csrfFetch(`/api/cart/items/${lineId}`, {
         method: quantity <= 0 ? "DELETE" : "PATCH",
         headers: { "Content-Type": "application/json" },
         body: quantity <= 0 ? undefined : JSON.stringify({ quantity }),
@@ -170,6 +172,9 @@ export default function CartPage() {
                           ? t.regions[line.inputValue as RegionCode]
                           : line.inputValue}
                       </p>
+                    )}
+                    {line.inputValue && line.inputType === "activation-email" && (
+                      <p className="mt-1 text-xs text-success font-medium" dir="ltr">✉️ {t.product.activationEmailLabel}: {line.inputValue}</p>
                     )}
                   </div>
                   <button

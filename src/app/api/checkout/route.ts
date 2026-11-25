@@ -9,6 +9,8 @@ import { enforceRateLimit, clientKey } from "@/lib/security/rate-limit";
 import { readJsonBody, JSON_BODY_STATUS } from "@/lib/security/read-json";
 import { getCurrentAccountUser } from "@/lib/security/account-session";
 import { checkoutSchema } from "@/lib/validation";
+import { getAuthSecret } from "@/lib/security/auth-core";
+import { isClientIdempotencyKey, scopedCheckoutIdempotencyDigest } from "@/lib/marketplace/idempotency";
 
 export const dynamic = "force-dynamic";
 
@@ -48,12 +50,21 @@ export async function POST(req: NextRequest) {
     if (!(await enforceRateLimit("checkout", [`cart:${cartId}`], 10, 60_000))) {
       return jsonError("RATE_LIMITED", 429);
     }
+    const clientIdempotencyKey = req.headers.get("idempotency-key");
+    if (!isClientIdempotencyKey(clientIdempotencyKey)) return jsonError("IDEMPOTENCY_KEY_REQUIRED", 400);
+
     // S-08: ownership comes from the signed-in session, never from the
-    // email typed into the form.
+    // email typed into the form. Guest keys are scoped to their verified cart.
     const accountUser = await getCurrentAccountUser().catch(() => null);
+    const idempotencyKey = scopedCheckoutIdempotencyDigest(
+      accountUser?.id ?? `guest-cart:${cartId}`,
+      clientIdempotencyKey,
+      getAuthSecret(),
+    );
     const result = await recordDemoOrder(db, {
       cartId,
       userId: accountUser?.id ?? null,
+      idempotencyKey,
       shipping: parsed.data,
     });
     if (result.status === "empty") return jsonError("CART_EMPTY", 400);
@@ -62,10 +73,11 @@ export async function POST(req: NextRequest) {
         productName: [result.productName],
       });
     }
+    if (result.status === "invalid-target") return jsonError("INVALID_FULFILLMENT_TARGET", 400);
 
     return jsonOk(
-      { orderNumber: result.orderNumber, totalCents: result.totalCents },
-      { status: 201 },
+      { orderNumber: result.orderNumber, totalCents: result.totalCents, replayed: result.status === "replayed" },
+      { status: result.status === "replayed" ? 200 : 201 },
     );
   } catch (error) {
     return handleUnexpected("checkout", error);

@@ -1,8 +1,9 @@
 /**
  * Safety policy for **destructive** PostgreSQL test runs.
  *
- * The integration suite truncates `order_items`, `orders`, `cart_items`,
- * `carts`, `products` and `categories`. That is only ever acceptable against a
+ * The integration suite truncates `fulfillment_vault`, `order_items`, `orders`,
+ * `cart_items`, `carts`, `products` and `categories` (the vault is also reached
+ * by the order-item cascade). That is only ever acceptable against a
  * database that is explicitly disposable, so `TEST_DATABASE_URL` must satisfy
  * all of the following before a single connection is opened:
  *

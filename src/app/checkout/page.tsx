@@ -1,8 +1,10 @@
 "use client";
 
+import { csrfFetch } from "@/lib/security/csrf-client";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useCart } from "@/components/cart-provider";
 import { useI18n } from "@/components/locale-provider";
 import { checkoutSchema } from "@/lib/validation";
@@ -38,10 +40,11 @@ export default function CheckoutPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const checkoutKey = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/cart", { cache: "no-store" });
+      const res = await csrfFetch("/api/cart", { cache: "no-store" });
       const body = await res.json();
       if (body?.ok) setCart(body.data);
     } catch {
@@ -74,10 +77,11 @@ export default function CheckoutPage() {
     }
 
     setSubmitting(true);
+    checkoutKey.current ??= window.crypto.randomUUID();
     try {
-      const res = await fetch("/api/checkout", {
+      const res = await csrfFetch("/api/checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": checkoutKey.current },
         body: JSON.stringify(parsed.data),
       });
       const body = await res.json().catch(() => null);
@@ -90,6 +94,8 @@ export default function CheckoutPage() {
       }
       if (body?.error === "CHECKOUT_DISABLED") {
         setFormError(t.checkout.disabled);
+      } else if (body?.error === "INVALID_FULFILLMENT_TARGET") {
+        setFormError(t.add.targetInvalid);
       } else if (body?.error === "RATE_LIMITED") {
         setFormError(t.checkout.errRateLimited);
       } else if (body?.error === "INSUFFICIENT_STOCK") {
@@ -269,6 +275,9 @@ export default function CheckoutPage() {
                         ? t.regions[item.inputValue as RegionCode]
                         : item.inputValue}
                     </span>
+                  )}
+                  {item.inputValue && item.inputType === "activation-email" && (
+                    <span className="block text-xs text-success" dir="ltr">✉️ {t.product.activationEmailLabel}: {item.inputValue}</span>
                   )}
                 </span>
                 <span className="font-medium tabular-nums shrink-0">

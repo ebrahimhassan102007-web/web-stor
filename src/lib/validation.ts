@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { normalizeSecurityInput } from "@/lib/security/digits";
+import { normalizeSecurityInput, normalizeVerificationDigits } from "@/lib/security/digits";
 
 const normalizedText = (schema: z.ZodString = z.string()) =>
   z.string().transform(normalizeSecurityInput).pipe(schema);
@@ -23,6 +23,38 @@ export const addToCartSchema = z.object({
     .optional()
     .transform((value) => value || undefined),
 });
+
+export type FulfillmentInputType = "none" | "player-id" | "region" | "activation-email";
+
+export type FulfillmentTargetValidation =
+  | { ok: true; value: string | null }
+  | { ok: false };
+
+/** Normalize and validate a target using the server-owned product input type. */
+export function validateFulfillmentTarget(
+  inputType: string,
+  rawValue: string | null | undefined,
+): FulfillmentTargetValidation {
+  const value = rawValue === null || rawValue === undefined ? "" : normalizeSecurityInput(rawValue);
+  if (inputType === "none") return value ? { ok: false } : { ok: true, value: null };
+  if (inputType === "player-id") {
+    const digits = normalizeVerificationDigits(value);
+    return /^\d{5,32}$/.test(digits) ? { ok: true, value: digits } : { ok: false };
+  }
+  if (inputType === "region") {
+    const region = value.toLowerCase();
+    return ["global", "us", "sa", "ae", "eu"].includes(region)
+      ? { ok: true, value: region }
+      : { ok: false };
+  }
+  if (inputType === "activation-email") {
+    const email = value.toLowerCase();
+    return z.string().email().max(254).safeParse(email).success
+      ? { ok: true, value: email }
+      : { ok: false };
+  }
+  return { ok: false };
+}
 
 export const updateCartItemSchema = z.object({
   quantity: z.coerce.number().int().min(0).max(99), // 0 removes the line
