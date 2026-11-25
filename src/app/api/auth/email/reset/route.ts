@@ -5,7 +5,7 @@ import { verifySameOrigin } from "@/lib/security/csrf";
 import { passwordResetSchema } from "@/lib/security/auth-validation";
 import { enforceAuthRateLimit, isAuthSecretConfigured } from "@/lib/security/auth-rate-limit";
 import { hashPassword } from "@/lib/security/auth-core";
-import { consumePasswordReset } from "@/lib/security/password-reset";
+import { consumePasswordReset, isConsumablePasswordReset } from "@/lib/security/password-reset";
 import { recordSecurityEvent } from "@/lib/security/audit-log";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +18,9 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return jsonError("INVALID_INPUT", 400);
   try {
     if (!(await enforceAuthRateLimit(request, "password-reset-consume", undefined, { windowMs: 15 * 60_000, ipLimit: 20 }))) return jsonError("RATE_LIMITED", 429);
+    // Reject unknown/expired/consumed tokens BEFORE running scrypt, so an
+    // unauthenticated flood of random tokens cannot burn CPU per request.
+    if (!(await isConsumablePasswordReset(parsed.data.token))) return jsonError("RESET_TOKEN_INVALID", 400);
     const nextHash = await hashPassword(parsed.data.password);
     const userId = await consumePasswordReset(parsed.data.token, nextHash);
     if (!userId) return jsonError("RESET_TOKEN_INVALID", 400);

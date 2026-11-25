@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { isIP } from "node:net";
 
 /**
@@ -35,6 +36,32 @@ export function trustedProxyHops(
   const parsed = Number.parseInt(env.TRUSTED_PROXY_HOPS ?? "1", 10);
   if (!Number.isFinite(parsed) || parsed < 1) return 1;
   return Math.min(parsed, 10);
+}
+
+/**
+ * Coarse, rotatable per-client fingerprint from stable request headers.
+ *
+ * Used ONLY as a rate-limit key when no trusted client IP is available. It is
+ * never an identity or authentication signal, and it is deliberately never
+ * derived from anything the client cannot already see in its own requests.
+ */
+export function clientFingerprint(headers: Headers): string {
+  const source = [
+    headers.get("user-agent") ?? "",
+    headers.get("accept-language") ?? "",
+    headers.get("sec-ch-ua") ?? "",
+  ].join("\0");
+  return `fp:${createHash("sha256").update(source).digest("hex").slice(0, 32)}`;
+}
+
+/** Trusted IP when available, otherwise the coarse fingerprint fallback. */
+export function clientKeyFrom(
+  request: Request,
+  trustProxyHeaders: boolean,
+  hops?: number,
+): string {
+  const ip = trustedClientIp(request, trustProxyHeaders, hops);
+  return ip ? `ip:${ip}` : clientFingerprint(request.headers);
 }
 
 export function trustedClientIp(

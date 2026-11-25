@@ -134,3 +134,27 @@ Local repository checks only. No production database, payment provider, real top
 | GitHub Actions | Quality run `45598810912` | **Passed**, including clean PostgreSQL migration/integration, production build, audits, and **13 Playwright header tests**. The earlier run `45597628358` failed only because the new production webhook secret was not configured in Playwright; CI now supplies a clearly non-production test secret. |
 
 Coverage includes duplicate checkout idempotency (existing demo integration test), PGlite ledger idempotency/nonnegative balance/immutability, promo arithmetic and redemption limit rules, wallet insufficient-balance rules, and webhook signature/replay-window behavior. Six real-PostgreSQL cases were skipped because no disposable test database was configured. Real webhook sender integration, production secret management/rotation, and real-money payment settlement remain NOT RUN.
+
+## Security audit verification — 2026-11-25 (`arena/ac3a149c-web-stor`)
+
+White-box audit of the whole repository plus a local production build. No production database, payment provider, SMTP, OAuth exchange, or customer data was used; the only sockets opened were loopback connections that were deliberately refused (port 1) to prove fail-closed behaviour.
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Install | `npm ci` | Exit 0; 408 packages; npm reported 11 moderate advisories (dev tooling only). |
+| Typecheck | `npm run typecheck` | Exit 0. |
+| Lint | `npm run lint` | Exit 0, no warnings. |
+| Full test suite | `npm test` | **147 tests: 141 passed, 0 failed, 6 skipped** (135 before the audit + 12 new security regression tests). The six skipped tests require a disposable `TEST_DATABASE_URL`. |
+| Production build | `npm run build` | Exit 0 on Next.js 16.4.6; 27 API route handlers emitted. |
+| Production dependency audit | `npm audit --omit=dev` | **0 vulnerabilities.** |
+| Full dependency audit | `npm audit --audit-level=high` | Exit 0; no high/critical. 11 moderate advisories remain in dev-only chains (`drizzle-kit`/`esbuild` via `@esbuild-kit`, `minimatch` via eslint tooling). |
+| Header scan (production build) | `node scripts/scan-headers.mjs http://localhost:3100` | **ALL HEADER CHECKS PASSED** for `/`, `/login`, `/account`, `/products`, including nonce CSP, `strict-dynamic`, `frame-ancestors 'none'`, no script `unsafe-inline`/`unsafe-eval`, and `no-store` on private pages. |
+| Boot validation | `next start` missing production secrets | Server **refused to boot** and listed every missing variable without printing values (S-17). |
+| Live: CSRF | `POST /api/auth/email/reset` without a token / with a foreign Origin | **403** in both cases. |
+| Live: wallet webhook | `POST /api/webhooks/wallet-topup` unsigned | **401** + `cache-control: no-store`; oversized body → **413**. |
+| Live: authorization surfaces | `GET /admin`, `GET /api/auth/session`, `PUT /api/cart`, `POST /api/checkout` | **404** (no existence disclosure), `{"authenticated":false}`, **405**, **503 CHECKOUT_DISABLED**. |
+| Fail-closed probes | `tests/support/auth-rate-limit-probe.ts`, `password-reset-probe.ts`, `log-safety-probe.ts` | Each runs the real module in a child process with `server-only` stubbed and a no-network tripwire: rate limiting **rejects** when no bucket can be taken; malformed reset tokens are rejected **without** any connection attempt; unexpected failures log only `{ name, code }`. |
+| Negative controls | Revert SEC-01 fallback / SEC-03 redeemer key | The corresponding regression tests **fail** on the old code and pass on the fixed code. |
+| Real PostgreSQL / browser / OAuth / SMTP | — | **NOT RUN.** No disposable PostgreSQL URL, browser run, or provider credentials in this environment; the equivalent integration tests execute in CI against PostgreSQL 16 and Playwright. |
+
+Findings, fixes, per-category results and remaining risks: `docs/security/AUDIT-2026-11-25.md` (SEC-01…SEC-04 → `docs/security/VULN-119.md` … `VULN-122.md`).

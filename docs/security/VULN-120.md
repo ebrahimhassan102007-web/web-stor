@@ -1,0 +1,15 @@
+# VULN-120 — Unauthenticated scrypt amplification on password-reset consumption
+
+**Status:** FIXED (2026-11-25, branch `arena/ac3a149c-web-stor`)
+
+| Field | Detail |
+| --- | --- |
+| **Vulnerability** | Uncontrolled resource consumption / algorithmic amplification (CWE-770, CWE-405) — expensive KDF executed before any input was authenticated |
+| **Location** | `src/app/api/auth/email/reset/route.ts` → `POST()` (`hashPassword(...)` before `consumePasswordReset(...)`) |
+| **Severity** | Medium |
+| **Why it is vulnerable** | The route derived the new `scrypt` hash **before** the reset token was looked up, so every syntactically valid request paid ≈16 MiB of memory and tens of milliseconds of CPU regardless of whether the token existed. Combined with the missing per-client bucket (VULN-119) the endpoint was an unauthenticated CPU/memory amplifier: cost per request was paid by the server, cost per request to the attacker was one small JSON body. |
+| **Attack scenario** | A script posts random 43-character base64url tokens to `/api/auth/email/reset`. None of them exist, so no account is touched, but the process still runs one `scrypt` derivation per request inside the shared libuv thread pool. A few hundred concurrent requests push response latency for all users and can force memory pressure through the 64 MiB `maxmem` allocations. |
+| **Fix applied** | New `isConsumablePasswordReset(token)` in `src/lib/security/password-reset.ts` performs the cheap checks first (strict `^[A-Za-z0-9_-]{43}$` shape, then an indexed lookup for a token that is present, unconsumed and unexpired) and the route now runs `hashPassword` only when that probe succeeds. The authoritative, atomic single-use consumption (`consumePasswordReset`, which re-locks the row and revokes every session) is unchanged. A real token exists at most once per user, so a legitimate request pays the KDF cost exactly once. |
+| **Files changed** | `src/app/api/auth/email/reset/route.ts`, `src/lib/security/password-reset.ts`, `tests/security-regression.test.ts`, `tests/support/password-reset-probe.ts` (new) |
+| **Regression risk** | Low. Token format, TTL, single-use semantics, session revocation and the generic `RESET_TOKEN_INVALID` response are unchanged; an unknown/expired/consumed token now returns the **same** 400 body after one cheap query instead of after a KDF run, so account enumeration and error text are unaffected. |
+| **Verification performed** | (a) Child-process probe (`tests/support/password-reset-probe.ts`) with no `DATABASE_URL` and a no-network tripwire shows malformed tokens (`""`, `"abc"`, wrong alphabet, 42/44 chars) all return `false` **without any connection attempt**. (b) A structural test asserts `enforceAuthRateLimit` → `isConsumablePasswordReset` → `hashPassword` ordering inside the handler, so a future edit cannot reintroduce hash-before-validate. (c) Live production build: `POST /api/auth/email/reset` without a CSRF token still returns 403, and with a valid CSRF token but no reachable bucket store it returns a generic 503 (fail closed) rather than hashing. |

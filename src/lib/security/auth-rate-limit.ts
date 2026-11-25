@@ -2,22 +2,21 @@ import "server-only";
 import { createHmac, randomInt } from "node:crypto";
 import { lt, sql } from "drizzle-orm";
 import { db, authRateLimits } from "@/lib/db";
-import { trustedClientIp } from "@/lib/security/client-ip";
+import {
+  planAuthRateBuckets,
+  type AuthRateBucketPlan,
+  type AuthRatePolicy,
+} from "@/lib/security/auth-rate-policy";
 import { getAuthSecret } from "@/lib/security/auth-core";
 
-export type AuthRatePolicy = {
-  windowMs: number;
-  ipLimit: number;
-  emailLimit?: number;
-  /**
-   * Combined IP+email bucket (S-04). This is the tight bucket: it stops one
-   * source hammering one account without letting that source lock the real
-   * owner (on a different IP) out of their account.
-   */
-  combinedLimit?: number;
-};
+export {
+  FALLBACK_CLIENT_MULTIPLIER,
+  planAuthRateBuckets,
+  type AuthRateBucketPlan,
+  type AuthRatePolicy,
+} from "@/lib/security/auth-rate-policy";
 
-function bucketDigest(scope: string, kind: "ip" | "email" | "ip-email", value: string) {
+function bucketDigest(scope: string, kind: AuthRateBucketPlan["kind"], value: string) {
   return createHmac("sha256", getAuthSecret())
     .update(`evora-auth-rate\0${scope}\0${kind}\0${value}`)
     .digest("hex");
@@ -48,6 +47,10 @@ async function takeBucket(
 /**
  * Persistent, atomic rate limits work across application instances. Keys are
  * HMACed before storage, and old buckets are opportunistically pruned.
+ *
+ * Every request must satisfy every planned bucket; when no trusted client IP
+ * is configured the plan degrades to a coarse per-client fingerprint bucket
+ * instead of disappearing (see `planAuthRateBuckets`).
  */
 export async function enforceAuthRateLimit(
   request: Request,
@@ -55,33 +58,16 @@ export async function enforceAuthRateLimit(
   email: string | undefined,
   policy: AuthRatePolicy,
 ): Promise<boolean> {
-  const clientIp = trustedClientIp(
+  const plans = planAuthRateBuckets({
     request,
-    process.env.TRUST_PROXY_IP_HEADERS === "true",
-  );
-  if (clientIp) {
-    const ipDigest = bucketDigest(scope, "ip", clientIp);
-    if (!(await takeBucket(ipDigest, policy.ipLimit, policy.windowMs))) {
-      return false;
-    }
-  }
+    email,
+    policy,
+    trustProxyHeaders: process.env.TRUST_PROXY_IP_HEADERS === "true",
+  });
 
-  if (email && clientIp && policy.combinedLimit !== undefined) {
-    const combinedDigest = bucketDigest(
-      scope,
-      "ip-email",
-      `${clientIp}\0${email.toLowerCase()}`,
-    );
-    if (!(await takeBucket(combinedDigest, policy.combinedLimit, policy.windowMs))) {
-      return false;
-    }
-  }
-
-  if (email && policy.emailLimit !== undefined) {
-    const emailDigest = bucketDigest(scope, "email", email.toLowerCase());
-    if (
-      !(await takeBucket(emailDigest, policy.emailLimit, policy.windowMs))
-    ) {
+  for (const plan of plans) {
+    const digest = bucketDigest(scope, plan.kind, plan.value);
+    if (!(await takeBucket(digest, plan.limit, policy.windowMs))) {
       return false;
     }
   }
