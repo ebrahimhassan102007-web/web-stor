@@ -111,6 +111,10 @@ jobs:
           # S-17: production boot requires a valid origin; localhost http is
           # explicitly allowed by the validator for local/CI runs.
           APP_ORIGIN: http://localhost:3100
+          TOTP_ENCRYPTION_KEY: 1111111111111111111111111111111111111111111111111111111111111111
+          TOTP_ENCRYPTION_KEY_ID: ci-totp-key
+          FULFILLMENT_ENCRYPTION_KEY: 2222222222222222222222222222222222222222222222222222222222222222
+          FULFILLMENT_ENCRYPTION_KEY_ID: ci-fulfillment-key
         run: |
           set +e
           npm run test:e2e > /tmp/evora-e2e.log 2>&1
