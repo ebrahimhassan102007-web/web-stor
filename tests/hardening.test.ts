@@ -6,6 +6,9 @@ import { planGoogleLink } from "../src/lib/security/google-link";
 import { readJsonBody } from "../src/lib/security/read-json";
 import { validateEnv } from "../src/lib/env";
 import { isSessionLive, SESSION_IDLE_MS } from "../src/lib/security/account-session-policy";
+import { normalizeSecurityInput } from "../src/lib/security/digits";
+import { emailLoginSchema, emailVerificationSchema } from "../src/lib/security/auth-validation";
+import { addToCartSchema, checkoutSchema } from "../src/lib/validation";
 
 function reqWithXff(xff: string) {
   return new Request("http://localhost/", { headers: { "x-forwarded-for": xff } });
@@ -105,6 +108,35 @@ test("S-07: bounded JSON reader enforces content-type and byte caps (incl. chunk
   });
   const parsed = await readJsonBody(good, 1024);
   assert.equal(parsed.ok, true);
+});
+
+test("S-07: JSON reader rejects excess nesting and strips prototype-mutating keys", async () => {
+  const nested = new Request("http://localhost/", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: `${"[".repeat(33)}0${"]".repeat(33)}`,
+  });
+  assert.deepEqual(await readJsonBody(nested), { ok: false, reason: "too-deep" });
+
+  const attack = new Request("http://localhost/", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: '{"safe":{"constructor":{"prototype":{"polluted":true}},"prototype":1},"__proto__":{"polluted":true}}',
+  });
+  const result = await readJsonBody(attack);
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.deepEqual(result.value, { safe: {} });
+    assert.equal(Object.prototype.hasOwnProperty.call(Object.prototype, "polluted"), false);
+  }
+});
+
+test("input normalization applies NFKC, digit folding, and removes bidi/invisible controls", () => {
+  assert.equal(normalizeSecurityInput("  Ａｌｉ\u202e٠١۲ \u200b "), "Ali012");
+  assert.equal(emailLoginSchema.parse({ email: " ＵＳＥＲ@ＥＸＡＭＰＬＥ.com ", password: "Valid-Password-123!" }).email, "user@example.com");
+  assert.equal(emailVerificationSchema.parse({ email: "a@example.com", code: "۱۲٣٤٥٦" }).code, "123456");
+  assert.equal(addToCartSchema.parse({ productId: "12", quantity: "2", inputValue: " Ｐｌａｙｅｒ-١٢٣ " }).inputValue, "Player-123");
+  assert.equal(checkoutSchema.parse({ customerName: " Ａｌｉ ", email: "Ａ@ＥＸＡＭＰＬＥ.com" }).customerName, "Ali");
 });
 
 test("S-07: every state-changing commerce route uses the bounded reader, none uses req.json()", () => {

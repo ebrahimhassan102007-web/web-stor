@@ -25,12 +25,24 @@ function loginError(request: NextRequest, error: string) {
   if (!origin) {
     return NextResponse.json(
       { ok: false, error: "AUTH_NOT_CONFIGURED" },
-      { status: 503, headers: { "Cache-Control": "no-store" } },
+      {
+        status: 503,
+        headers: {
+          "Cache-Control": "private, no-store, no-cache, must-revalidate",
+          Vary: "Cookie",
+        },
+      },
     );
   }
   const url = new URL("/login", origin);
   url.searchParams.set("authError", error);
-  return NextResponse.redirect(url, { status: 303 });
+  return NextResponse.redirect(url, {
+    status: 303,
+    headers: {
+      "Cache-Control": "private, no-store, no-cache, must-revalidate",
+      Vary: "Cookie",
+    },
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -89,7 +101,13 @@ export async function GET(request: NextRequest) {
       nonce,
       codeChallenge,
     });
-    return NextResponse.redirect(authorizationUrl, { status: 302 });
+    return NextResponse.redirect(authorizationUrl, {
+      status: 302,
+      headers: {
+        "Cache-Control": "private, no-store, no-cache, must-revalidate",
+        Vary: "Cookie",
+      },
+    });
   } catch {
     console.error("[auth:google:start] authorization could not be initialized");
     return loginError(request, "google_unavailable");

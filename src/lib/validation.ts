@@ -1,4 +1,8 @@
 import { z } from "zod";
+import { normalizeSecurityInput } from "@/lib/security/digits";
+
+const normalizedText = (schema: z.ZodString = z.string()) =>
+  z.string().transform(normalizeSecurityInput).pipe(schema);
 
 /**
  * Zod schemas — the single gate every piece of client input passes through
@@ -15,13 +19,9 @@ export const addToCartSchema = z.object({
    * region code for gift cards). Bounded + control-char free; an empty
    * string is normalized to undefined.
    */
-  inputValue: z
-    .string()
-    .trim()
-    .max(128)
-    .regex(/^[^\u0000-\u001f\u007f]*$/, "Invalid characters")
+  inputValue: normalizedText(z.string().max(128).regex(/^[^\u0000-\u001f\u007f]*$/, "Invalid characters"))
     .optional()
-    .transform((v) => (v ? v : undefined)),
+    .transform((value) => value || undefined),
 });
 
 export const updateCartItemSchema = z.object({
@@ -36,17 +36,17 @@ export const cartItemIdSchema = z.coerce
 
 /* --------------------------- Checkout ---------------------------- */
 const safeText = (min: number, max: number) =>
-  z
-    .string()
-    .trim()
-    .min(min)
-    .max(max)
-    // Printable characters only — blocks control chars / header injection.
-    .regex(/^[^\u0000-\u001f\u007f]*$/, "Invalid characters");
+  normalizedText(
+    z.string()
+      .min(min)
+      .max(max)
+      // Printable characters only — blocks control chars / header injection.
+      .regex(/^[^\u0000-\u001f\u007f]*$/, "Invalid characters"),
+  );
 
 export const checkoutSchema = z.object({
   customerName: safeText(2, 128),
-  email: z.string().trim().toLowerCase().email().max(254),
+  email: normalizedText(z.string().toLowerCase().email().max(254)),
   // Digital delivery needs no postal address. The legacy address fields
   // are still accepted (optional) so older clients keep working.
   addressLine1: safeText(0, 256).optional().default(""),
@@ -60,12 +60,10 @@ export type CheckoutInput = z.infer<typeof checkoutSchema>;
 
 /* ------------------------ Catalog queries ------------------------ */
 export const productQuerySchema = z.object({
-  q: z.string().trim().max(100).optional().default(""),
-  category: z
-    .string()
-    .trim()
+  q: normalizedText(z.string().max(100)).optional().default(""),
+  category: normalizedText(z.string()
     .max(64)
-    .regex(/^[a-z0-9-]*$/i)
+    .regex(/^[a-z0-9-]*$/i))
     .optional()
     .default(""),
   sort: z

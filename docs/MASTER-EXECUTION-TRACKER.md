@@ -1,6 +1,8 @@
-# E-Vora Master Execution Tracker (2026-10-26)
+# E-Vora Master Execution Tracker (historical baseline: 2026-10-26)
 
-**Branch:** `arena/a703a62a-web-stor` · **Environment:** local sandbox (PGlite + dev server on localhost). No production contact.
+**Branch at baseline:** `arena/a703a62a-web-stor` · **Environment:** local sandbox (PGlite + dev server on localhost). No production contact.
+
+> The baseline below is historical. Current follow-up work and checks are appended under 2026-11-25; the current working branch is `arena/bed7992c-web-stor`.
 
 Status vocabulary: DONE = implemented + verification recorded · PARTIAL = implemented in part, remainder named · NOT RUN = not executed (never reported as done) · BLOCKED = see BLOCKED.md.
 
@@ -49,6 +51,20 @@ BLOCKED for missing spec) is superseded; see git history.
 3. No CAPTCHA/MFA yet (S-18/S-13); rate limits are the interim control.
 4. `__Host-` cookie prefix pending (S-09).
 5. White-on-red small text 3.76:1 in dark theme — owner color decision.
-6. Bidi-override codepoints not filtered from display names (VULN-088).
-7. Dev-only drizzle-kit/esbuild moderate advisories (build-time only).
+6. S-21 now filters bidi/invisible controls on auth/profile/commerce validated strings; other display surfaces still need a full audit before VULN-088 is globally closed.
+7. Moderate dependency advisories remain (including development tooling and the pinned Next.js version); CI's high-severity threshold is not a clean full audit.
 8. security.txt still has placeholder contact.
+
+## Follow-up hardening — 2026-11-25 (current branch)
+
+**Branch:** `arena/bed7992c-web-stor` · local-only validation; no production systems or credentials used.
+
+- Added S-21: streamed JSON defaults to a 16 KiB cap, rejects >32 nesting levels, malformed UTF-8, and strips prototype-mutating keys before route schemas run.
+- Added NFKC, Arabic/Persian digit folding, and invisible/bidi control removal to validated auth and commerce text. Password values remain byte-exact.
+- Strengthened private page/API cache headers with `private, no-store, no-cache, must-revalidate` and `Vary: Cookie`.
+- Added CI `npm audit --audit-level=high` gate.
+- Added regression tests for depth limits, dangerous JSON keys, Unicode normalization, auth/commerce schema behavior.
+
+**Verification:** `npm test` 111 pass / 0 fail / 6 skipped (PostgreSQL unavailable); `npm run typecheck`, `npm run lint`, `npm run build`, and local header scan all pass. `npm run test:e2e` was attempted but the production web server failed closed without DB/secrets, before browser launch; suite result remains NOT RUN.
+
+**Not complete:** The user's requested full 10-pass audit, password reset/change, TOTP, vault, wallet ledger/promos, dispute flow, admin command center, marketplace UX and comprehensive route-matrix testing are not delivered by this focused follow-up. Existing blocked controls and external deployment responsibilities remain open.
