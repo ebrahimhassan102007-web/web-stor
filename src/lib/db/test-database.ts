@@ -2,9 +2,9 @@
  * Safety policy for **destructive** PostgreSQL test runs.
  *
  * The integration suite truncates `fulfillment_vault`, `order_items`, promo
- * redemptions, wallet ledger/accounts, orders, promo codes, `cart_items`,
- * `carts`, `products` and `categories` (related rows are also reached by
- * `CASCADE`). That is only ever acceptable against a
+ * redemptions, wallet ledger/accounts, orders, promo codes, threat-shield
+ * events/bans, `cart_items`, `carts`, `products` and `categories` (related rows
+ * are also reached by `CASCADE`). That is only ever acceptable against a
  * database that is explicitly disposable, so `TEST_DATABASE_URL` must satisfy
  * all of the following before a single connection is opened:
  *

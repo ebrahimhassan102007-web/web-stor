@@ -3,7 +3,8 @@ import { eq } from "drizzle-orm";
 import { db, users } from "@/lib/db";
 import { jsonError, jsonOk } from "@/lib/http";
 import { readAuthJson } from "@/lib/security/auth-http";
-import { verifySameOrigin } from "@/lib/security/csrf";
+import { guardMutatingRequest, rejectHoneypot } from "@/lib/security/request-guard";
+import { isHoneypotTripped } from "@/lib/security/honeypot";
 import { passwordResetRequestSchema } from "@/lib/security/auth-validation";
 import { enforceAuthRateLimit, isAuthSecretConfigured } from "@/lib/security/auth-rate-limit";
 import { issuePasswordReset } from "@/lib/security/password-reset";
@@ -11,10 +12,12 @@ import { recordSecurityEvent } from "@/lib/security/audit-log";
 
 export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
-  if (!verifySameOrigin(request)) return jsonError("REQUEST_REJECTED", 403);
+  const guard = await guardMutatingRequest(request);
+  if (guard) return guard;
   if (!isAuthSecretConfigured()) return jsonError("AUTH_NOT_CONFIGURED", 503);
   const body = await readAuthJson(request);
   if (!body.ok) return jsonError("INVALID_BODY", 400);
+  if (isHoneypotTripped(body.value)) return rejectHoneypot(request);
   const parsed = passwordResetRequestSchema.safeParse(body.value);
   if (!parsed.success) return jsonError("INVALID_INPUT", 400);
   try {

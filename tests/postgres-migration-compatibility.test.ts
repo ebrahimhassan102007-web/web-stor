@@ -53,7 +53,7 @@ test(
 
       const freshUrl = databaseUrl(target.connectionString, freshName);
       const fresh = await migratePostgres({ connectionString: freshUrl });
-      assert.equal(fresh.applied.length, 9);
+      assert.equal(fresh.applied.length, 10);
       const freshAgain = await migratePostgres({ connectionString: freshUrl });
       assert.equal(freshAgain.operations.every((operation) => operation.action === "unchanged"), true);
 
@@ -77,6 +77,8 @@ test(
           "totp_recovery_codes",
           "pending_two_factor_challenges",
           "fulfillment_vault",
+          "security_bans",
+          "security_threat_events",
         ]) {
           assert.ok(tables.rows.some((row) => row.tablename === table), table);
         }

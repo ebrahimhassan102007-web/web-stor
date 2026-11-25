@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db, products } from "@/lib/db";
 import { addToCartLine } from "@/lib/db/cart-operations";
 import { getOrCreateCartId } from "@/lib/security/session";
-import { verifySameOrigin } from "@/lib/security/csrf";
+import { guardMutatingRequest, noteRejectedBody } from "@/lib/security/request-guard";
 import { enforceRateLimit, clientKey } from "@/lib/security/rate-limit";
 import { readJsonBody, JSON_BODY_STATUS } from "@/lib/security/read-json";
 import { addToCartSchema } from "@/lib/validation";
@@ -15,15 +15,15 @@ export const dynamic = "force-dynamic";
 /** POST /api/cart/items — add a product to the cart atomically. */
 export async function POST(req: NextRequest) {
   try {
-    if (!verifySameOrigin(req)) {
-      return jsonError("Request rejected.", 403);
-    }
+    const guard = await guardMutatingRequest(req);
+    if (guard) return guard;
     if (!(await enforceRateLimit("cart", [clientKey(req)], 60, 60_000))) {
       return jsonError("Too many requests. Please slow down.", 429);
     }
 
     const body = await readJsonBody(req, 8 * 1024);
     if (!body.ok) {
+      await noteRejectedBody(req, body);
       return jsonError("Invalid request body.", JSON_BODY_STATUS[body.reason]);
     }
     const raw: unknown = body.value;

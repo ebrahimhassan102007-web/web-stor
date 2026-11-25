@@ -734,6 +734,78 @@ export const sellerApplicationEventsRelations = relations(
 );
 
 /* ------------------------------------------------------------------ */
+/* Security threat shield (S-25)                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Append-only log of adversary signals. `actor_key` is an HMAC/SHA-256 derived
+ * identifier (trusted client IP or a salted header fingerprint) — never a raw
+ * address, cookie or email. `user_id` is populated only when the request was
+ * already authenticated.
+ */
+export const securityThreatEvents = pgTable(
+  "security_threat_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    actorKind: varchar("actor_kind", { length: 16 }).notNull(),
+    /** Null when the request carried no ban-eligible identity. */
+    actorKey: varchar("actor_key", { length: 80 }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    signal: varchar("signal", { length: 40 }).notNull(),
+    tier: integer("tier").notNull(),
+    path: varchar("path", { length: 256 }).notNull().default(""),
+    method: varchar("method", { length: 8 }).notNull().default(""),
+    detail: varchar("detail", { length: 160 }).notNull().default(""),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("security_threat_events_actor_idx").on(t.actorKey, t.occurredAt),
+    index("security_threat_events_occurred_idx").on(t.occurredAt),
+    check("security_threat_events_kind_known", sql`${t.actorKind} IN ('ip','fingerprint','unknown')`),
+    check("security_threat_events_tier_known", sql`${t.tier} IN (1, 2)`),
+  ],
+);
+
+/**
+ * One row per actor. Tier 1 is high-certainty (scanner paths, honeypot,
+ * tampering bursts) and escalates 24h → 7d → permanent. Tier 2 is progressive
+ * rate-limit abuse and never becomes permanent: 15m → 2h → 24h.
+ *
+ * `actor_key` is NOT NULL on purpose: a ban can only ever exist for an actor we
+ * could actually identify, so an unidentified request (no trusted IP and no
+ * usable header fingerprint) can never produce a global ban.
+ */
+export const securityBans = pgTable(
+  "security_bans",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    actorKey: varchar("actor_key", { length: 80 }).notNull(),
+    actorKind: varchar("actor_kind", { length: 16 }).notNull(),
+    tier: integer("tier").notNull(),
+    signal: varchar("signal", { length: 40 }).notNull(),
+    strikes: integer("strikes").notNull().default(1),
+    permanent: boolean("permanent").notNull().default(false),
+    active: boolean("active").notNull().default(true),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull().defaultNow(),
+    lastStrikeAt: timestamp("last_strike_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Null exactly when the ban is permanent. */
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    liftedAt: timestamp("lifted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("security_bans_actor_idx").on(t.actorKey),
+    index("security_bans_active_idx").on(t.active, t.expiresAt),
+    index("security_bans_last_strike_idx").on(t.lastStrikeAt),
+    check("security_bans_kind_known", sql`${t.actorKind} IN ('ip','fingerprint')`),
+    check("security_bans_tier_known", sql`${t.tier} IN (1, 2)`),
+    check("security_bans_strikes_positive", sql`${t.strikes} >= 1`),
+    check("security_bans_permanent_has_no_expiry", sql`${t.permanent} = (${t.expiresAt} IS NULL)`),
+    check("security_bans_expiry_after_start", sql`${t.expiresAt} IS NULL OR ${t.expiresAt} > ${t.startsAt}`),
+  ],
+);
+
+/* ------------------------------------------------------------------ */
 /* Inferred types                                                      */
 /* ------------------------------------------------------------------ */
 export type Category = typeof categories.$inferSelect;
@@ -747,3 +819,5 @@ export type AccountSession = typeof accountSessions.$inferSelect;
 export type SellerProfile = typeof sellerProfiles.$inferSelect;
 export type SellerApplicationEvent = typeof sellerApplicationEvents.$inferSelect;
 export type MarketplaceAuditEvent = typeof marketplaceAuditEvents.$inferSelect;
+export type SecurityThreatEvent = typeof securityThreatEvents.$inferSelect;
+export type SecurityBan = typeof securityBans.$inferSelect;

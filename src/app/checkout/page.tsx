@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useCart } from "@/components/cart-provider";
 import { useI18n } from "@/components/locale-provider";
+import { HoneypotField } from "@/components/honeypot-field";
+import { HONEYPOT_FIELD } from "@/lib/security/honeypot";
 import { checkoutSchema } from "@/lib/validation";
 import { formatCents } from "@/lib/money";
 import {
@@ -45,6 +47,8 @@ export default function CheckoutPage() {
   const [promoDiscountCents, setPromoDiscountCents] = useState(0);
   const [promoMessage, setPromoMessage] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"demo" | "wallet">("demo");
+  // S-25 honeypot: invisible to humans, zero layout impact.
+  const [honeypot, setHoneypot] = useState("");
   const checkoutKey = useRef<string | null>(null);
 
   const load = useCallback(async () => {
@@ -101,7 +105,7 @@ export default function CheckoutPage() {
       const res = await csrfFetch(checkoutUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Idempotency-Key": checkoutKey.current },
-        body: JSON.stringify({ ...parsed.data, paymentMethod, ...(promoCode ? { promoCode } : {}) }),
+        body: JSON.stringify({ ...parsed.data, paymentMethod, ...(promoCode ? { promoCode } : {}), [HONEYPOT_FIELD]: honeypot }),
       });
       const body = await res.json().catch(() => null);
       if (res.ok && body?.ok) {
@@ -210,6 +214,7 @@ export default function CheckoutPage() {
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_24rem]">
         {/* Delivery form */}
         <form onSubmit={submit} noValidate className="glass-card p-6 sm:p-8">
+          <HoneypotField value={honeypot} onChange={setHoneypot} />
           <h2 className="text-lg font-bold">📧 {t.checkout.detailsTitle}</h2>
 
           {formError && (

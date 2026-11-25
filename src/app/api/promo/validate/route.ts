@@ -2,7 +2,8 @@ import { and, eq, sql } from "drizzle-orm";
 import { NextRequest } from "next/server";
 import { db, promoCodes, promoRedemptions } from "@/lib/db";
 import { jsonError, jsonOk, handleUnexpected } from "@/lib/http";
-import { verifySameOrigin } from "@/lib/security/csrf";
+import { guardMutatingRequest } from "@/lib/security/request-guard";
+import { recordThreat } from "@/lib/security/threat-shield";
 import { clientKey, enforceRateLimit } from "@/lib/security/rate-limit";
 import { readJsonBody, JSON_BODY_STATUS } from "@/lib/security/read-json";
 import { getCurrentAccountUser } from "@/lib/security/account-session";
@@ -14,8 +15,12 @@ const payloadSchema = z.object({ code: z.string().min(1).max(64), subtotalCents:
 
 export async function POST(req: NextRequest) {
   try {
-    if (!verifySameOrigin(req)) return jsonError("REQUEST_REJECTED", 403);
-    if (!(await enforceRateLimit("promo-validate", [clientKey(req)], 6, 60_000))) return jsonError("RATE_LIMITED", 429);
+    const guard = await guardMutatingRequest(req);
+  if (guard) return guard;
+    if (!(await enforceRateLimit("promo-validate", [clientKey(req)], 6, 60_000))) {
+      await recordThreat(req, "rate_limit_abuse", { detail: "promo-validate" });
+      return jsonError("RATE_LIMITED", 429);
+    }
     const raw = await readJsonBody(req, 4096);
     if (!raw.ok) return jsonError("INVALID_BODY", JSON_BODY_STATUS[raw.reason]);
     const parsed = payloadSchema.safeParse(raw.value);

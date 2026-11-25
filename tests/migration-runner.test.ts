@@ -39,7 +39,7 @@ test("fresh migration is explicit, complete, and idempotent", async () => {
     });
     assert.deepEqual(
       dryRun.operations.map((operation) => operation.action),
-      ["apply", "apply", "apply", "apply", "apply", "apply", "apply", "apply", "apply"],
+      ["apply", "apply", "apply", "apply", "apply", "apply", "apply", "apply", "apply", "apply"],
     );
     assert.equal((await tableNames(client)).length, 0, "dry run must not create tables");
 
@@ -54,6 +54,7 @@ test("fresh migration is explicit, complete, and idempotent", async () => {
       "0006_totp_two_factor",
       "0007_encrypted_fulfillment_vault",
       "0008_wallet_ledger_and_promos",
+      "0009_security_threat_shield",
     ]);
     assert.deepEqual(first.adopted, []);
     assert.deepEqual(await tableNames(client), [
@@ -74,6 +75,8 @@ test("fresh migration is explicit, complete, and idempotent", async () => {
       "promo_codes",
       "promo_redemptions",
       "security_audit_log",
+      "security_bans",
+      "security_threat_events",
       "seller_application_events",
       "seller_profiles",
       "totp_recovery_codes",
@@ -89,7 +92,7 @@ test("fresh migration is explicit, complete, and idempotent", async () => {
     const second = await migrateDatabase({ client: asMigrationClient(client) });
     assert.deepEqual(second.applied, []);
     assert.deepEqual(second.adopted, []);
-    assert.equal(second.unchanged.length, 9);
+    assert.equal(second.unchanged.length, 10);
     const preserved = await client.query<{ name: string }>(
       "SELECT name FROM categories WHERE slug = 'custom-category'",
     );
@@ -138,7 +141,7 @@ test("existing 0000 storefront is adopted without replaying CREATE TABLE and pre
     });
     assert.deepEqual(
       plan.operations.map((operation) => operation.action),
-      ["adopt", "apply", "apply", "apply", "apply", "apply", "apply", "apply", "apply"],
+      ["adopt", "apply", "apply", "apply", "apply", "apply", "apply", "apply", "apply", "apply"],
     );
 
     const migrated = await migrateDatabase({
@@ -155,6 +158,7 @@ test("existing 0000 storefront is adopted without replaying CREATE TABLE and pre
       "0006_totp_two_factor",
       "0007_encrypted_fulfillment_vault",
       "0008_wallet_ledger_and_promos",
+      "0009_security_threat_shield",
     ]);
 
     const preserved = await client.query<{
@@ -207,6 +211,7 @@ test("an already-shaped but untracked schema requires adoption and never duplica
       "0006_totp_two_factor",
       "0007_encrypted_fulfillment_vault",
       "0008_wallet_ledger_and_promos",
+      "0009_security_threat_shield",
     ]);
     assert.equal(result.adopted.length, 3);
     const count = await client.query<{ count: string }>(

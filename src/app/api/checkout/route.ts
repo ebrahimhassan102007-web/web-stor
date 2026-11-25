@@ -4,7 +4,8 @@ import { recordDemoOrder } from "@/lib/db/demo-order";
 import { jsonError, jsonOk, handleUnexpected } from "@/lib/http";
 import { resolveCheckoutMode, CHECKOUT_DISABLED_ERROR, CHECKOUT_DISABLED_STATUS } from "@/lib/checkout-policy";
 import { getExistingCartId } from "@/lib/security/session";
-import { verifySameOrigin } from "@/lib/security/csrf";
+import { guardMutatingRequest, noteRejectedBody, rejectHoneypot } from "@/lib/security/request-guard";
+import { isHoneypotTripped } from "@/lib/security/honeypot";
 import { enforceRateLimit, clientKey } from "@/lib/security/rate-limit";
 import { readJsonBody, JSON_BODY_STATUS } from "@/lib/security/read-json";
 import { getCurrentAccountUser } from "@/lib/security/account-session";
@@ -24,13 +25,18 @@ export async function POST(req: NextRequest) {
   try {
     const walletIntent = new URL(req.url).searchParams.get("payment") === "wallet";
     if (resolveCheckoutMode() === "disabled" && !walletIntent) return jsonError(CHECKOUT_DISABLED_ERROR, CHECKOUT_DISABLED_STATUS);
-    if (!verifySameOrigin(req)) return jsonError("REQUEST_REJECTED", 403);
+    const guard = await guardMutatingRequest(req);
+  if (guard) return guard;
     if (!(await enforceRateLimit("checkout", [clientKey(req)], 10, 60_000))) {
       return jsonError("RATE_LIMITED", 429);
     }
 
     const body = await readJsonBody(req, 16 * 1024);
-    if (!body.ok) return jsonError("INVALID_BODY", JSON_BODY_STATUS[body.reason]);
+    if (!body.ok) {
+      await noteRejectedBody(req, body);
+      return jsonError("INVALID_BODY", JSON_BODY_STATUS[body.reason]);
+    }
+    if (isHoneypotTripped(body.value)) return await rejectHoneypot(req);
     const raw: unknown = body.value;
 
     const parsed = checkoutSchema.safeParse(raw);

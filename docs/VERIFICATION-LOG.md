@@ -158,3 +158,30 @@ White-box audit of the whole repository plus a local production build. No produc
 | Real PostgreSQL / browser / OAuth / SMTP | — | **NOT RUN.** No disposable PostgreSQL URL, browser run, or provider credentials in this environment; the equivalent integration tests execute in CI against PostgreSQL 16 and Playwright. |
 
 Findings, fixes, per-category results and remaining risks: `docs/security/AUDIT-2026-11-25.md` (SEC-01…SEC-04 → `docs/security/VULN-119.md` … `VULN-122.md`).
+
+## Wave 5A — auto-ban shield, web-admin elimination, hygiene, owner CLI — 2026-11-25 (`arena/15ceef45-web-stor`)
+
+Local-only verification of `docs/security/S-25.md`. No production database, proxy, payment provider, SMTP server or OAuth provider was contacted; the only sockets opened were loopback connections that were deliberately refused (port 1 and a closed 5432) to prove the fail-closed paths.
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Migration apply (real engine) | `npx tsx --test tests/migration-runner.test.ts` | **5/5 pass.** `0009_security_threat_shield` applies, is idempotent, and the second run reports 10 unchanged migrations. |
+| Schema history (real engine) | `npx tsx --test tests/schema-migration.test.ts` | **2/2 pass**; the exact public table list now includes `security_bans` and `security_threat_events`. |
+| Shield behaviour (PGlite, real modules) | `npx tsx --test tests/threat-shield-db.test.ts` | **2/2 pass.** A scanner hit bans a trusted IP for 24 h and the next request is blocked; 7 d → permanent; a bystander IP is untouched; tier-2 ladder 15 m → 2 h → 24 h then auto-expiry; untrusted headers never become an IP, never collide with the IP ban, block nobody on strike 1, and never block a different client; an anonymous request is logged and never banned; the same actor is written at most once per 15 s. |
+| Proxy behaviour (no database at all) | same file | The real proxy function returns `404` with `private, no-store, no-cache, must-revalidate`, an **empty body** and a CSP for `/admin`, `/admin/users`, `/.env`, `/.git/config`, `/wp-admin/setup.php`, `/wp-login.php`, `/phpmyadmin/index.php`, `/cgi-bin/exec`, `/actuator/env`; `/`, a product page, `/account` and `/administrator-guide` are unchanged. |
+| Pure policy + wiring | `npx tsx --test tests/threat-shield.test.ts` | **16/16 pass** (path classification, ban ladders, no weakening, enforcement rules, actor identity, honeypot markup/validation, prototype-pollution rejection, central guard on every mutating route, CLI isolation). |
+| Hygiene (PGlite) | `npx tsx --test tests/ephemeral-hygiene.test.ts` | **2/2 pass.** Exact purge counts (1 OAuth state, 2 reset tokens, 1 pending 2FA, 2 ended bans, 1 abandoned cart, 1 old threat event), the intended rows survive, orders/wallet ledger/accounts/sessions/promos/users unchanged, second run is a no-op, `maxRowsPerRun` honoured. |
+| Typecheck | `npm run typecheck` | Exit 0. |
+| Lint | `npm run lint` | Exit 0, no warnings. |
+| Full test suite | `npm test` | **167 tests: 161 passed, 0 failed, 6 skipped** (147 before this wave + 20 new tests). The six skipped tests require a disposable `TEST_DATABASE_URL`. |
+| Production build | `npm run build` | Exit 0 on Next.js 16.4.6; no warnings; 27 route handlers; the route table no longer contains `/admin`. |
+| Production dependency audit | `npm audit --omit=dev` | **0 vulnerabilities.** |
+| Header scan (production build) | `node scripts/scan-headers.mjs http://localhost:3100` | **ALL HEADER CHECKS PASSED.** |
+| Live: admin elimination | `curl /admin`, `/admin/users` | **404**, `cache-control: private, no-store, no-cache, must-revalidate`, **0-byte body**. |
+| Live: scanner traps | `curl /.env`, `/.git/config`, `/wp-admin`, `/wp-login.php`, `/phpmyadmin/index.php`, `/cgi-bin/x`, `/actuator/env` | **404** each, same private no-store header, **0-byte body**, with the database unreachable. |
+| Live: storefront unchanged | `curl /account`, `/support-bot` | **200**; `/account` keeps `private, no-store`. |
+| Live: central guard | `POST /api/cart/items` without Origin; `POST /api/auth/email/login` with a foreign Origin | **403** `REQUEST_REJECTED` in 48 ms / 16 ms, i.e. the guard fails closed instantly and does not hang when the database is unreachable. |
+| Owner CLI | `npm run ops` | Prints the command surface; refuses web execution via the `NEXT_RUNTIME`/`window` guard (asserted by test). Remote commands were not exercised locally because no PostgreSQL instance is available. |
+| Flaky test repaired | `npx tsx --test tests/wave2-security.test.ts` (5 consecutive runs) | The pre-existing TOTP-envelope tamper assertion edited the last base64url character, whose padding bits can decode to the same bytes; it now flips a decoded byte of the auth tag and of the ciphertext, so the check is deterministic. 3/3 pass every run. |
+| Whitespace check | `git diff --check` | Exit 0. |
+| Real PostgreSQL / browser / OAuth / SMTP / proxy | — | **NOT RUN.** No disposable PostgreSQL URL beyond PGlite, no browser run, and no provider credentials in this environment; the equivalent integration and Playwright checks execute in CI. |

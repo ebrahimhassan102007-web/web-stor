@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { db, cartItems, carts, products } from "@/lib/db";
 import { getExistingCartId } from "@/lib/security/session";
-import { verifySameOrigin } from "@/lib/security/csrf";
+import { guardMutatingRequest, noteRejectedBody } from "@/lib/security/request-guard";
 import { enforceRateLimit, clientKey } from "@/lib/security/rate-limit";
 import { readJsonBody, JSON_BODY_STATUS } from "@/lib/security/read-json";
 import { updateCartItemSchema, cartItemIdSchema } from "@/lib/validation";
@@ -22,7 +22,8 @@ type Ctx = { params: Promise<{ id: string }> };
 /** PATCH /api/cart/items/:id — set quantity (0 removes the line). */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
-    if (!verifySameOrigin(req)) return jsonError("Request rejected.", 403);
+    const guard = await guardMutatingRequest(req);
+  if (guard) return guard;
     if (!(await enforceRateLimit("cart", [clientKey(req)], 60, 60_000))) {
       return jsonError("Too many requests. Please slow down.", 429);
     }
@@ -32,6 +33,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
     const body = await readJsonBody(req, 4 * 1024);
     if (!body.ok) {
+      await noteRejectedBody(req, body);
       return jsonError("Invalid request body.", JSON_BODY_STATUS[body.reason]);
     }
     const raw: unknown = body.value;
@@ -67,7 +69,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 /** DELETE /api/cart/items/:id — remove a line. */
 export async function DELETE(req: NextRequest, ctx: Ctx) {
   try {
-    if (!verifySameOrigin(req)) return jsonError("Request rejected.", 403);
+    const guard = await guardMutatingRequest(req);
+  if (guard) return guard;
     if (!(await enforceRateLimit("cart", [clientKey(req)], 60, 60_000))) {
       return jsonError("Too many requests. Please slow down.", 429);
     }

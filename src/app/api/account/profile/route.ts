@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db, users } from "@/lib/db";
 import { jsonError, jsonOk } from "@/lib/http";
 import { getCurrentAccountUser } from "@/lib/security/account-session";
-import { verifySameOrigin } from "@/lib/security/csrf";
+import { guardMutatingRequest } from "@/lib/security/request-guard";
 import { profileUpdateSchema } from "@/lib/security/auth-validation";
 import { readAuthJson } from "@/lib/security/auth-http";
 import { enforceAuthRateLimit, isAuthSecretConfigured } from "@/lib/security/auth-rate-limit";
@@ -29,7 +29,8 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
-  if (!verifySameOrigin(request)) return jsonError("REQUEST_REJECTED", 403);
+  const guard = await guardMutatingRequest(request);
+  if (guard) return guard;
   if (!isAuthSecretConfigured()) return jsonError("AUTH_NOT_CONFIGURED", 503);
 
   const body = await readAuthJson(request);

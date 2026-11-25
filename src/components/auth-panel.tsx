@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { fill } from "@/lib/i18n/dictionary";
 import { useI18n } from "@/components/locale-provider";
+import { HoneypotField } from "@/components/honeypot-field";
+import { HONEYPOT_FIELD } from "@/lib/security/honeypot";
 import { normalizeVerificationDigits } from "@/lib/security/digits";
 
 type AuthPanelProps = {
@@ -71,6 +73,8 @@ export function AuthPanel({
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
+  // S-25 honeypot: invisible to humans, filled by bots.
+  const [honeypot, setHoneypot] = useState("");
   const [code, setCode] = useState<string[]>(["", "", "", "", "", ""]);
   const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(0);
@@ -105,6 +109,7 @@ export function AuthPanel({
       password,
       locale,
       returnTo: destinationPath(nextPath),
+      [HONEYPOT_FIELD]: honeypot,
     };
 
     try {
@@ -390,6 +395,7 @@ export function AuthPanel({
             </div>
 
             <form onSubmit={submitCredentials} className="space-y-4" noValidate>
+              <HoneypotField value={honeypot} onChange={setHoneypot} />
               {mode === "signup" && (
                 <div>
                   <label htmlFor="auth-name" className="mb-1.5 block text-sm font-medium">

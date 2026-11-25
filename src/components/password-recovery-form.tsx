@@ -3,17 +3,22 @@
 import { useEffect, useState } from "react";
 import { csrfFetch } from "@/lib/security/csrf-client";
 import { useI18n } from "@/components/locale-provider";
+import { HoneypotField } from "@/components/honeypot-field";
+import { HONEYPOT_FIELD } from "@/lib/security/honeypot";
 
 export function ForgotPasswordForm() {
   const { locale } = useI18n();
   const ar = locale === "ar";
   const [email, setEmail] = useState(""); const [done, setDone] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState(false);
+  // S-25 honeypot (invisible, zero layout impact).
+  const [honeypot, setHoneypot] = useState("");
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (busy) return; setBusy(true); setError(false);
-    try { const res = await csrfFetch("/api/auth/email/forgot", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, locale }) }); if (!res.ok) throw new Error(); setDone(true); }
+    try { const res = await csrfFetch("/api/auth/email/forgot", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, locale, [HONEYPOT_FIELD]: honeypot }) }); if (!res.ok) throw new Error(); setDone(true); }
     catch { setError(true); } finally { setBusy(false); }
   }
   return <form onSubmit={submit} className="glass-card mx-auto w-full max-w-md space-y-4 p-6 sm:p-8">
+    <HoneypotField value={honeypot} onChange={setHoneypot} />
     <h1 className="title-luxe text-2xl">{ar ? "نسيت كلمة المرور؟" : "Forgot your password?"}</h1>
     <p className="text-sm leading-6 text-muted">{done ? (ar ? "إذا كان البريد مرتبطاً بحساب موثّق، ستصلك تعليمات إعادة التعيين." : "If the address belongs to a verified account, reset instructions will arrive by email.") : (ar ? "أدخل بريدك الإلكتروني وسنرسل رابطاً آمناً لإعادة التعيين." : "Enter your email and we’ll send a secure reset link.")}</p>
     {!done && <><label className="block text-sm">{ar ? "البريد الإلكتروني" : "Email address"}<input required type="email" maxLength={254} autoComplete="email" dir="ltr" className="input-dark mt-1" value={email} onChange={(e) => setEmail(e.target.value)} /></label>{error && <p role="alert" className="text-sm text-danger">{ar ? "تعذر إكمال الطلب الآن. حاول لاحقاً." : "Could not complete the request. Try again later."}</p>}<button disabled={busy} className="btn-primary w-full">{busy ? (ar ? "جارٍ الإرسال…" : "Sending…") : (ar ? "إرسال الرابط" : "Send reset link")}</button></>}
