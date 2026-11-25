@@ -131,5 +131,6 @@ Local repository checks only. No production database, payment provider, real top
 | Header scan | `node scripts/scan-headers.mjs http://localhost:3000` | **ALL HEADER CHECKS PASSED** for `/`, `/login`, `/account`, and `/products`; private account cache policy checked. |
 | Whitespace check | `git diff --check` | Exit 0 after final code edits. |
 | Focused follow-up | typecheck + lint + `tests/wave3a.test.ts`, `tests/schema-migration.test.ts`, `tests/wallet-promo.test.ts` | **14 passed, 0 failed** after the last wallet cart cleanup. |
+| GitHub Actions | Quality run `45598810912` | **Passed**, including clean PostgreSQL migration/integration, production build, audits, and **13 Playwright header tests**. The earlier run `45597628358` failed only because the new production webhook secret was not configured in Playwright; CI now supplies a clearly non-production test secret. |
 
 Coverage includes duplicate checkout idempotency (existing demo integration test), PGlite ledger idempotency/nonnegative balance/immutability, promo arithmetic and redemption limit rules, wallet insufficient-balance rules, and webhook signature/replay-window behavior. Six real-PostgreSQL cases were skipped because no disposable test database was configured. Real webhook sender integration, production secret management/rotation, and real-money payment settlement remain NOT RUN.
