@@ -66,6 +66,17 @@ export const products = pgTable(
      *  - "region"    → gift card locked to a store region
      */
     inputType: varchar("input_type", { length: 16 }).notNull().default("none"),
+    /**
+     * Owning marketplace seller (S-26). NULL means E-Vora's own platform
+     * catalogue, which is why `0004`'s platform seller profile has no user.
+     * Seller-scoped queries ALWAYS filter on this column; a seller id is never
+     * accepted from a request body.
+     */
+    sellerId: uuid("seller_id").references(() => sellerProfiles.id, {
+      onDelete: "restrict",
+    }),
+    /** Seller listings start as drafts; publishing is gated (S-26). */
+    isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -74,6 +85,7 @@ export const products = pgTable(
     uniqueIndex("products_slug_idx").on(t.slug),
     index("products_category_idx").on(t.categoryId),
     index("products_featured_idx").on(t.featured),
+    index("products_seller_idx").on(t.sellerId),
     check("products_price_positive", sql`${t.priceCents} > 0`),
     check("products_stock_nonnegative", sql`${t.stock} >= 0`),
     check("products_input_type_known", sql`${t.inputType} IN ('none','player-id','region','activation-email')`),
@@ -217,11 +229,31 @@ export const fulfillmentVault = pgTable(
     productId: integer("product_id").notNull().references(() => products.id, { onDelete: "restrict" }),
     orderItemId: integer("order_item_id").references(() => orderItems.id, { onDelete: "cascade" }),
     codeIndex: integer("code_index").notNull().default(0),
-    ciphertext: text("ciphertext").notNull(),
-    iv: varchar("iv", { length: 32 }).notNull(),
-    authTag: varchar("auth_tag", { length: 32 }).notNull(),
+    /**
+     * Envelope format (S-26):
+     *  - `v1` legacy single-key AES-256-GCM (read-only, upgraded on rotation)
+     *  - `v2` per-record random DEK, wrapped by an HKDF-SHA512 split-key KEK
+     *         and bound to the record's canonical context as GCM AAD.
+     * A shredded row nulls every payload column below and keeps this marker.
+     */
+    envelopeVersion: varchar("envelope_version", { length: 8 }).notNull().default("v1"),
+    /** Null only for a shredded record. */
+    ciphertext: text("ciphertext"),
+    iv: varchar("iv", { length: 32 }),
+    authTag: varchar("auth_tag", { length: 32 }),
+    /** Key id of the record DEK's wrapping KEK (v2 only). */
     keyId: varchar("key_id", { length: 64 }).notNull(),
+    wrappedDek: text("wrapped_dek"),
+    dekIv: varchar("dek_iv", { length: 32 }),
+    dekAuthTag: varchar("dek_auth_tag", { length: 32 }),
+    kekId: varchar("kek_id", { length: 64 }),
+    /** HMAC-SHA256 blind digest of the normalized raw code (no plaintext). */
+    codeDigest: varchar("code_digest", { length: 64 }),
+    /** Immutable delivery proof kept after a buyer shreds the record. */
+    deliveryDigest: varchar("delivery_digest", { length: 64 }),
     revealedAt: timestamp("revealed_at", { withTimezone: true }),
+    /** Set once the buyer cryptographically destroys the delivered secret. */
+    shreddedAt: timestamp("shredded_at", { withTimezone: true }),
     revealCount: integer("reveal_count").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -229,8 +261,18 @@ export const fulfillmentVault = pgTable(
     index("fulfillment_vault_product_available_idx").on(t.productId, t.createdAt).where(sql`${t.orderItemId} IS NULL`),
     index("fulfillment_vault_order_item_idx").on(t.orderItemId),
     uniqueIndex("fulfillment_vault_item_code_idx").on(t.orderItemId, t.codeIndex).where(sql`${t.orderItemId} IS NOT NULL`),
+    uniqueIndex("fulfillment_vault_code_digest_idx").on(t.productId, t.codeDigest).where(sql`${t.codeDigest} IS NOT NULL`),
     check("fulfillment_vault_code_index_nonnegative", sql`${t.codeIndex} >= 0`),
     check("fulfillment_vault_reveal_count_nonnegative", sql`${t.revealCount} >= 0`),
+    check("fulfillment_vault_envelope_version_known", sql`${t.envelopeVersion} IN ('v1','v2')`),
+    check(
+      "fulfillment_vault_v2_envelope_complete",
+      sql`${t.envelopeVersion} <> 'v2' OR ${t.shreddedAt} IS NOT NULL OR (${t.wrappedDek} IS NOT NULL AND ${t.dekIv} IS NOT NULL AND ${t.dekAuthTag} IS NOT NULL AND ${t.kekId} IS NOT NULL AND ${t.ciphertext} IS NOT NULL AND ${t.iv} IS NOT NULL AND ${t.authTag} IS NOT NULL)`,
+    ),
+    check(
+      "fulfillment_vault_shred_is_permanent",
+      sql`${t.shreddedAt} IS NULL OR (${t.revealedAt} IS NOT NULL AND ${t.ciphertext} IS NULL AND ${t.iv} IS NULL AND ${t.authTag} IS NULL AND ${t.wrappedDek} IS NULL AND ${t.dekIv} IS NULL AND ${t.dekAuthTag} IS NULL)`,
+    ),
   ],
 );
 
@@ -569,6 +611,16 @@ export const sellerProfiles = pgTable(
     suspendedReason: varchar("suspended_reason", { length: 512 })
       .notNull()
       .default(""),
+    /**
+     * Permanent payout block (S-26). Stamped by an owner-approved dispute
+     * refund so a seller who delivered a bad code can never be paid out for
+     * that relationship again; `payout-policy.ts` refuses every request while
+     * this is set.
+     */
+    payoutBlockedAt: timestamp("payout_blocked_at", { withTimezone: true }),
+    payoutBlockedReason: varchar("payout_blocked_reason", { length: 512 })
+      .notNull()
+      .default(""),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -673,6 +725,63 @@ export const marketplaceAuditEvents = pgTable(
   ],
 );
 
+/**
+ * Buyer order dispute (S-26).
+ *
+ * A buyer can open exactly one active dispute per order — enforced by the
+ * partial unique index `order_disputes_open_order_idx` — and the owner resolves
+ * it locally with `npm run ops -- disputes resolve`. While a dispute is `open`
+ * the seller's entitlement for that order is escrow-held and cannot be paid
+ * out (`payout-policy.ts`); a `refund` resolution credits the buyer's wallet
+ * through the immutable `wallet_ledger` and permanently blocks the seller.
+ */
+export const orderDisputes = pgTable(
+  "order_disputes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    /** Owning buyer. Always the signed-in account, never a request field. */
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    reason: varchar("reason", { length: 32 }).notNull(),
+    details: varchar("details", { length: 1000 }).notNull().default(""),
+    /** open | refunded | rejected */
+    status: varchar("status", { length: 16 }).notNull().default("open"),
+    resolutionNote: varchar("resolution_note", { length: 512 })
+      .notNull()
+      .default(""),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("order_disputes_open_order_idx")
+      .on(t.orderId)
+      .where(sql`${t.status} = 'open'`),
+    index("order_disputes_status_created_idx").on(t.status, t.createdAt),
+    index("order_disputes_user_idx").on(t.userId, t.createdAt),
+    check(
+      "order_disputes_status_known",
+      sql`${t.status} IN ('open','refunded','rejected')`,
+    ),
+    check(
+      "order_disputes_reason_known",
+      sql`${t.reason} IN ('not_received','invalid_code','already_used','wrong_item','other')`,
+    ),
+    check(
+      "order_disputes_closed_has_resolution",
+      sql`${t.status} = 'open' OR (${t.resolvedAt} IS NOT NULL AND length(btrim(${t.resolutionNote})) > 0)`,
+    ),
+  ],
+);
+
 /* ------------------------------------------------------------------ */
 /* Relations                                                           */
 /* ------------------------------------------------------------------ */
@@ -684,6 +793,10 @@ export const productsRelations = relations(products, ({ one }) => ({
   category: one(categories, {
     fields: [products.categoryId],
     references: [categories.id],
+  }),
+  seller: one(sellerProfiles, {
+    fields: [products.sellerId],
+    references: [sellerProfiles.id],
   }),
 }));
 
@@ -720,6 +833,7 @@ export const sellerProfilesRelations = relations(
       references: [users.id],
     }),
     events: many(sellerApplicationEvents),
+    products: many(products),
   }),
 );
 
@@ -732,6 +846,17 @@ export const sellerApplicationEventsRelations = relations(
     }),
   }),
 );
+
+export const orderDisputesRelations = relations(orderDisputes, ({ one }) => ({
+  order: one(orders, {
+    fields: [orderDisputes.orderId],
+    references: [orders.id],
+  }),
+  user: one(users, {
+    fields: [orderDisputes.userId],
+    references: [users.id],
+  }),
+}));
 
 /* ------------------------------------------------------------------ */
 /* Security threat shield (S-25)                                        */
@@ -821,3 +946,5 @@ export type SellerApplicationEvent = typeof sellerApplicationEvents.$inferSelect
 export type MarketplaceAuditEvent = typeof marketplaceAuditEvents.$inferSelect;
 export type SecurityThreatEvent = typeof securityThreatEvents.$inferSelect;
 export type SecurityBan = typeof securityBans.$inferSelect;
+export type OrderDispute = typeof orderDisputes.$inferSelect;
+export type FulfillmentVaultRecord = typeof fulfillmentVault.$inferSelect;

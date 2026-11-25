@@ -28,7 +28,14 @@ export type SecurityEvent =
   | "fulfillment_code_revealed"
   | "wallet_topup_accepted"
   | "wallet_topup_rejected"
-  | "wallet_checkout_paid";
+  | "wallet_checkout_paid"
+  | "fulfillment_code_shredded"
+  | "order_dispute_opened"
+  | "seller_application_created"
+  | "seller_product_created"
+  | "seller_product_published"
+  | "seller_product_unpublished"
+  | "seller_stock_imported";
 
 export async function recordSecurityEvent(
   event: SecurityEvent,

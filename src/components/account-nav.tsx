@@ -6,12 +6,14 @@ const items = {
     { href: "/account", label: "Overview", icon: "⌂" },
     { href: "/account/wallet", label: "Wallet & deposits", icon: "▣" },
     { href: "/account/orders", label: "My orders", icon: "▤" },
+    { href: "/seller", label: "Seller workspace", icon: "◈" },
     { href: "/products", label: "Browse products", icon: "✦" },
   ],
   ar: [
     { href: "/account", label: "نظرة عامة", icon: "⌂" },
     { href: "/account/wallet", label: "المحفظة والإيداع", icon: "▣" },
     { href: "/account/orders", label: "طلباتي", icon: "▤" },
+    { href: "/seller", label: "مساحة التاجر", icon: "◈" },
     { href: "/products", label: "تصفح المنتجات", icon: "✦" },
   ],
 };

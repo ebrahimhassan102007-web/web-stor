@@ -49,6 +49,7 @@ function localizeAuthError(code: string | undefined, errors: AuthErrorDictionary
     google_cancelled: errors.googleCancelled,
     google_failed: errors.googleFailed,
     TWO_FACTOR_INVALID: errors.twoFactorInvalid,
+    SELLER_SLUG_TAKEN: errors.slugTaken,
   };
   return mapping[code] ?? errors.generic;
 }
@@ -68,6 +69,17 @@ export function AuthPanel({
   const router = useRouter();
   const { locale, t } = useI18n();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
+  /**
+   * S-26 dual-role signup. `customer` is the default and sends no extra field;
+   * `merchant` reveals store fields and creates a `pending` seller profile.
+   */
+  const [accountType, setAccountType] = useState<"customer" | "merchant">("customer");
+  const [storeName, setStoreName] = useState("");
+  const [storeSlug, setStoreSlug] = useState("");
+  const [storeDescription, setStoreDescription] = useState("");
+  const [storePhone, setStorePhone] = useState("");
+  const [storeCountry, setStoreCountry] = useState("");
+  const [storeTerms, setStoreTerms] = useState(false);
   const [stage, setStage] = useState<"credentials" | "verification" | "two-factor">(initialTwoFactor ? "two-factor" : "credentials");
   const [twoFactorCode, setTwoFactorCode] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -108,6 +120,21 @@ export function AuthPanel({
       email,
       password,
       locale,
+      ...(mode === "signup"
+        ? {
+            accountType,
+            ...(accountType === "merchant"
+              ? {
+                  storeName,
+                  storeSlug,
+                  storeDescription,
+                  storePhone,
+                  storeCountry,
+                  termsAccepted: storeTerms,
+                }
+              : {}),
+          }
+        : {}),
       returnTo: destinationPath(nextPath),
       [HONEYPOT_FIELD]: honeypot,
     };
@@ -380,6 +407,42 @@ export function AuthPanel({
               </button>
             </div>
 
+            {mode === "signup" && (
+              <fieldset className="mt-4 rounded-xl border border-edge bg-raised/40 p-3">
+                <legend className="px-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                  {t.auth.accountType}
+                </legend>
+                <div className="mt-1 grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      { key: "customer" as const, label: t.auth.customerMode, hint: t.auth.customerModeHint },
+                      { key: "merchant" as const, label: t.auth.merchantMode, hint: t.auth.merchantModeHint },
+                    ]
+                  ).map((option) => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      aria-pressed={accountType === option.key}
+                      onClick={() => {
+                        setAccountType(option.key);
+                        setErrorCode("");
+                      }}
+                      className={`rounded-lg px-3 py-2 text-start text-sm font-semibold transition-all duration-200 ${
+                        accountType === option.key
+                          ? "bg-primary/15 text-primary ring-1 ring-primary/40"
+                          : "text-muted hover:text-foreground"
+                      }`}
+                    >
+                      {option.label}
+                      <span className="mt-1 block text-xs font-normal leading-5 text-muted">
+                        {option.hint}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            )}
+
             <a
               href={`/api/auth/google/start?next=${encodeURIComponent(destinationPath(nextPath))}`}
               className="btn-ghost mt-5 w-full py-3"
@@ -456,6 +519,104 @@ export function AuthPanel({
                   <p className="mt-1.5 text-xs text-muted">{t.auth.passwordHint}</p>
                 )}
               </div>
+              {mode === "signup" && accountType === "merchant" && (
+                <>
+                  <div>
+                    <label htmlFor="auth-store-name" className="mb-1.5 block text-sm font-medium">
+                      {t.auth.storeName}
+                    </label>
+                    <input
+                      id="auth-store-name"
+                      type="text"
+                      name="storeName"
+                      required
+                      minLength={2}
+                      maxLength={120}
+                      value={storeName}
+                      onChange={(event) => setStoreName(event.target.value)}
+                      className="input-dark"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="auth-store-slug" className="mb-1.5 block text-sm font-medium">
+                      {t.auth.storeSlug}
+                    </label>
+                    <input
+                      id="auth-store-slug"
+                      type="text"
+                      name="storeSlug"
+                      required
+                      minLength={3}
+                      maxLength={60}
+                      pattern="[a-z0-9][a-z0-9-]*[a-z0-9]"
+                      value={storeSlug}
+                      onChange={(event) => setStoreSlug(event.target.value)}
+                      dir="ltr"
+                      className="input-dark"
+                    />
+                    <p className="mt-1.5 text-xs text-muted">{t.seller.storeSlugHint}</p>
+                  </div>
+                  <div>
+                    <label htmlFor="auth-store-bio" className="mb-1.5 block text-sm font-medium">
+                      {t.auth.storeBio}
+                    </label>
+                    <textarea
+                      id="auth-store-bio"
+                      name="storeDescription"
+                      rows={2}
+                      maxLength={600}
+                      value={storeDescription}
+                      onChange={(event) => setStoreDescription(event.target.value)}
+                      className="input-dark"
+                    />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="auth-store-phone" className="mb-1.5 block text-sm font-medium">
+                        {t.auth.storePhone}
+                      </label>
+                      <input
+                        id="auth-store-phone"
+                        type="tel"
+                        name="storePhone"
+                        required
+                        maxLength={32}
+                        value={storePhone}
+                        onChange={(event) => setStorePhone(event.target.value)}
+                        dir="ltr"
+                        className="input-dark"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="auth-store-country" className="mb-1.5 block text-sm font-medium">
+                        {t.auth.storeCountry}
+                      </label>
+                      <input
+                        id="auth-store-country"
+                        type="text"
+                        name="storeCountry"
+                        required
+                        minLength={2}
+                        maxLength={2}
+                        value={storeCountry}
+                        onChange={(event) => setStoreCountry(event.target.value.toUpperCase())}
+                        dir="ltr"
+                        className="input-dark"
+                      />
+                    </div>
+                  </div>
+                  <label className="flex items-start gap-2 text-sm text-muted">
+                    <input
+                      type="checkbox"
+                      checked={storeTerms}
+                      onChange={(event) => setStoreTerms(event.target.checked)}
+                      required
+                      className="mt-1"
+                    />
+                    <span>{t.auth.storeTerms}</span>
+                  </label>
+                </>
+              )}
               {mode === "signin" && <p className="text-end text-sm"><Link className="text-primary hover:underline" href="/forgot-password">{locale === "ar" ? "نسيت كلمة المرور؟" : "Forgot password?"}</Link></p>}
               <button type="submit" disabled={busy} className="btn-primary w-full py-3 text-base">
                 {busy

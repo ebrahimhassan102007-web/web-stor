@@ -115,6 +115,10 @@ jobs:
           TOTP_ENCRYPTION_KEY_ID: ci-totp-key
           FULFILLMENT_ENCRYPTION_KEY: "2222222222222222222222222222222222222222222222222222222222222222"
           FULFILLMENT_ENCRYPTION_KEY_ID: ci-fulfillment-key
+          # S-26 split-key vault v2 (clearly non-production values).
+          VAULT_MASTER_KEY: "3333333333333333333333333333333333333333333333333333333333333333"
+          VAULT_MASTER_KEY_ID: ci-vault-key
+          VAULT_KEY_PEPPER: "4444444444444444444444444444444444444444444444444444444444444444"
           WALLET_TOPUP_WEBHOOK_SECRET: ci-only-wallet-topup-webhook-secret-that-is-at-least-32-characters
         run: |
           set +e

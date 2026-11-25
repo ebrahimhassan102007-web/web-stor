@@ -57,6 +57,9 @@ const previewProducts: Product[] = SEED_PRODUCTS.map((product, index) => ({
   rating: "0.0",
   reviewCount: 0,
   featured: product.featured ?? false,
+  // S-26: platform-owned preview catalogue, never a live seller listing.
+  sellerId: null,
+  isActive: true,
   createdAt: previewCreatedAt,
 }));
 

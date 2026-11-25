@@ -196,6 +196,7 @@ test("S-17: production env validation fails fast on weak/partial configuration",
   assert.ok(bad.some((e) => e.includes("Partial SMTP")));
   assert.ok(bad.some((e) => e.includes("Partial Google")));
   assert.ok(bad.some((e) => e.includes("CHECKOUT_MODE=demo")));
+  assert.ok(bad.some((e) => e.includes("VAULT_MASTER_KEY")), "the vault key fails closed in production");
 
   const good = validateEnv({
     NODE_ENV: "production",
@@ -207,6 +208,10 @@ test("S-17: production env validation fails fast on weak/partial configuration",
     FULFILLMENT_ENCRYPTION_KEY: "cd".repeat(32),
     FULFILLMENT_ENCRYPTION_KEY_ID: "fulfillment-key-1",
     WALLET_TOPUP_WEBHOOK_SECRET: "wallet-webhook-secret-value-at-least-32-characters",
+    // S-26: the split-key digital vault is mandatory in production.
+    VAULT_MASTER_KEY: "ef".repeat(32),
+    VAULT_MASTER_KEY_ID: "vault-key-1",
+    VAULT_KEY_PEPPER: "12".repeat(32),
     DATABASE_URL: "postgres://u:p@h/db",
   });
   assert.deepEqual(good, []);

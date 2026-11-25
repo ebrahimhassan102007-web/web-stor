@@ -154,4 +154,8 @@ test("S-25: the proxy answers 404 + no-store for /admin and scanner paths withou
   assert.equal(result.administerLike!.status, 200, "only the /admin segment is removed");
   assert.equal(result.account!.status, 200);
   assert.equal(result.account!.cacheControl, "private, no-store, no-cache, must-revalidate");
+  // S-26: the merchant portal is reachable but never cacheable, and is not
+  // swallowed by the /admin elimination rule.
+  assert.equal(result.seller!.status, 200);
+  assert.equal(result.seller!.cacheControl, "private, no-store, no-cache, must-revalidate");
 });

@@ -34,6 +34,29 @@ export function validateEnv(env: EnvLike = process.env): string[] {
   if (fulfillmentKeyId && !/^[A-Za-z0-9._-]{1,64}$/.test(fulfillmentKeyId)) errors.push("FULFILLMENT_ENCRYPTION_KEY_ID is invalid");
   if (Boolean(fulfillmentKey) !== Boolean(fulfillmentKeyId)) errors.push("Fulfillment key and key id must be configured together");
 
+  // S-26 split-key vault v2. `VAULT_MASTER_KEY` is the mandatory KEK seed;
+  // `VAULT_KEY_PEPPER` is an OPTIONAL second split share, so a single leaked
+  // environment value can never rebuild the wrapping key. Production fails
+  // closed without the master key and the key id that identifies it.
+  const vaultKey = env.VAULT_MASTER_KEY?.trim() ?? "";
+  const vaultKeyId = env.VAULT_MASTER_KEY_ID?.trim() ?? "";
+  const vaultPepper = env.VAULT_KEY_PEPPER?.trim() ?? "";
+  const VAULT_KEY_SHAPE = /^(?:[a-fA-F0-9]{64}|[A-Za-z0-9_-]{43})$/;
+  if (isProd && !vaultKey) {
+    errors.push("VAULT_MASTER_KEY is required in production (split-key digital vault)");
+  }
+  if (isProd && !vaultKeyId) {
+    errors.push("VAULT_MASTER_KEY_ID is required in production (split-key digital vault)");
+  }
+  if (vaultKey && !VAULT_KEY_SHAPE.test(vaultKey)) {
+    errors.push("VAULT_MASTER_KEY must encode exactly 32 bytes as hex or base64url");
+  }
+  if (vaultKeyId && !/^[A-Za-z0-9._-]{1,64}$/.test(vaultKeyId)) errors.push("VAULT_MASTER_KEY_ID is invalid");
+  if (Boolean(vaultKey) !== Boolean(vaultKeyId)) errors.push("Vault master key and key id must be configured together");
+  if (vaultPepper && !VAULT_KEY_SHAPE.test(vaultPepper)) {
+    errors.push("VAULT_KEY_PEPPER must encode exactly 32 bytes as hex or base64url");
+  }
+
   if (isProd && !env.DATABASE_URL?.trim()) {
     errors.push("DATABASE_URL must be set in production");
   }
