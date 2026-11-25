@@ -185,3 +185,24 @@ Local-only verification of `docs/security/S-25.md`. No production database, prox
 | Flaky test repaired | `npx tsx --test tests/wave2-security.test.ts` (5 consecutive runs) | The pre-existing TOTP-envelope tamper assertion edited the last base64url character, whose padding bits can decode to the same bytes; it now flips a decoded byte of the auth tag and of the ciphertext, so the check is deterministic. 3/3 pass every run. |
 | Whitespace check | `git diff --check` | Exit 0. |
 | Real PostgreSQL / browser / OAuth / SMTP / proxy | — | **NOT RUN.** No disposable PostgreSQL URL beyond PGlite, no browser run, and no provider credentials in this environment; the equivalent integration and Playwright checks execute in CI. |
+
+## Wave 5B — dual-role sellers, merchant portal, split-key vault v2, dispute escrow — 2026-11-25 (`arena/8a1e76cc-web-stor`)
+
+Local-only verification of `docs/security/S-26.md`. No production database, payment provider, SMTP server or OAuth provider was contacted; the only sockets opened were loopback connections deliberately refused (port 1) to prove the fail-closed paths.
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Migration apply (real engine) | `npx tsx --test tests/migration-runner.test.ts tests/schema-migration.test.ts` | **7/7 pass.** `0010_marketplace_sellers_disputes_and_vault_v2` applies on a fresh engine, the second run reports 11 unchanged migrations, and the exact public table list now includes `order_disputes`. |
+| Vault v2 + disputes (PGlite, real modules) | `npx tsx --test tests/wave5b-db.test.ts` | **9/9 pass.** v2 rows store no plaintext; duplicate raw codes are rejected by the partial unique digest index (in-batch and across imports); allocation re-binds the AAD and a ciphertext moved to another buyer's order line fails GCM authentication; shred requires a prior reveal, refuses foreign owners, NULLs every payload column, keeps the delivery digest and is idempotent; the DB refuses to resurrect a shredded row; `rotate-keys` re-wraps v2 DEKs, upgrades a v1 row, writes nothing in `--dry-run`, is idempotent and refuses without the retired key; seller A cannot read/toggle/stock seller B's product (and the cross-tenant import writes zero vault rows); dispute → escrow freeze → refund writes exactly one `credit_refund` ledger row, credits the wallet once, cancels the order, permanently blocks the seller and is a no-op on replay; `reject` releases escrow and moves no money. |
+| Pure policy + wiring | `npx tsx --test tests/wave5b.test.ts` | **17/17 pass** (split-key round-trip, pepper as a real second factor, AAD transplant rejection, tampered/foreign DEK rejection, rotation, blind digests, code normalization, fail-closed production env, customer-vs-merchant registration, slug normalization, integer-cent listings, three-gate policy `403`, escrow accounting, bilingual dispute copy, owner CLI surface, `/admin` elimination, no client-supplied seller id). |
+| Central guard & proxy | `npx tsx --test tests/threat-shield-db.test.ts` | **2/2 pass.** The proxy still returns `404` + `private, no-store` with an empty body for `/admin` and scanner families, while `/seller` is reachable and uncacheable. |
+| Typecheck | `npm run typecheck` | Exit 0. |
+| Lint | `npm run lint` | Exit 0, no warnings. |
+| Full test suite | `npm test` | **193 tests: 187 passed, 0 failed, 6 skipped** (167 before this wave + 26 new). The six skipped tests require a disposable `TEST_DATABASE_URL`. |
+| Production build | `npm run build` | Exit 0 on Next.js 16.4.6; the route table adds `/seller` and `/api/seller/{apply,products,products/[productId],products/[productId]/stock,summary}`; `/admin` remains absent. |
+| Header scan (production build) | `node scripts/scan-headers.mjs http://localhost:3100` | **ALL HEADER CHECKS PASSED** for `/`, `/login`, `/account`, `/products` (nonce CSP, `strict-dynamic`, `frame-ancestors 'none'`, `private, no-store` on private pages). |
+| Live: admin elimination | `curl /admin`, `/admin/users` | **404**, `cache-control: private, no-store, no-cache, must-revalidate`, empty body. |
+| Live: merchant portal isolation | `curl /seller`, `/api/seller/summary` | `/seller` → **307** to `/login?next=%2Fseller` with `private, no-store`; `/api/seller/summary` → **401** with `private, no-store`. |
+| Live: central guard | `POST /api/seller/apply` without Origin | **403** `REQUEST_REJECTED`. |
+| Whitespace check | `git diff --check` | Exit 0. |
+| Real PostgreSQL / browser / payment provider | — | **NOT RUN.** No disposable PostgreSQL URL beyond PGlite, no browser run, and no provider credentials in this environment; the equivalent integration and Playwright checks execute in CI. |

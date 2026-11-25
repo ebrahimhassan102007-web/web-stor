@@ -5,8 +5,10 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { getI18n } from "@/lib/i18n/server";
 import { getCurrentAccountUser } from "@/lib/security/account-session";
 import { AccountNav } from "@/components/account-nav";
-import { db, fulfillmentVault, orders, orderItems } from "@/lib/db";
+import { db, fulfillmentVault, orders, orderItems, orderDisputes } from "@/lib/db";
 import { OrderDeliveryReveal } from "@/components/order-delivery-reveal";
+import { OrderDisputeForm, VaultShredButton } from "@/components/order-vault-actions";
+import { DISPUTE_STATUS_COPY, type DisputeStatus } from "@/lib/marketplace/dispute-copy";
 import { formatCents } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
@@ -49,10 +51,31 @@ export default async function OrdersPage() {
   }
   const orderItemIds = [...grouped.values()].flatMap((order) => order.items.map((item) => item.id));
   const vaultMetadata = orderItemIds.length
-    ? await db.select({ orderItemId: fulfillmentVault.orderItemId, revealedAt: fulfillmentVault.revealedAt }).from(fulfillmentVault).where(inArray(fulfillmentVault.orderItemId, orderItemIds))
+    ? await db.select({ orderItemId: fulfillmentVault.orderItemId, revealedAt: fulfillmentVault.revealedAt, shreddedAt: fulfillmentVault.shreddedAt }).from(fulfillmentVault).where(inArray(fulfillmentVault.orderItemId, orderItemIds))
     : [];
   const codedItems = new Set(vaultMetadata.filter((row) => row.revealedAt === null).map((row) => row.orderItemId).filter((id): id is number => id !== null));
   for (const order of grouped.values()) for (const item of order.items) item.hasCode = codedItems.has(item.id);
+
+  // S-26: a revealed, unshredded order can be destroyed; an order with an open
+  // dispute has the seller's payout frozen until the owner resolves it.
+  const revealedOrders = new Set<string>();
+  const shreddedOrders = new Set<string>();
+  for (const row of vaultMetadata) {
+    if (row.orderItemId === null) continue;
+    for (const order of grouped.values()) {
+      if (!order.items.some((item) => item.id === row.orderItemId)) continue;
+      if (row.revealedAt !== null) revealedOrders.add(order.id);
+      if (row.shreddedAt !== null) shreddedOrders.add(order.id);
+    }
+  }
+  const orderIds = [...grouped.keys()];
+  const disputeRows = orderIds.length
+    ? await db
+        .select({ orderId: orderDisputes.orderId, status: orderDisputes.status })
+        .from(orderDisputes)
+        .where(inArray(orderDisputes.orderId, orderIds))
+    : [];
+  const disputesByOrder = new Map(disputeRows.map((row) => [row.orderId, row.status]));
   const purchases = [...grouped.values()];
   const dateFormat = new Intl.DateTimeFormat(ar ? "ar-EG" : "en-US", { dateStyle: "medium", timeStyle: "short" });
   const statusLabel = (status: string) => {
@@ -73,6 +96,17 @@ export default async function OrdersPage() {
       </div>
       <ul className="mt-4 space-y-3">{order.items.map((item) => <li key={item.id} className="flex flex-wrap justify-between gap-2 text-sm"><span>{item.name} <span className="text-muted">× {item.quantity}</span>{item.target && <span className="mt-1 block text-xs text-muted" dir={item.target.type === "activation-email" ? "ltr" : undefined}>{item.target.type === "player-id" ? t.success.playerIdLabel : item.target.type === "region" ? t.success.regionLabel : t.product.activationEmailLabel} <bdi>{item.target.value}</bdi></span>}</span><span className="font-semibold tabular-nums">{formatCents(item.unitPriceCents * item.quantity, locale)}</span></li>)}</ul>
       {order.items.some((item) => item.hasCode) && ["paid", "fulfilled", "completed"].includes(order.status) && <div className="mt-4 flex flex-wrap items-center gap-3"><span className="rounded-lg border border-edge px-3 py-2 font-mono text-sm tracking-widest" aria-label={t.success.yourCodes}>••••••••••</span><OrderDeliveryReveal orderId={order.id} /></div>}
+      {revealedOrders.has(order.id) && !shreddedOrders.has(order.id) && <div className="mt-3">{<VaultShredButton orderId={order.id} />}</div>}
+      {shreddedOrders.has(order.id) && <p className="mt-3 text-xs text-success">{ar ? "تم حذف الكود نهائياً من الخزنة بعد استلامه." : "The delivered code was permanently destroyed after you received it."}</p>}
+      {["paid", "fulfilled", "completed"].includes(order.status) && (
+        <div className="mt-3 border-t border-edge pt-3">
+          <p className="text-xs font-semibold text-muted">{ar ? "مشكلة في التسليم؟" : "Problem with this delivery?"}</p>
+          <OrderDisputeForm orderId={order.id} openDispute={disputesByOrder.get(order.id) === "open"} />
+          {disputesByOrder.get(order.id) && disputesByOrder.get(order.id) !== "open" && (
+            <p className="mt-2 text-xs text-muted">{ar ? DISPUTE_STATUS_COPY[disputesByOrder.get(order.id) as DisputeStatus].ar : DISPUTE_STATUS_COPY[disputesByOrder.get(order.id) as DisputeStatus].en}</p>
+          )}
+        </div>
+      )}
       <p className="mt-4 rounded-xl bg-amber-500/[.07] px-3 py-2 text-xs leading-6 text-muted">{ar ? "سجلات المعاينة لا تمثل مدفوعات حقيقية أو تسليم منتجات." : "Preview order records do not represent real payments or product delivery."}</p>
     </section>)}</div> : <section className="glass-card mt-5 px-5 py-14 text-center sm:py-20">
       <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-primary/10 text-3xl">🧾</span>

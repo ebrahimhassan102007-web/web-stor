@@ -24,12 +24,31 @@ export const passwordResetRequestSchema = z.object({ email: authEmailSchema, loc
 export const passwordResetSchema = z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{43}$/), password: passwordSchema });
 export const passwordChangeSchema = z.object({ currentPassword: z.string().min(1).max(128), newPassword: passwordSchema });
 
+/**
+ * Registration (S-26).
+ *
+ * `accountType` defaults to `customer`, and a customer signup sends **no**
+ * additional field at all — the buyer path stays a single email+password (or
+ * Google) step. Merchant signups additionally carry store details, which the
+ * route re-validates with `sellerApplySchema` before a pending seller profile
+ * is created.
+ */
 export const emailRegisterSchema = z.object({
   displayName: cleanText(2, 128),
   email: authEmailSchema,
   password: passwordSchema,
   locale: z.enum(["en", "ar"]).optional().default("en"),
+  accountType: z.enum(["customer", "merchant"]).optional().default("customer"),
+  // Merchant-only; validated again (and normalized) by sellerApplySchema.
+  storeName: z.string().max(160).optional(),
+  storeSlug: z.string().max(160).optional(),
+  storeDescription: z.string().max(700).optional(),
+  storePhone: z.string().max(40).optional(),
+  storeCountry: z.string().max(4).optional(),
+  termsAccepted: z.boolean().optional(),
 });
+
+export type EmailRegisterAccountType = z.infer<typeof emailRegisterSchema>["accountType"];
 
 export const emailLoginSchema = z.object({
   email: authEmailSchema,

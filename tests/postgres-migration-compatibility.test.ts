@@ -53,7 +53,7 @@ test(
 
       const freshUrl = databaseUrl(target.connectionString, freshName);
       const fresh = await migratePostgres({ connectionString: freshUrl });
-      assert.equal(fresh.applied.length, 10);
+      assert.equal(fresh.applied.length, 11);
       const freshAgain = await migratePostgres({ connectionString: freshUrl });
       assert.equal(freshAgain.operations.every((operation) => operation.action === "unchanged"), true);
 
@@ -79,6 +79,7 @@ test(
           "fulfillment_vault",
           "security_bans",
           "security_threat_events",
+          "order_disputes",
         ]) {
           assert.ok(tables.rows.some((row) => row.tablename === table), table);
         }
@@ -129,6 +130,7 @@ test(
         "0007_encrypted_fulfillment_vault",
         "0008_wallet_ledger_and_promos",
         "0009_security_threat_shield",
+        "0010_marketplace_sellers_disputes_and_vault_v2",
       ]);
 
       const upgradedClient = new Client({ connectionString: legacyUrl });

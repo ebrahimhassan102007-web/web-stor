@@ -179,6 +179,7 @@ async function proxyFlow() {
     home: await call("/"),
     product: await call("/products/evora-hoodie"),
     account: await call("/account"),
+    seller: await call("/seller"),
     administerLike: await call("/administrator-guide"),
   };
 }

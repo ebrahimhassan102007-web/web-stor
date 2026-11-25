@@ -71,6 +71,13 @@
       "when": 1795620001000,
       "tag": "0009_security_threat_shield",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795620002000,
+      "tag": "0010_marketplace_sellers_disputes_and_vault_v2",
+      "breakpoints": true
     }
   ]
 }

@@ -436,6 +436,47 @@ const THREAT_SHIELD_REQUIREMENT: Requirement = {
   ],
 };
 
+const MARKETPLACE_SELLERS_DISPUTES_VAULT_V2_REQUIREMENT: Requirement = {
+  tables: ["order_disputes"],
+  columns: {
+    fulfillment_vault: {
+      envelope_version: "character varying", wrapped_dek: "text",
+      dek_iv: "character varying", dek_auth_tag: "character varying",
+      kek_id: "character varying", code_digest: "character varying",
+      delivery_digest: "character varying", shredded_at: "timestamp with time zone",
+      ciphertext: "text", iv: "character varying", auth_tag: "character varying",
+    },
+    products: { seller_id: "uuid", is_active: "boolean" },
+    seller_profiles: {
+      payout_blocked_at: "timestamp with time zone",
+      payout_blocked_reason: "character varying",
+    },
+    order_disputes: {
+      id: "uuid", order_id: "uuid", user_id: "uuid", reason: "character varying",
+      details: "character varying", status: "character varying",
+      resolution_note: "character varying", resolved_at: "timestamp with time zone",
+      created_at: "timestamp with time zone", updated_at: "timestamp with time zone",
+    },
+  },
+  indexes: [
+    "fulfillment_vault_code_digest_idx", "products_seller_idx",
+    "order_disputes_open_order_idx", "order_disputes_status_created_idx",
+    "order_disputes_user_idx",
+  ],
+  constraints: [
+    "fulfillment_vault_envelope_version_known",
+    "fulfillment_vault_v2_envelope_complete",
+    "fulfillment_vault_shred_is_permanent",
+    "fulfillment_vault_digest_shape",
+    "products_seller_id_seller_profiles_id_fk",
+    "order_disputes_status_known",
+    "order_disputes_reason_known",
+    "order_disputes_closed_has_resolution",
+    "order_disputes_order_id_orders_id_fk",
+    "order_disputes_user_id_users_id_fk",
+  ],
+};
+
 const REQUIREMENTS: Readonly<Record<string, Requirement>> = {
   "0000_init": BASELINE_REQUIREMENT,
   "0001_evora-digital": DIGITAL_REQUIREMENT,
@@ -446,6 +487,8 @@ const REQUIREMENTS: Readonly<Record<string, Requirement>> = {
   "0007_encrypted_fulfillment_vault": FULFILLMENT_VAULT_REQUIREMENT,
   "0008_wallet_ledger_and_promos": WALLET_PROMO_REQUIREMENT,
   "0009_security_threat_shield": THREAT_SHIELD_REQUIREMENT,
+  "0010_marketplace_sellers_disputes_and_vault_v2":
+    MARKETPLACE_SELLERS_DISPUTES_VAULT_V2_REQUIREMENT,
 };
 
 async function rows<T extends Record<string, unknown>>(

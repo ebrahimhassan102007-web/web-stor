@@ -15,6 +15,12 @@
  *   npm run ops -- orders show <orderNumber>
  *   npm run ops -- orders refund <orderNumber> [--reason "customer request"] [--dry-run]
  *   npm run ops -- cleanup [--dry-run] [--limit 500]
+ *   npm run ops -- sellers list [--status pending] [--limit 50]
+ *   npm run ops -- sellers approve <sellerId> [--note "..."]
+ *   npm run ops -- sellers suspend <sellerId> [--reason "..."]
+ *   npm run ops -- disputes list [--status open] [--limit 20]
+ *   npm run ops -- disputes resolve <disputeId> --action=refund|reject --note "..."
+ *   npm run ops -- vault rotate-keys [--dry-run] [--limit 5000]
  *
  * S-25 removed the web admin UI completely: `/admin` answers `404` to
  * everyone, and administration happens here, on a machine that can reach the
@@ -30,7 +36,7 @@
  *    (`credit_refund`) and marks the order cancelled.
  */
 import "dotenv/config";
-import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "../src/lib/db/schema";
@@ -39,6 +45,10 @@ import { runEphemeralHygiene } from "../src/lib/db/hygiene";
 import { banKeyForIp } from "../src/lib/security/threat-actor";
 import type { BanSnapshot } from "../src/lib/security/threat-policy";
 import { normalizePromoCode } from "../src/lib/wallet-math";
+import { resolveOrderDisputeInTransaction } from "../src/lib/marketplace/disputes";
+import { rotateVaultKeys } from "../src/lib/security/vault-rotate";
+import { resolveVaultKeyMaterial, type VaultKeyMaterial } from "../src/lib/security/vault-crypto";
+import { decryptAes256Gcm, encryptionKeyFromEnv, type AuthenticatedEnvelope } from "../src/lib/security/encryption";
 
 type Args = {
   command: string;
@@ -148,6 +158,9 @@ async function main(): Promise<void> {
         "  orders    list [--status paid] [--limit 10] | show <orderNumber>",
         "  orders    refund <orderNumber> [--reason ...] [--dry-run]",
         "  cleanup   [--dry-run] [--limit 500]        bounded ephemeral-state purge",
+        "  sellers   list [--status pending] | approve <sellerId> | suspend <sellerId>",
+        "  disputes  list [--status open] | resolve <disputeId> --action=refund|reject --note \"...\"",
+        "  vault     rotate-keys [--dry-run] [--limit 5000]   re-wrap v2 DEKs / upgrade v1 rows",
       ].join("\n"),
     );
     return;
@@ -174,6 +187,15 @@ async function main(): Promise<void> {
         break;
       case "cleanup":
         await cleanup(db, args);
+        break;
+      case "sellers":
+        await sellers(db, args);
+        break;
+      case "disputes":
+        await disputes(db, args);
+        break;
+      case "vault":
+        await vault(db, args);
         break;
       default:
         throw new Error(`Unknown command: ${args.command} (run \`npm run ops\` for help)`);
@@ -752,6 +774,275 @@ async function cleanup(db: OpsDb, args: Args): Promise<void> {
     { target: "threat_events", removed: report.threatEvents },
     { target: "TOTAL", removed: report.total },
   ]);
+}
+
+/* ------------------------------------------------------------------ */
+/* sellers (S-26)                                                     */
+/* ------------------------------------------------------------------ */
+
+async function sellers(db: OpsDb, args: Args): Promise<void> {
+  const [sub = "list", ...rest] = args.rest;
+
+  if (sub === "list") {
+    const limit = Math.min(Math.max(flagNumber(args, "limit", 50), 1), 500);
+    const status = flagString(args, "status");
+    const rows = await db
+      .select({
+        id: schema.sellerProfiles.id,
+        store: schema.sellerProfiles.storeName,
+        slug: schema.sellerProfiles.storeSlug,
+        status: schema.sellerProfiles.status,
+        platform: schema.sellerProfiles.isPlatform,
+        payoutBlocked: schema.sellerProfiles.payoutBlockedAt,
+        createdAt: schema.sellerProfiles.createdAt,
+      })
+      .from(schema.sellerProfiles)
+      .where(status ? eq(schema.sellerProfiles.status, status) : undefined)
+      .orderBy(asc(schema.sellerProfiles.createdAt))
+      .limit(limit);
+    table(
+      rows.map((row) => ({
+        id: row.id,
+        store: row.store,
+        slug: row.slug,
+        status: row.status,
+        payoutBlocked: row.payoutBlocked ? "yes" : "no",
+        created: iso(row.createdAt),
+      })),
+    );
+    return;
+  }
+
+  if (sub === "approve" || sub === "suspend") {
+    const sellerId = rest[0];
+    if (!sellerId) throw new Error(`sellers ${sub} <sellerId>`);
+    const note = (flagString(args, "note") ?? flagString(args, "reason") ?? "").slice(0, 512);
+    const now = new Date();
+
+    const [seller] = await db
+      .select({
+        id: schema.sellerProfiles.id,
+        status: schema.sellerProfiles.status,
+        isPlatform: schema.sellerProfiles.isPlatform,
+      })
+      .from(schema.sellerProfiles)
+      .where(eq(schema.sellerProfiles.id, sellerId))
+      .limit(1);
+    if (!seller) throw new Error("No such seller.");
+    if (seller.isPlatform) throw new Error("The platform-owned profile is not a login and cannot be moderated.");
+
+    if (sub === "approve") {
+      if (seller.status === "approved") {
+        console.log(`${sellerId} is already approved. Nothing to do.`);
+        return;
+      }
+      await db.transaction(async (tx) => {
+        await tx
+          .update(schema.sellerProfiles)
+          .set({ status: "approved", approvedAt: now, rejectionReason: "", suspendedAt: null, suspendedReason: "", updatedAt: now })
+          .where(eq(schema.sellerProfiles.id, sellerId));
+        await tx.insert(schema.sellerApplicationEvents).values({
+          sellerId,
+          action: "approved",
+          fromStatus: seller.status,
+          toStatus: "approved",
+          reason: note,
+        });
+        await tx.insert(schema.marketplaceAuditEvents).values({
+          actorRole: "owner",
+          action: "seller_approved",
+          targetType: "seller",
+          targetId: sellerId,
+          metadata: { from: seller.status, to: "approved" },
+        });
+        await tx.insert(schema.securityAuditLog).values({
+          event: "owner_seller_approved",
+          detail: sellerId,
+        });
+      });
+      console.log(`Approved ${sellerId}. The seller still needs verified email + TOTP 2FA to publish.`);
+      return;
+    }
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(schema.sellerProfiles)
+        .set({ status: "suspended", suspendedAt: now, suspendedReason: note || "owner suspension", updatedAt: now })
+        .where(eq(schema.sellerProfiles.id, sellerId));
+      // A suspended merchant must stop selling immediately.
+      await tx
+        .update(schema.products)
+        .set({ isActive: false })
+        .where(eq(schema.products.sellerId, sellerId));
+      await tx.insert(schema.sellerApplicationEvents).values({
+        sellerId,
+        action: "suspended",
+        fromStatus: seller.status,
+        toStatus: "suspended",
+        reason: note || "owner suspension",
+      });
+      await tx.insert(schema.marketplaceAuditEvents).values({
+        actorRole: "owner",
+        action: "seller_suspended",
+        targetType: "seller",
+        targetId: sellerId,
+        metadata: { from: seller.status, to: "suspended" },
+      });
+    });
+    console.log(`Suspended ${sellerId}; all of its listings were unpublished.`);
+    return;
+  }
+
+  throw new Error("Unknown sellers sub-command (list|approve|suspend).");
+}
+
+/* ------------------------------------------------------------------ */
+/* disputes (S-26)                                                    */
+/* ------------------------------------------------------------------ */
+
+async function disputes(db: OpsDb, args: Args): Promise<void> {
+  const [sub = "list", ...rest] = args.rest;
+
+  if (sub === "list") {
+    const limit = Math.min(Math.max(flagNumber(args, "limit", 20), 1), 200);
+    const status = flagString(args, "status");
+    const rows = await db
+      .select({
+        id: schema.orderDisputes.id,
+        order: schema.orders.orderNumber,
+        status: schema.orderDisputes.status,
+        reason: schema.orderDisputes.reason,
+        details: schema.orderDisputes.details,
+        createdAt: schema.orderDisputes.createdAt,
+        resolvedAt: schema.orderDisputes.resolvedAt,
+      })
+      .from(schema.orderDisputes)
+      .innerJoin(schema.orders, eq(schema.orderDisputes.orderId, schema.orders.id))
+      .where(status ? eq(schema.orderDisputes.status, status) : undefined)
+      .orderBy(desc(schema.orderDisputes.createdAt))
+      .limit(limit);
+    table(
+      rows.map((row) => ({
+        id: row.id,
+        order: row.order,
+        status: row.status,
+        reason: row.reason,
+        details: row.details.slice(0, 60),
+        created: iso(row.createdAt),
+        resolved: iso(row.resolvedAt),
+      })),
+    );
+    return;
+  }
+
+  if (sub === "resolve") {
+    const disputeId = rest[0];
+    if (!disputeId) throw new Error("disputes resolve <disputeId> --action=refund|reject --note \"...\"");
+    const action = (flagString(args, "action") ?? "").toLowerCase();
+    if (action !== "refund" && action !== "reject") {
+      throw new Error("--action must be refund or reject.");
+    }
+    const note = (flagString(args, "note") ?? "").trim();
+    if (note.length < 3) throw new Error("--note is required and must say why (>= 3 characters).");
+
+    const outcome = await db.transaction((tx) =>
+      resolveOrderDisputeInTransaction(tx, { disputeId, action, note }),
+    );
+    if (!outcome.ok) {
+      throw new Error(
+        outcome.error === "DISPUTE_NOT_FOUND"
+          ? "No such dispute."
+          : outcome.error === "ORDER_NOT_REFUNDABLE"
+            ? "This order is not refundable (already cancelled/refunded)."
+            : "Invalid resolution action.",
+      );
+    }
+    await db.insert(schema.securityAuditLog).values({
+      event: action === "refund" ? "owner_dispute_refunded" : "owner_dispute_rejected",
+      detail: `${disputeId} ${outcome.orderNumber}`.slice(0, 200),
+    });
+    console.log(
+      [
+        `Dispute ${disputeId} -> ${outcome.status}${outcome.alreadyResolved ? " (already resolved, no writes)" : ""}`,
+        outcome.refundedCents > 0
+          ? `Refunded ${outcome.refundedCents}c to the buyer's wallet (ledger credit_refund) and cancelled the order.`
+          : "No money moved.",
+        outcome.blockedSellerIds.length > 0
+          ? `Permanently blocked payouts for seller(s): ${outcome.blockedSellerIds.join(", ")}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
+    return;
+  }
+
+  throw new Error("Unknown disputes sub-command (list|resolve).");
+}
+
+/* ------------------------------------------------------------------ */
+/* vault (S-26)                                                       */
+/* ------------------------------------------------------------------ */
+
+async function vault(db: OpsDb, args: Args): Promise<void> {
+  const [sub = "rotate-keys"] = args.rest;
+  if (sub !== "rotate-keys") throw new Error("Unknown vault sub-command (rotate-keys).");
+
+  const current = resolveVaultKeyMaterial();
+  const previous: VaultKeyMaterial[] = [];
+  const previousKey = process.env.VAULT_MASTER_KEY_PREVIOUS?.trim();
+  if (previousKey) {
+    previous.push(
+      resolveVaultKeyMaterial({
+        ...process.env,
+        VAULT_MASTER_KEY: previousKey,
+        VAULT_MASTER_KEY_ID: process.env.VAULT_MASTER_KEY_PREVIOUS_ID?.trim() || "vault-previous",
+        NODE_ENV: "production",
+      }),
+    );
+  }
+
+  // `v1` rows can still be upgraded when the retired single key is present.
+  let legacyDecrypt: ((row: { keyId: string; ciphertext: string | null; iv: string | null; authTag: string | null }) => string) | undefined;
+  if (process.env.FULFILLMENT_ENCRYPTION_KEY?.trim()) {
+    const legacyKey = encryptionKeyFromEnv("FULFILLMENT_ENCRYPTION_KEY", "FULFILLMENT_ENCRYPTION_KEY_ID");
+    legacyDecrypt = (row) =>
+      decryptAes256Gcm(
+        { keyId: row.keyId, ciphertext: row.ciphertext ?? "", iv: row.iv ?? "", authTag: row.authTag ?? "" } as AuthenticatedEnvelope,
+        legacyKey,
+        "evora-fulfillment",
+      );
+  }
+
+  const report = await rotateVaultKeys(db, {
+    current,
+    previous,
+    legacyDecrypt,
+    dryRun: hasFlag(args, "dry-run"),
+    limit: Math.min(Math.max(flagNumber(args, "limit", 5000), 1), 50_000),
+  });
+
+  table([
+    { metric: "current key id", value: current.masterKeyId },
+    { metric: "previous keys", value: previous.map((material) => material.masterKeyId).join(", ") || "-" },
+    { metric: "dry run", value: report.dryRun ? "yes" : "no" },
+    { metric: "scanned", value: report.scanned },
+    { metric: "re-wrapped", value: report.rewrapped },
+    { metric: "v1 upgraded", value: report.upgraded },
+    { metric: "already current", value: report.unchanged },
+    { metric: "missing previous key", value: report.skippedMissingKey },
+    { metric: "failed", value: report.failed },
+  ]);
+
+  await db.insert(schema.securityAuditLog).values({
+    event: "owner_vault_key_rotation",
+    detail: `key=${current.masterKeyId} rewrapped=${report.rewrapped} upgraded=${report.upgraded} failed=${report.failed} dryRun=${report.dryRun}`,
+  });
+  console.log(
+    report.skippedMissingKey > 0
+      ? "Some rows were skipped: set VAULT_MASTER_KEY_PREVIOUS(_ID) (and FULFILLMENT_ENCRYPTION_KEY for v1) and re-run."
+      : "Vault key rotation complete.",
+  );
 }
 
 main().catch((error: unknown) => {

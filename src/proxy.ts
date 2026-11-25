@@ -80,7 +80,7 @@ export async function proxy(request: NextRequest) {
   response.headers.set("Content-Security-Policy", csp);
 
   // Personal/authenticated pages must never be stored by any cache (S-06).
-  const privatePrefixes = ["/account", "/login", "/checkout", "/cart"];
+  const privatePrefixes = ["/account", "/login", "/checkout", "/cart", "/seller"];
   if (privatePrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
     response.headers.set("Cache-Control", NO_STORE);
     response.headers.set("Vary", "Cookie");

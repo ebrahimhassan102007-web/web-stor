@@ -128,7 +128,20 @@ test("fulfillment vault reveal is owner-only, decrypts on demand once, and store
       productId: product.id, orderItemId: item.id, codeIndex: 1,
       ciphertext: envelope.ciphertext, iv: envelope.iv, authTag: envelope.authTag, keyId: envelope.keyId,
     });
-    const decrypt = (row: { keyId: string; ciphertext: string; iv: string; authTag: string }) => decryptAes256Gcm(row, key, "evora-fulfillment");
+    // S-26 widened the row shape (nullable payload fields for shredded rows,
+    // plus the v2 envelope columns); legacy v1 rows still decrypt exactly the
+    // same way.
+    const decrypt = (row: {
+      keyId: string;
+      ciphertext: string | null;
+      iv: string | null;
+      authTag: string | null;
+    }) =>
+      decryptAes256Gcm(
+        { keyId: row.keyId, ciphertext: row.ciphertext ?? "", iv: row.iv ?? "", authTag: row.authTag ?? "" },
+        key,
+        "evora-fulfillment",
+      );
     const denied = await database.transaction((tx) => revealOrderCodesInTransaction(tx, order.id, otherUser.id, decrypt));
     assert.deepEqual(denied, [], "a different authenticated user cannot reveal another owner's code");
     const codes = await database.transaction((tx) => revealOrderCodesInTransaction(tx, order.id, owner.id, decrypt));

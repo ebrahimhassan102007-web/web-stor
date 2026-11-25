@@ -55,7 +55,7 @@ const db: NodePgDatabase<typeof schema> | null = pool
 async function resetDatabase(): Promise<void> {
   assert.ok(pool);
   await pool.query(
-    "TRUNCATE TABLE fulfillment_vault, order_items, promo_redemptions, wallet_ledger, orders, promo_codes, wallet_accounts, security_threat_events, security_bans, cart_items, carts, products, categories RESTART IDENTITY CASCADE",
+    "TRUNCATE TABLE fulfillment_vault, order_disputes, order_items, promo_redemptions, wallet_ledger, orders, promo_codes, wallet_accounts, security_threat_events, security_bans, seller_application_events, marketplace_audit_events, seller_profiles, cart_items, carts, products, categories RESTART IDENTITY CASCADE",
   );
 }
 
@@ -85,6 +85,7 @@ test("the clean PostgreSQL schema includes storefront and authentication tables"
       "fulfillment_vault",
       "google_oauth_states",
       "marketplace_audit_events",
+      "order_disputes",
       "order_items",
       "orders",
       "password_reset_tokens",

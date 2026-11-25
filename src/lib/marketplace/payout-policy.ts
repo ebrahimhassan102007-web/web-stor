@@ -9,6 +9,8 @@
  * `paid`).
  */
 
+import { PLATFORM_COMMISSION_BPS, calculateLineCommission } from "./commission";
+
 export const PAYOUT_STATUSES = [
   "requested",
   "under_review",
@@ -100,7 +102,11 @@ export type PayoutRefusalCode =
   | "INVALID_AMOUNT"
   | "INSUFFICIENT_AVAILABLE_BALANCE"
   | "OPEN_REQUEST_EXISTS"
-  | "UNSUPPORTED_METHOD";
+  | "UNSUPPORTED_METHOD"
+  /** Permanent block stamped by an owner-approved dispute refund (S-26). */
+  | "PAYOUT_BLOCKED"
+  /** Funds frozen because a buyer dispute is open (S-26). */
+  | "ESCROW_HOLD_ACTIVE";
 
 /** Upper bound on a single request, in integer minor units (defensive). */
 export const MAX_PAYOUT_CENTS = 100_000_000;
@@ -116,6 +122,13 @@ export type PayoutEligibilityInput = {
   hasOpenRequest: boolean;
   /** False until a verified payment provider exists (D-05). */
   payoutsEnabled: boolean;
+  /**
+   * Seller entitlement frozen by open buyer disputes (S-26). Escrow-held funds
+   * are excluded from what may be requested, exactly like reserved funds.
+   */
+  escrowHeldCents?: number;
+  /** Permanent block after an owner-approved dispute refund (S-26). */
+  payoutBlocked?: boolean;
 };
 
 export type PayoutEligibility =
@@ -126,8 +139,15 @@ export function evaluatePayoutRequest(input: PayoutEligibilityInput): PayoutElig
   if (input.sellerStatus !== "approved") {
     return { allowed: false, code: "SELLER_NOT_APPROVED" };
   }
+  if (input.payoutBlocked) {
+    return { allowed: false, code: "PAYOUT_BLOCKED" };
+  }
   if (!input.payoutsEnabled) {
     return { allowed: false, code: "PAYOUTS_DISABLED_DEMO" };
+  }
+  const escrowHeldCents = input.escrowHeldCents ?? 0;
+  if (!Number.isSafeInteger(escrowHeldCents) || escrowHeldCents < 0) {
+    return { allowed: false, code: "INVALID_AMOUNT" };
   }
   if (
     !Number.isSafeInteger(input.amountCents) ||
@@ -145,8 +165,13 @@ export function evaluatePayoutRequest(input: PayoutEligibilityInput): PayoutElig
   if (input.hasOpenRequest) {
     return { allowed: false, code: "OPEN_REQUEST_EXISTS" };
   }
-  if (input.amountCents > input.availableCents - input.reservedCents) {
-    return { allowed: false, code: "INSUFFICIENT_AVAILABLE_BALANCE" };
+  const requestableCents = input.availableCents - input.reservedCents - escrowHeldCents;
+  if (input.amountCents > requestableCents) {
+    // Distinguish "a dispute is holding your money" from "you never earned it".
+    return {
+      allowed: false,
+      code: requestableCents >= 0 && escrowHeldCents > 0 ? "ESCROW_HOLD_ACTIVE" : "INSUFFICIENT_AVAILABLE_BALANCE",
+    };
   }
   return { allowed: true, amountCents: input.amountCents, method: input.method };
 }
@@ -177,4 +202,108 @@ export const PAYOUT_REFUSAL_COPY: Readonly<Record<PayoutRefusalCode, { en: strin
     en: "Choose one of the supported payout methods.",
     ar: "اختر طريقة سحب مدعومة.",
   },
+  PAYOUT_BLOCKED: {
+    en: "Payouts for this seller are permanently blocked after a refunded dispute.",
+    ar: "السحب موقوف نهائياً لهذا التاجر بعد استرداد مبلغ نزاع.",
+  },
+  ESCROW_HOLD_ACTIVE: {
+    en: "Some of this balance is held in escrow while a buyer dispute is open.",
+    ar: "جزء من الرصيد محتجز في الضمان لأن هناك نزاعاً مفتوحاً من المشتري.",
+  },
 };
+
+/* ------------------------------------------------------------------ */
+/* Escrow-aware seller balances (S-26)                                 */
+/* ------------------------------------------------------------------ */
+
+export const SELLER_PAYOUT_ELIGIBLE_ORDER_STATUSES = ["paid", "fulfilled", "completed"] as const;
+/** Refunded/cancelled orders are excluded outright — the money went back. */
+export const SELLER_PAYOUT_EXCLUDED_ORDER_STATUSES = ["cancelled", "refunded"] as const;
+
+export type SellerPayoutOrder = {
+  orderId: string;
+  /** `orders.status` as stored, never a client value. */
+  orderStatus: string;
+  /** Trusted unit price in integer minor units read from the order line. */
+  unitPriceCents: number;
+  quantity: number;
+  currency: string;
+  /** True while an `open` dispute exists for this order. */
+  openDispute: boolean;
+  /** Platform-owned lines book no commission against E-Vora itself (D-11). */
+  platformOwned?: boolean;
+};
+
+export type SellerPayoutLedger = {
+  /** Gross merchandise value of non-refunded orders. */
+  grossSalesCents: number;
+  commissionCents: number;
+  sellerEntitlementCents: number;
+  /** Entitlement frozen by an open dispute. */
+  escrowHeldCents: number;
+  /** Entitlement that may be requested right now. */
+  payoutEligibleCents: number;
+  escrowOrderCount: number;
+  excludedOrderCount: number;
+  currency: string;
+};
+
+/**
+ * Derive the seller's money view from trusted order lines.
+ *
+ * A dispute freezes the order's entitlement **immediately** — the seller's
+ * payout-eligible balance drops the moment a buyer opens a dispute, without
+ * waiting for an owner action. A refunded/cancelled order contributes to
+ * neither side.
+ */
+export function sellerPayoutLedger(orders: readonly SellerPayoutOrder[]): SellerPayoutLedger {
+  const ledger: SellerPayoutLedger = {
+    grossSalesCents: 0,
+    commissionCents: 0,
+    sellerEntitlementCents: 0,
+    escrowHeldCents: 0,
+    payoutEligibleCents: 0,
+    escrowOrderCount: 0,
+    excludedOrderCount: 0,
+    currency: "USD",
+  };
+  if (orders.length === 0) return ledger;
+
+  const currency = orders[0]!.currency;
+  if (!/^[A-Z]{3}$/.test(currency)) throw new Error("INVALID_CURRENCY");
+  ledger.currency = currency;
+
+  for (const order of orders) {
+    if ((SELLER_PAYOUT_EXCLUDED_ORDER_STATUSES as readonly string[]).includes(order.orderStatus)) {
+      ledger.excludedOrderCount += 1;
+      continue;
+    }
+    if (!(SELLER_PAYOUT_ELIGIBLE_ORDER_STATUSES as readonly string[]).includes(order.orderStatus)) {
+      ledger.excludedOrderCount += 1;
+      continue;
+    }
+    if (order.currency !== currency) throw new Error("INVALID_CURRENCY");
+
+    const snapshot = calculateLineCommission({
+      unitPriceCents: order.unitPriceCents,
+      quantity: order.quantity,
+      currency: order.currency,
+      rateBps: order.platformOwned ? 0 : PLATFORM_COMMISSION_BPS,
+    });
+
+    ledger.grossSalesCents += snapshot.grossCents;
+    ledger.commissionCents += snapshot.commissionCents;
+    ledger.sellerEntitlementCents += snapshot.sellerEntitlementCents;
+    if (order.openDispute) {
+      ledger.escrowHeldCents += snapshot.sellerEntitlementCents;
+      ledger.escrowOrderCount += 1;
+    } else {
+      ledger.payoutEligibleCents += snapshot.sellerEntitlementCents;
+    }
+  }
+
+  if (ledger.escrowHeldCents + ledger.payoutEligibleCents !== ledger.sellerEntitlementCents) {
+    throw new Error("ESCROW_INVARIANT_VIOLATED");
+  }
+  return ledger;
+}
