@@ -99,8 +99,33 @@ export function validateEnv(env: EnvLike = process.env): string[] {
   return errors;
 }
 
-/** Throw with every problem listed (used by the startup hook). */
+/**
+ * True only inside `next build`.
+ *
+ * Next.js sets `NEXT_PHASE=phase-production-build` for the build worker, which
+ * may evaluate route modules while collecting page data. A *build* is not a
+ * *deployment*: on Vercel the build runs before runtime secrets are guaranteed
+ * to be injected, and a throw here would turn a perfectly deployable commit
+ * into a failed build.
+ */
+export function isBuildPhase(env: EnvLike = process.env): boolean {
+  return env.NEXT_PHASE === "phase-production-build";
+}
+
+/**
+ * Throw with every problem listed (used by the startup hook).
+ *
+ * Strict validation is deliberately deferred from build to **server start**:
+ *  - during `next build` this is a no-op, so no page/route module evaluated for
+ *    prerendering can crash the build over a runtime-only secret;
+ *  - at runtime (every serverless cold start, every `next start`) validation
+ *    still runs and still fails closed — there is no insecure fallback path.
+ *
+ * `validateEnv()` itself is unchanged and stays pure so the rules can be tested
+ * (and reported) independently of the phase.
+ */
 export function assertValidEnv(env: EnvLike = process.env): void {
+  if (isBuildPhase(env)) return;
   const errors = validateEnv(env);
   if (errors.length > 0) {
     throw new Error(`Invalid environment configuration:\n- ${errors.join("\n- ")}`);

@@ -11,8 +11,12 @@
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  // A build is not a deployment: `next build` (including Vercel's builder) may
+  // load this hook while collecting page data, before runtime secrets exist.
+  // The environment is validated at every server start instead.
+  const { assertValidEnv, isBuildPhase } = await import("./lib/env");
+  if (isBuildPhase()) return;
   // S-17: fail fast on invalid secrets/origin/partial provider config.
-  const { assertValidEnv } = await import("./lib/env");
   assertValidEnv();
   if (process.env.DATABASE_URL?.trim()) {
     const { assertDatabaseConfigured } = await import("./lib/db/config");

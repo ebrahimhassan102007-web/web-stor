@@ -226,3 +226,22 @@ Presentation/interaction wave on top of PR #27. Local verification only: no prod
 | Whitespace check | `git diff --check` | Exit 0. |
 | Playwright / e2e (browser) | — | **NOT RUN locally**: no browser binary in this sandbox and the download CDN is unreachable. `e2e/header.spec.ts` and `e2e/visual.spec.ts` run unchanged in CI. |
 | Real PostgreSQL / payment provider | — | **NOT RUN** here (no disposable `TEST_DATABASE_URL`); unchanged suites run in CI. |
+
+
+## Wave 6.1 — deployment hardening (S-28) — 2026-11-25 (`arena/6c9fed01-web-stor`)
+
+Diagnosis of the failed Preview deployments plus the repo-side hardening. No Vercel API token, no production system and no customer data was used. Runbook: `docs/deployment/VERCEL.md`.
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Failure timing (evidence) | `gh api .../commits/<sha>/statuses` × 40 commits | Every **failure = 1–3 s** (`b2859d0` 1 s, `08f8394` 1 s, `9b79b46` 1 s, `544658d` 1 s …); every **success = 20–35 s** (`1161e65` 39 s, `01579bc` 35 s, `c25a9db` 34 s, `8555d4b` 21 s). Failures are Preview-only; Production merges are all green. |
+| Author hypothesis | statuses × `commit.author.email` | **Refuted:** the automation identity (`e76beb8`, agent@arena.ai) succeeded, and the owner's `users.noreply.github.com` identity both succeeded (`8555d4b`) and failed (`544658d`). |
+| Vercel-only reproduction | `git archive HEAD` → `npm ci --include=dev` → `env -i … NODE_ENV=production VERCEL=1 VERCEL_ENV=preview npm run build` | **Exit 0 in 18 s**, full route table, no secrets in the environment. The repository builds under Vercel conditions. |
+| Install without devDependencies | `env -i … NODE_ENV=production npm install` then `next build` | **Fails in ~2.5 s** at the first CSS import (Tailwind/PostCSS/TypeScript are `devDependencies`) — the latent trap `vercel.json` now closes. |
+| Deployment guard rails | `npx tsx --test tests/vercel-deployment.test.ts` | **13/13 pass** (build-phase no-op vs runtime fail-closed, pure-rule parity, no fallback secrets, hook ordering, `vercel.json`, devDependency coverage, Node pin == CI, DB-free static routes, migration contract, secret-free runbook). |
+| Typecheck | `npm run typecheck` | Exit 0. |
+| Lint | `npm run lint` | Exit 0, no warnings. |
+| Full test suite | `npm test` | **218 tests: 212 passed, 0 failed, 6 skipped** (the six require a disposable `TEST_DATABASE_URL`). |
+| Production build | `npm run build` | Exit 0; route table unchanged (no new routes, `/admin` still absent). |
+| Whitespace check | `git diff --check` | Exit 0. |
+| Real Vercel dashboard / logs | — | **NOT RUN**: `api.vercel.com` is unreachable from this sandbox and no Vercel token is available, so `npx vercel inspect dpl_… --logs` cannot authenticate. The 7-step dashboard checklist in `docs/deployment/VERCEL.md` §4 remains for the owner. |
