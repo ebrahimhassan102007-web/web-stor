@@ -115,6 +115,7 @@ jobs:
           TOTP_ENCRYPTION_KEY_ID: ci-totp-key
           FULFILLMENT_ENCRYPTION_KEY: "2222222222222222222222222222222222222222222222222222222222222222"
           FULFILLMENT_ENCRYPTION_KEY_ID: ci-fulfillment-key
+          WALLET_TOPUP_WEBHOOK_SECRET: ci-only-wallet-topup-webhook-secret-that-is-at-least-32-characters
         run: |
           set +e
           npm run test:e2e > /tmp/evora-e2e.log 2>&1

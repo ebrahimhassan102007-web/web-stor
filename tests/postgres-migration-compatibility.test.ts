@@ -53,7 +53,7 @@ test(
 
       const freshUrl = databaseUrl(target.connectionString, freshName);
       const fresh = await migratePostgres({ connectionString: freshUrl });
-      assert.equal(fresh.applied.length, 8);
+      assert.equal(fresh.applied.length, 9);
       const freshAgain = await migratePostgres({ connectionString: freshUrl });
       assert.equal(freshAgain.operations.every((operation) => operation.action === "unchanged"), true);
 
@@ -125,6 +125,7 @@ test(
         "0005_password_reset_tokens",
         "0006_totp_two_factor",
       "0007_encrypted_fulfillment_vault",
+      "0008_wallet_ledger_and_promos",
       ]);
 
       const upgradedClient = new Client({ connectionString: legacyUrl });

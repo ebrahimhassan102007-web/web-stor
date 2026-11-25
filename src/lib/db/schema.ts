@@ -139,6 +139,8 @@ export const orders = pgTable(
     orderNumber: varchar("order_number", { length: 32 }).notNull(),
     /** HMAC-scoped checkout request key digest; raw client keys are never stored. */
     idempotencyKey: varchar("idempotency_key", { length: 64 }),
+    promoCodeId: integer("promo_code_id").references(() => promoCodes.id, { onDelete: "set null" }),
+    discountCents: integer("discount_cents").notNull().default(0),
     status: varchar("status", { length: 24 }).notNull().default("confirmed"),
     customerName: varchar("customer_name", { length: 128 }).notNull(),
     email: varchar("email", { length: 254 }).notNull(),
@@ -159,6 +161,7 @@ export const orders = pgTable(
   },
   (t) => [
     uniqueIndex("orders_number_idx").on(t.orderNumber),
+    index("orders_promo_code_idx").on(t.promoCodeId),
     uniqueIndex("orders_idempotency_key_idx").on(t.idempotencyKey),
     index("orders_email_idx").on(t.email),
     index("orders_user_idx").on(t.userId),
@@ -166,7 +169,8 @@ export const orders = pgTable(
       "orders_status_known",
       sql`${t.status} IN ('confirmed','paid','completed','cancelled','fulfilled','pending','demo-unpaid')`,
     ),
-    check("orders_totals_nonnegative", sql`${t.totalCents} >= 0 AND ${t.subtotalCents} >= 0`),
+    check("orders_totals_nonnegative", sql`${t.totalCents} >= 0 AND ${t.subtotalCents} >= 0 AND ${t.discountCents} >= 0`),
+    check("orders_discount_within_subtotal", sql`${t.discountCents} <= ${t.subtotalCents}`),
   ],
 );
 
@@ -227,6 +231,101 @@ export const fulfillmentVault = pgTable(
     uniqueIndex("fulfillment_vault_item_code_idx").on(t.orderItemId, t.codeIndex).where(sql`${t.orderItemId} IS NOT NULL`),
     check("fulfillment_vault_code_index_nonnegative", sql`${t.codeIndex} >= 0`),
     check("fulfillment_vault_reveal_count_nonnegative", sql`${t.revealCount} >= 0`),
+  ],
+);
+
+/** One USD wallet per authenticated customer; all changes are ledger-backed. */
+export const walletAccounts = pgTable(
+  "wallet_accounts",
+  {
+    userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+    balanceCents: integer("balance_cents").notNull().default(0),
+    currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check("wallet_accounts_balance_nonnegative", sql`${t.balanceCents} >= 0`),
+    check("wallet_accounts_currency_usd", sql`${t.currency} = 'USD'`),
+  ],
+);
+
+/** Append-only wallet movements. The signed direction and amount are explicit. */
+export const walletLedger = pgTable(
+  "wallet_ledger",
+  {
+    id: serial("id").primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    entryType: varchar("entry_type", { length: 16 }).notNull(),
+    direction: varchar("direction", { length: 6 }).notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    currency: varchar("currency", { length: 3 }).notNull(),
+    orderId: uuid("order_id").references(() => orders.id, { onDelete: "restrict" }),
+    idempotencyKey: varchar("idempotency_key", { length: 160 }).notNull(),
+    description: varchar("description", { length: 160 }).notNull().default(""),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("wallet_ledger_idempotency_idx").on(t.idempotencyKey),
+    index("wallet_ledger_user_created_idx").on(t.userId, t.createdAt),
+    index("wallet_ledger_order_idx").on(t.orderId),
+    check("wallet_ledger_amount_positive", sql`${t.amountCents} > 0`),
+    check("wallet_ledger_entry_type_known", sql`${t.entryType} IN ('credit_topup','debit_order','credit_refund','adjustment')`),
+    check("wallet_ledger_direction_known", sql`${t.direction} IN ('credit','debit')`),
+    check("wallet_ledger_currency_usd", sql`${t.currency} = 'USD'`),
+    check("wallet_ledger_type_direction", sql`(${t.entryType} = 'debit_order' AND ${t.direction} = 'debit') OR (${t.entryType} <> 'debit_order' AND ${t.direction} = 'credit')`),
+  ],
+);
+
+/** Normalized promo/coupon configuration. Values are bps or integer cents. */
+export const promoCodes = pgTable(
+  "promo_codes",
+  {
+    id: serial("id").primaryKey(),
+    code: varchar("code", { length: 32 }).notNull(),
+    description: varchar("description", { length: 160 }).notNull().default(""),
+    descriptionAr: varchar("description_ar", { length: 160 }).notNull().default(""),
+    discountType: varchar("discount_type", { length: 16 }).notNull(),
+    discountValue: integer("discount_value").notNull(),
+    minSubtotalCents: integer("min_subtotal_cents").notNull().default(0),
+    maxDiscountCents: integer("max_discount_cents"),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    maxRedemptions: integer("max_redemptions"),
+    perUserLimit: integer("per_user_limit").notNull().default(1),
+    isActive: boolean("is_active").notNull().default(false),
+    isPublic: boolean("is_public").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("promo_codes_code_idx").on(t.code),
+    index("promo_codes_public_active_idx").on(t.isPublic, t.isActive, t.startsAt),
+    check("promo_codes_code_normalized", sql`${t.code} = upper(btrim(${t.code}))`),
+    check("promo_codes_discount_type_known", sql`${t.discountType} IN ('percentage','fixed_cents')`),
+    check("promo_codes_discount_value_positive", sql`${t.discountValue} > 0`),
+    check("promo_codes_discount_bounds", sql`(${t.discountType} = 'percentage' AND ${t.discountValue} <= 10000) OR ${t.discountType} = 'fixed_cents'`),
+    check("promo_codes_amounts_nonnegative", sql`${t.minSubtotalCents} >= 0 AND (${t.maxDiscountCents} IS NULL OR ${t.maxDiscountCents} > 0)`),
+    check("promo_codes_limits_positive", sql`(${t.maxRedemptions} IS NULL OR ${t.maxRedemptions} > 0) AND ${t.perUserLimit} > 0`),
+    check("promo_codes_expiry_after_start", sql`${t.expiresAt} IS NULL OR ${t.expiresAt} > ${t.startsAt}`),
+  ],
+);
+
+export const promoRedemptions = pgTable(
+  "promo_redemptions",
+  {
+    id: serial("id").primaryKey(),
+    promoCodeId: integer("promo_code_id").notNull().references(() => promoCodes.id, { onDelete: "restrict" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    redeemerKey: varchar("redeemer_key", { length: 64 }).notNull(),
+    orderId: uuid("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+    discountCents: integer("discount_cents").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("promo_redemptions_order_idx").on(t.orderId),
+    index("promo_redemptions_user_idx").on(t.promoCodeId, t.userId),
+    index("promo_redemptions_key_idx").on(t.promoCodeId, t.redeemerKey),
+    check("promo_redemptions_discount_positive", sql`${t.discountCents} > 0`),
   ],
 );
 

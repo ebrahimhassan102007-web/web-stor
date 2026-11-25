@@ -55,7 +55,7 @@ const db: NodePgDatabase<typeof schema> | null = pool
 async function resetDatabase(): Promise<void> {
   assert.ok(pool);
   await pool.query(
-    "TRUNCATE TABLE fulfillment_vault, order_items, orders, cart_items, carts, products, categories RESTART IDENTITY CASCADE",
+    "TRUNCATE TABLE fulfillment_vault, order_items, promo_redemptions, wallet_ledger, orders, promo_codes, wallet_accounts, cart_items, carts, products, categories RESTART IDENTITY CASCADE",
   );
 }
 
@@ -90,12 +90,16 @@ test("the clean PostgreSQL schema includes storefront and authentication tables"
       "password_reset_tokens",
       "pending_two_factor_challenges",
       "products",
+      "promo_codes",
+      "promo_redemptions",
       "security_audit_log",
       "seller_application_events",
       "seller_profiles",
       "totp_recovery_codes",
       "user_totp",
       "users",
+      "wallet_accounts",
+      "wallet_ledger",
     ],
   );
 
@@ -111,6 +115,15 @@ test("the clean PostgreSQL schema includes storefront and authentication tables"
     "fulfillment_vault_product_available_idx",
     "fulfillment_vault_order_item_idx",
     "orders_idempotency_key_idx",
+    "orders_promo_code_idx",
+    "wallet_ledger_idempotency_idx",
+    "wallet_ledger_user_created_idx",
+    "wallet_ledger_order_idx",
+    "promo_codes_code_idx",
+    "promo_redemptions_order_idx",
+    "promo_redemptions_user_idx",
+    "promo_redemptions_key_idx",
+    "promo_codes_public_active_idx",
     "google_oauth_states_expiry_idx",
     "orders_number_idx",
     "products_slug_idx",
