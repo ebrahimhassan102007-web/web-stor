@@ -316,6 +316,63 @@ export async function getFilteredProducts(rawFilters: ProductFilters) {
   }
 }
 
+/**
+ * Compact, public search index for the header omnibox (Wave 6).
+ *
+ * One small payload — products (name in both languages, price, category) and
+ * categories (name, icon, count). Everything the omnibox shows is public
+ * storefront data: no seller identity, no stock secrets, no pricing rules.
+ * The client filters this list locally, so typing never hits the network.
+ */
+export type OmniboxIndex = {
+  products: {
+    slug: string;
+    name: string;
+    nameAr: string;
+    icon: string;
+    priceCents: number;
+    categoryName: string;
+    categoryNameAr: string;
+    categorySlug: string;
+    inputType: string;
+  }[];
+  categories: {
+    slug: string;
+    name: string;
+    nameAr: string;
+    icon: string;
+    productCount: number;
+  }[];
+};
+
+export async function getOmniboxIndex(): Promise<OmniboxIndex> {
+  const [categoriesWithCounts, { rows }] = await Promise.all([
+    getCategoriesWithCounts(),
+    getFilteredProducts({ sort: "newest" }),
+  ]);
+
+  return {
+    products: rows.slice(0, 60).map(({ product, categoryName, categoryNameAr, categorySlug }) => ({
+      slug: product.slug,
+      name: product.name,
+      nameAr: product.nameAr,
+      icon: product.icon,
+      priceCents: product.priceCents,
+      categoryName,
+      categoryNameAr,
+      categorySlug,
+      inputType: product.inputType,
+    })),
+    categories: categoriesWithCounts.map((category) => ({
+      slug: category.slug,
+      name: category.name,
+      nameAr: category.nameAr,
+      icon: category.icon,
+      productCount: category.productCount,
+    })),
+  };
+}
+
 export async function getProductBySlug(rawSlug: string) {
   const parsed = slugSchema.safeParse(rawSlug);
   if (!parsed.success) return null;

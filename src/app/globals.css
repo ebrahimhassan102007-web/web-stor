@@ -1219,3 +1219,315 @@ html[lang="en"] .tracking-luxe {
   from { transform: translateX(-100%); }
   to { transform: translateX(0); }
 }
+
+/* ==================================================================== */
+/* Wave 6 — command storefront, dashboards and the 60fps motion system  */
+/*                                                                      */
+/* Rules of engagement:                                                 */
+/*  • only `opacity` + `transform` are animated (compositor only, no     */
+/*    layout, no paint of the text layer) — 60fps on a mid-range phone;  */
+/*  • no animation library, no CDN asset, no inline <style>: everything  */
+/*    is a class here, so the nonce CSP keeps zero `unsafe-inline`;      */
+/*  • logical properties only (`inset-inline`, `padding-inline`,         */
+/*    `border-inline-start`, `margin-inline`) so RTL is free;            */
+/*  • every non-essential motion is switched off under                    */
+/*    `prefers-reduced-motion: reduce` (see the block at the end).       */
+/* ==================================================================== */
+
+:root {
+  --ease-out-luxe: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 140ms;
+  --dur-base: 240ms;
+  --dur-slow: 420ms;
+}
+
+/* --- Entrance choreography ------------------------------------------ */
+@keyframes evora-fade-slide-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes evora-fade-scale-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+/* `.stagger` animates its direct children in sequence using `--i`
+   (set inline by the caller, 0..n) — no timers, no observer needed. */
+@utility stagger {
+  & > * {
+    animation: evora-fade-slide-up var(--dur-slow) var(--ease-out-luxe) both;
+    animation-delay: calc(var(--i, 0) * 55ms);
+  }
+}
+
+@utility enter-up {
+  animation: evora-fade-slide-up var(--dur-slow) var(--ease-out-luxe) both;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+@utility enter-pop {
+  animation: evora-fade-scale-in var(--dur-base) var(--ease-out-luxe) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+/* --- Tactile surface physics ---------------------------------------- */
+/* Crisp -2px hover lift with a champagne edge and a soft inner sheen. */
+@utility tactile {
+  transition:
+    transform var(--dur-base) var(--ease-out-luxe),
+    border-color var(--dur-base) ease,
+    box-shadow var(--dur-base) ease,
+    background-color var(--dur-base) ease;
+
+  &:hover {
+    transform: translate3d(0, -2px, 0);
+    border-color: color-mix(in srgb, var(--champagne) 34%, var(--border-subtle));
+    box-shadow: var(--elev-hover);
+  }
+
+  &:active {
+    transform: translate3d(0, 0, 0) scale(0.985);
+    transition-duration: 90ms;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Border luminescence that sweeps once on hover (GPU only). */
+@utility sheen-edge {
+  position: relative;
+  isolation: isolate;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      120deg,
+      transparent 20%,
+      color-mix(in srgb, var(--champagne) 55%, transparent) 50%,
+      transparent 80%
+    );
+    background-size: 220% 220%;
+    background-position: 130% 0;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  &:hover::after,
+  &:focus-within::after {
+    opacity: 1;
+    animation: evora-edge-sweep 900ms var(--ease-out-luxe);
+  }
+}
+
+@keyframes evora-edge-sweep {
+  from { background-position: 130% 0; }
+  to { background-position: -30% 0; }
+}
+
+/* --- Cart badge micro-feedback -------------------------------------- */
+@keyframes evora-badge-pop {
+  0% { transform: scale(0.72); }
+  55% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+.badge-pop {
+  animation: evora-badge-pop 380ms var(--ease-out-luxe);
+}
+
+/* --- Vault unsealing ------------------------------------------------ */
+/* A one-shot reveal: the sealed plate wipes away and the code rises. */
+@keyframes evora-vault-unseal {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0) scale(0.98);
+    filter: blur(2px);
+  }
+  60% {
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes evora-vault-scan {
+  from { transform: translate3d(0, -120%, 0); }
+  to { transform: translate3d(0, 320%, 0); }
+}
+
+.vault-unseal {
+  animation: evora-vault-unseal 420ms var(--ease-out-luxe) both;
+}
+
+.vault-scanline::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 32%;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--champagne) 22%, transparent),
+    transparent
+  );
+  animation: evora-vault-scan 1.6s linear infinite;
+  pointer-events: none;
+}
+
+/* --- Panels, rails and dense dashboard surfaces --------------------- */
+@utility command-panel {
+  position: relative;
+  border-radius: 1.25rem;
+  border: 1px solid var(--glass-border);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 94%, transparent), color-mix(in srgb, var(--bg-base) 88%, transparent));
+  box-shadow: var(--card-shadow);
+}
+
+@utility kpi-tile {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid var(--border-subtle);
+  background:
+    radial-gradient(120% 120% at 100% 0%, color-mix(in srgb, var(--champagne) 8%, transparent), transparent 55%),
+    color-mix(in srgb, var(--bg-card) 90%, transparent);
+  padding: 1rem 1.05rem;
+
+  & strong {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* Horizontally scrollable rail with a hidden scrollbar (sm and up only —
+   on phones the same destinations live in the navigation drawer so the
+   320px viewport never overflows). */
+@utility rail-scroll {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  & > * {
+    flex: 0 0 auto;
+  }
+}
+
+/* --- Responsive container + tap targets ----------------------------- */
+@utility shell {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 80rem; /* 1280px — the honest max-w-7xl reading */
+  padding-inline: 1rem;
+
+  @media (min-width: 640px) {
+    padding-inline: 1.5rem;
+  }
+
+  @media (min-width: 1536px) {
+    max-width: 88rem; /* 1408px: wide monitors keep dense, not stretched */
+  }
+}
+
+/* 44×44 minimum touch target, expressed with logical padding. */
+@utility tap {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Phones must never scroll sideways. `clip` (not `hidden`) keeps
+   `position: sticky` working for the header. */
+@media (max-width: 639px) {
+  html {
+    overflow-x: clip;
+  }
+}
+
+/* --- Arabic typography law ------------------------------------------ */
+/* Connected Arabic script must never be tracked out: positive
+   letter-spacing shreds the joins. Any tracking utility is neutralised
+   under RTL, in both themes. */
+[dir="rtl"] :is(.eyebrow, .tracking-luxe, .badge-champagne, .badge-neutral, .badge-green, .badge-red) {
+  letter-spacing: normal !important;
+}
+
+[dir="rtl"] .rail-scroll > * {
+  letter-spacing: normal;
+}
+
+/* Numbers inside Arabic sentences stay LTR-ordered and legible. */
+[dir="rtl"] .tabular-nums {
+  font-feature-settings: "tnum" 1;
+}
+
+/* --- Accessibility: reduced motion ---------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .stagger > *,
+  .enter-up,
+  .enter-pop,
+  .vault-unseal,
+  .badge-pop {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  .vault-scanline::before {
+    display: none;
+  }
+
+  .tactile,
+  .sheen-edge {
+    transition: none !important;
+  }
+
+  .tactile:hover,
+  .tactile:active {
+    transform: none !important;
+  }
+
+  .sheen-edge:hover::after,
+  .sheen-edge:focus-within::after {
+    animation: none !important;
+  }
+}

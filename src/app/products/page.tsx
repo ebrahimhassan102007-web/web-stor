@@ -47,7 +47,7 @@ export default async function ProductsPage(props: {
   const activeCategory = categories.find((c) => c.slug === applied.category);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+    <div className="shell py-8 sm:py-10">
       <div className="mb-8">
         <p className="eyebrow mb-3">{t.nav.products} · E‑VORA</p>
         <h1 className="title-luxe text-3xl sm:text-4xl">
@@ -95,7 +95,7 @@ export default async function ProductsPage(props: {
           <p className="mt-1 text-sm text-muted">{t.products.emptyText}</p>
         </div>
       ) : (
-        <div className="mt-8 grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 sm:gap-5">
           {rows.map(({ product, categoryName, categoryNameAr }, index) => (
             <Reveal key={product.id} delay={Math.min(index, 8) * 55} className="h-full">
               <ProductCard

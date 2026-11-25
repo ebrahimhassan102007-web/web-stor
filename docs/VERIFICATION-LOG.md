@@ -206,3 +206,23 @@ Local-only verification of `docs/security/S-26.md`. No production database, paym
 | Live: central guard | `POST /api/seller/apply` without Origin | **403** `REQUEST_REJECTED`. |
 | Whitespace check | `git diff --check` | Exit 0. |
 | Real PostgreSQL / browser / payment provider | — | **NOT RUN.** No disposable PostgreSQL URL beyond PGlite, no browser run, and no provider credentials in this environment; the equivalent integration and Playwright checks execute in CI. |
+
+## Wave 6 — Amazon-plus storefront, Seller Central & Account Command dashboards — 2026-11-25 (`arena/2600e3ef-web-stor`)
+
+Presentation/interaction wave on top of PR #27. Local verification only: no production database, payment provider, SMTP server or OAuth provider was contacted. Design notes and trade-offs: `docs/design/W-6-amazon-plus-ui.md`.
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Wave-6 guard rails | `npx tsx --test tests/wave6.test.ts` | **12/12 pass.** The header's e2e contract (7 testids, portal, scroll lock, exactly 15 drawer destinations), the omnibox contract (single fetch, client filtering, 4 keys, combobox/listbox/option ARIA, `/` + ⌘K, typing guard, portal), `/admin` absence + proxy 404/private, `/seller` in `privatePrefixes`, no client-supplied seller scope, CSS-only motion with compositor-only keyframes and a complete reduced-motion block, the English-only tracking grant + RTL revocation, phone `overflow-x: clip` + 44px `tap`, the four responsive steps, zero animation/CDN dependencies, and Arabic/English key parity for all eight new namespaces. |
+| Typecheck | `npm run typecheck` | Exit 0. |
+| Lint | `npm run lint` | Exit 0, no warnings. |
+| Full test suite | `npm test` | **205 tests: 199 passed, 0 failed, 6 skipped** (the six require a disposable `TEST_DATABASE_URL`). All 193 pre-existing assertions still pass untouched. |
+| Production build | `npm run build` | Exit 0 on Next.js 16.4.6. Route table adds exactly one handler — `GET /api/catalog/omnibox` — and `/admin` is still absent. |
+| Header scan (production build) | `node scripts/scan-headers.mjs http://localhost:3100` | **ALL HEADER CHECKS PASSED** on `/`, `/login`, `/account`, `/products` (nonce CSP, `strict-dynamic`, `frame-ancestors 'none'`, no `unsafe-inline`, `private, no-store` on private pages). |
+| Live: admin elimination | `curl /admin`, `/admin/users` | **404**, `private, no-store, no-cache, must-revalidate`, empty body. |
+| Live: merchant portal privacy | `curl /seller`, `/api/seller/summary` | `/seller` → **307** to `/login?next=%2Fseller`, `private, no-store`; `/api/seller/summary` → **401**, `private, no-store`. |
+| Live: rendered markup (dev server, preview catalogue) | `curl /`, `/products` | **200.** Homepage contains the omnibox trigger, the ecosystem rail, the bento hero, the trust bar and both merchandising rows; product tiles carry the verified/official badge and the instant-delivery ribbon. |
+| Compiled CSS spot-check | `grep` in `.next/static/chunks/*.css` | `.shell` (with its 640/1536px steps), `.rail-scroll`, `.stagger > *`, `.kpi-tile`, `.tactile`, `@media (max-width:639px){html{overflow-x:clip}}` and the Wave-6 reduced-motion block are all emitted. |
+| Whitespace check | `git diff --check` | Exit 0. |
+| Playwright / e2e (browser) | — | **NOT RUN locally**: no browser binary in this sandbox and the download CDN is unreachable. `e2e/header.spec.ts` and `e2e/visual.spec.ts` run unchanged in CI. |
+| Real PostgreSQL / payment provider | — | **NOT RUN** here (no disposable `TEST_DATABASE_URL`); unchanged suites run in CI. |

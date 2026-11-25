@@ -11,11 +11,12 @@
  * No `server-only` marker and no database singleton: callers pass their
  * database/transaction, which keeps the BOLA behaviour testable on PGlite.
  */
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "../db/schema";
 import {
   categories,
+  fulfillmentVault,
   marketplaceAuditEvents,
   orderDisputes,
   orderItems,
@@ -333,4 +334,30 @@ export async function countSellerProducts(
     .from(products)
     .where(eq(products.sellerId, sellerId));
   return { products: row?.products ?? 0, live: row?.live ?? 0 };
+}
+
+/**
+ * Active sealed vault codes for this seller's catalogue (S-27 dashboard).
+ *
+ * Counts only unallocated, unshredded envelopes belonging to the seller's own
+ * products — never a code value, a digest, a buyer or a ciphertext. The number
+ * is what the "active vault stock" KPI shows; it is a scalar, so there is no
+ * cross-tenant leak even in aggregate.
+ */
+export async function countSellerVaultStock(
+  database: SellerStoreDatabase,
+  sellerId: string,
+): Promise<number> {
+  const [row] = await database
+    .select({ code: sql<number>`count(*)::int` })
+    .from(fulfillmentVault)
+    .innerJoin(products, eq(fulfillmentVault.productId, products.id))
+    .where(
+      and(
+        eq(products.sellerId, sellerId),
+        isNull(fulfillmentVault.orderItemId),
+        isNull(fulfillmentVault.shreddedAt),
+      ),
+    );
+  return row?.code ?? 0;
 }
