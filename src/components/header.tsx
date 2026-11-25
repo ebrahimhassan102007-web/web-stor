@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { useCart } from "./cart-provider";
 import { useI18n } from "./locale-provider";
 import { LanguageToggle, ThemeToggle } from "./preference-toggles";
+import { Omnibox } from "./omnibox";
 import { fill, type Theme } from "@/lib/i18n/dictionary";
 import {
   formatDemoUsd,
@@ -170,15 +171,18 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
     { href: "/about", label: isArabic ? "عن E‑Vora" : "About E‑Vora", icon: "ⓘ" },
   ] as const;
 
-  // Primary links surfaced inline on large screens. They mirror entries that
-  // already exist in the drawer — no new destination, just a shorter path to
-  // the five most useful ones.
-  const primaryNav = [
-    { href: "/products", label: t.nav.products },
-    { href: "/offers", label: isArabic ? "العروض" : "Offers" },
-    { href: "/products?category=game-topups", label: isArabic ? "شحن الألعاب" : "Game top-ups" },
-    { href: "/products?category=subscriptions", label: isArabic ? "الاشتراكات" : "Subscriptions" },
-    { href: "/faq", label: isArabic ? "المساعدة" : "Help" },
+  // Tier 2 — the ecosystem sub-rail. Same destinations as the drawer, but one
+  // thumb-reachable hop from any page. Hidden below `sm`: on a 320px phone a
+  // second row would crowd the sticky header, and e2e/header.spec.ts guards
+  // zero horizontal overflow there, so phones use the drawer instead.
+  const rail = [
+    { href: "/products?category=game-topups", label: t.rail.topups, icon: "⚡" },
+    { href: "/products?category=software-keys", label: t.rail.ai, icon: "⌘" },
+    { href: "/products?category=gift-cards", label: t.rail.gift, icon: "🎁" },
+    { href: "/products?category=subscriptions", label: t.rail.subs, icon: "✦" },
+    { href: "/offers", label: t.rail.deals, icon: "🏷️" },
+    { href: "/support-bot", label: t.rail.support, icon: "🤖" },
+    { href: "/seller", label: t.rail.seller, icon: "◈" },
   ] as const;
 
   const closeLabel = isArabic ? "إغلاق القائمة" : "Close menu";
@@ -208,7 +212,7 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
         dir={isArabic ? "rtl" : "ltr"}
         className="drawer-panel fixed inset-y-0 end-0 z-[70] flex w-[min(88vw,24rem)] flex-col border-s border-edge shadow-[0_0_80px_-20px_rgba(0,0,0,0.9)]"
       >
-        <div className="flex items-center justify-between gap-3 border-b border-edge px-5 py-5">
+        <div className="flex items-center justify-between gap-3 border-b border-edge px-5 py-5" data-drawer-head>
           <div>
             <p className="text-lg font-bold">{menuTitle}</p>
             <p className="mt-1 text-xs text-muted">{isArabic ? "كل اللي تحتاجه، من غير زحمة." : "Everything you need, without the clutter."}</p>
@@ -216,6 +220,13 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
           <button type="button" aria-label={closeLabel} onClick={close} className="btn-icon h-11 w-11 shrink-0 text-muted">
             <span aria-hidden="true">✕</span>
           </button>
+        </div>
+
+        {/* Appearance + language live here on phones (the header keeps them
+            from `sm` up so the 320px row never overflows). */}
+        <div className="flex items-center justify-between gap-3 border-b border-edge px-4 py-2.5 sm:hidden">
+          <LanguageToggle />
+          <ThemeToggle initialTheme={initialTheme} />
         </div>
 
         <nav aria-label={menuTitle} className="flex-1 space-y-1 overflow-y-auto p-3">
@@ -262,7 +273,10 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
         data-scrolled={scrolled ? "true" : "false"}
         className="site-header sticky top-0 z-50 border-b border-edge/80 bg-canvas/60 backdrop-blur-2xl supports-[backdrop-filter]:bg-canvas/45"
       >
-        <div className="mx-auto flex h-[4.25rem] max-w-7xl items-center justify-between gap-1 px-3 sm:gap-4 sm:px-6">
+        {/* ------------------------------------------------------------ */}
+        {/* Tier 1 — primary command bar                                 */}
+        {/* ------------------------------------------------------------ */}
+        <div className="mx-auto flex h-[4.25rem] max-w-7xl items-center gap-1.5 px-3 sm:gap-3 sm:px-6">
           <Link href="/" aria-label="E-Vora" className="group flex shrink-0 items-center gap-2.5">
             <span className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-dim text-lg font-black text-white shadow-[0_10px_24px_-14px_rgba(239,68,68,0.9)] transition-transform duration-300 group-hover:scale-[1.04]">
               <span aria-hidden="true" className="absolute inset-0 rounded-xl ring-1 ring-inset ring-white/20" />
@@ -273,32 +287,31 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
             </span>
           </Link>
 
-          <nav
-            aria-label={isArabic ? "التنقل الرئيسي" : "Primary"}
-            className="hidden min-w-0 items-center gap-0.5 lg:flex"
-          >
-            {primaryNav.map((item) => {
-              const active =
-                item.href === "/products"
-                  ? pathname === "/products" || pathname.startsWith("/products/")
-                  : pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  data-active={active ? "true" : undefined}
-                  className="nav-link text-sm font-medium"
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
+          {/* Instant omnibox: icon on phones, full field from md up. */}
+          <div className="ms-1 hidden min-w-0 flex-1 md:block">
+            <Omnibox variant="full" />
+          </div>
+          <div className="ms-auto md:hidden">
+            <Omnibox variant="compact" />
+          </div>
 
-          <div className="flex items-center gap-1 sm:gap-2">
-            <LanguageToggle />
-            <ThemeToggle initialTheme={initialTheme} />
+          <div className="flex shrink-0 items-center gap-1 sm:gap-1.5 md:ms-2">
+            {/* Appearance + language: from sm up (phones get them in the drawer). */}
+            <div className="hidden items-center gap-1 sm:flex">
+              <LanguageToggle />
+              <ThemeToggle initialTheme={initialTheme} />
+            </div>
+
+            <Link
+              href="/account"
+              aria-label={isArabic ? "مركز حسابك" : "Your account"}
+              data-testid="header-account"
+              className="tap hidden rounded-xl text-muted transition-colors hover:text-foreground sm:inline-flex"
+            >
+              <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a7.5 7.5 0 0 1 15 0" />
+              </svg>
+            </Link>
 
             {/* Wallet balance chip + add-funds "+" (P0-2). Amount is the same
                 honest demo zero shown on the wallet page; signed-out visitors
@@ -331,13 +344,18 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
             <Link
               href="/cart"
               aria-label={fill(t.nav.cartAria, { count })}
+              data-testid="header-cart"
               className="btn-icon relative h-10 w-10"
             >
               <svg aria-hidden="true" className="h-[1.2rem] w-[1.2rem]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h1.6c.5 0 .94.34 1.07.82l.4 1.48M7.5 14.5h10.7c1.1-2.3 2.08-4.68 2.9-7.1A60 60 0 0 0 4.6 5.6M7.5 14.5 6.07 5.3M7.5 14.5l-.7 2.5h12M9 20a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm9.5 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
               </svg>
               {count > 0 && (
-                <span className="absolute -end-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
+                <span
+                  key={count}
+                  data-cart-count={count}
+                  className={`absolute -end-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white badge-pop`}
+                >
                   {count > 99 ? "99+" : count}
                 </span>
               )}
@@ -359,6 +377,53 @@ export function Header({ initialTheme }: { initialTheme: Theme }) {
                   : <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />}
               </svg>
             </button>
+          </div>
+        </div>
+
+        {/* ------------------------------------------------------------ */}
+        {/* Tier 2 — category & ecosystem sub-rail (sm and up)           */}
+        {/* ------------------------------------------------------------ */}
+        <div className="hidden border-t border-edge/60 sm:block">
+          <div className="mx-auto max-w-7xl px-3 sm:px-6">
+            <nav aria-label={t.rail.label} className="rail-scroll py-1.5">
+              <Link
+                href="/products"
+                aria-current={pathname === "/products" ? "page" : undefined}
+                className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-colors duration-200 ${
+                  pathname === "/products"
+                    ? "bg-champagne/10 text-champagne"
+                    : "text-muted hover:bg-hover hover:text-foreground"
+                }`}
+              >
+                <span aria-hidden="true">▦</span>
+                {isArabic ? "كل المنتجات" : "All products"}
+              </Link>
+              <span aria-hidden="true" className="mx-1 h-4 w-px shrink-0 bg-edge" />
+              {rail.map((item) => {
+                const active = item.href === "/offers"
+                  ? pathname === "/offers"
+                  : item.href.startsWith("/seller")
+                    ? pathname.startsWith("/seller")
+                    : item.href.startsWith("/support-bot")
+                      ? pathname.startsWith("/support-bot")
+                      : false;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={active ? "page" : undefined}
+                    className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-colors duration-200 ${
+                      active
+                        ? "bg-champagne/10 text-champagne"
+                        : "text-muted hover:bg-hover hover:text-foreground"
+                    }`}
+                  >
+                    <span aria-hidden="true">{item.icon}</span>
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
           </div>
         </div>
       </header>

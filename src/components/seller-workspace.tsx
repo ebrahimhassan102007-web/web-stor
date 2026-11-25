@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/security/csrf-client";
 import { useI18n } from "@/components/locale-provider";
 import { formatCount } from "@/lib/seller-format";
+import { formatCents } from "@/lib/money";
 
 export type SellerProductView = {
   id: number;
@@ -23,17 +24,29 @@ type ApiBody = { ok?: boolean; error?: string; data?: Record<string, unknown> };
  * and publish/unpublish. Every call is refused with `403` by the server until
  * the merchant gate is complete, so the UI is convenience — never the control.
  */
+export type SellerPerformanceView = {
+  settledOrders: number;
+  grossCents: number;
+  commissionCents: number;
+  escrowCents: number;
+  eligibleCents: number;
+  vaultStock: number;
+};
+
 export function SellerWorkspace({
   products,
   categories,
+  performance,
   canPublish,
 }: {
   products: SellerProductView[];
   categories: SellerCategoryView[];
+  performance: SellerPerformanceView;
   canPublish: boolean;
 }) {
   const { locale, t } = useI18n();
   const router = useRouter();
+  const [tab, setTab] = useState<"listings" | "stock" | "performance">("listings");
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -151,8 +164,39 @@ export function SellerWorkspace({
     setBusy("");
   }
 
+  const tabs = [
+    { key: "listings" as const, label: t.sellerKpi.tabListings, icon: "▦" },
+    { key: "stock" as const, label: t.sellerKpi.tabStock, icon: "🔐" },
+    { key: "performance" as const, label: t.sellerKpi.tabPerformance, icon: "📈" },
+  ];
+
   return (
-    <div className="mt-6 space-y-6">
+    <div className="space-y-4">
+      {/* Tabbed workspace: one dense panel at a time instead of one endless form. */}
+      <div
+        role="tablist"
+        aria-label={t.sellerKpi.workspace}
+        className="rail-scroll gap-1 rounded-xl border border-edge bg-card/60 p-1"
+      >
+        {tabs.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            role="tab"
+            aria-selected={tab === item.key}
+            onClick={() => setTab(item.key)}
+            className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors duration-200 ${
+              tab === item.key
+                ? "bg-champagne/12 text-champagne"
+                : "text-muted hover:bg-hover hover:text-foreground"
+            }`}
+          >
+            <span aria-hidden="true">{item.icon}</span>
+            {item.label}
+          </button>
+        ))}
+      </div>
+
       {error && (
         <p role="alert" className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary">
           {error}
@@ -164,6 +208,8 @@ export function SellerWorkspace({
         </p>
       )}
 
+      {tab === "listings" && (
+      <>
       <section className="glass-card p-5 sm:p-6">
         <h2 className="text-lg font-bold">{t.seller.productsTitle}</h2>
         {products.length === 0 ? (
@@ -250,10 +296,16 @@ export function SellerWorkspace({
           </div>
         </form>
       </section>
+      </>
+      )}
 
+      {tab === "stock" && (
       <section className="glass-card p-5 sm:p-6">
         <h2 className="text-lg font-bold">{t.seller.stockTitle}</h2>
         <p className="mt-2 text-sm text-muted">{t.seller.stockHint}</p>
+        <p className="mt-2 rounded-xl border border-success/25 bg-success/[0.06] px-3 py-2 text-xs leading-6 text-muted">
+          <span aria-hidden="true">🔐</span> {t.sellerKpi.encryptionNote}
+        </p>
         <form onSubmit={importStock} className="mt-4 space-y-4" noValidate>
           <div>
             <label htmlFor="seller-stock-product" className="mb-1.5 block text-sm font-medium">
@@ -289,6 +341,37 @@ export function SellerWorkspace({
           </button>
         </form>
       </section>
+      )}
+
+      {tab === "performance" && (
+        <section className="glass-card p-5 sm:p-6">
+          <h2 className="text-lg font-bold">{t.sellerKpi.tabPerformance}</h2>
+          <dl className="mt-4 grid grid-cols-2 gap-2.5 lg:grid-cols-3">
+            {[
+              { label: t.sellerKpi.gross, value: performance.grossCents },
+              { label: t.sellerKpi.commission, value: performance.commissionCents },
+              { label: t.sellerKpi.escrow, value: performance.escrowCents },
+              { label: t.sellerKpi.eligible, value: performance.eligibleCents },
+            ].map((row) => (
+              <div key={row.label} className="kpi-tile">
+                <dt className="text-[0.68rem] font-semibold uppercase text-muted">{row.label}</dt>
+                <dd className="mt-1 text-base font-extrabold tabular-nums">
+                  {formatCents(row.value, locale)}
+                </dd>
+              </div>
+            ))}
+            <div className="kpi-tile">
+              <dt className="text-[0.68rem] font-semibold uppercase text-muted">{t.sellerKpi.vaultStock}</dt>
+              <dd className="mt-1 text-base font-extrabold tabular-nums">{formatCount(performance.vaultStock, locale)}</dd>
+            </div>
+            <div className="kpi-tile">
+              <dt className="text-[0.68rem] font-semibold uppercase text-muted">{t.seller.summaryTitle}</dt>
+              <dd className="mt-1 text-base font-extrabold tabular-nums">{formatCount(performance.settledOrders, locale)}</dd>
+            </div>
+          </dl>
+          {performance.grossCents === 0 && <p className="mt-3 text-xs text-muted">{t.seller.noSales}</p>}
+        </section>
+      )}
     </div>
   );
 }

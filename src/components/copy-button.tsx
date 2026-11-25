@@ -34,11 +34,11 @@ export function CopyButton({ code }: { code: string }) {
       onClick={copy}
       className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95 ${
         copied
-          ? "border-success/50 bg-success/10 text-success"
+          ? "badge-pop border-success/50 bg-success/10 text-success"
           : "border-edge bg-[var(--input-bg)] hover:border-champagne/40 hover:text-champagne"
       }`}
     >
-      {copied ? t.success.copied : `📋 ${t.success.copy}`}
+      {copied ? `✓ ${t.success.copied}` : `📋 ${t.success.copy}`}
     </button>
   );
 }

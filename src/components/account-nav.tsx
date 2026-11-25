@@ -20,7 +20,7 @@ const items = {
 
 export function AccountNav({ locale, active }: { locale: Locale; active: string }) {
   return (
-    <nav aria-label={locale === "ar" ? "أقسام حسابك" : "Account sections"} className="mb-7 grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <nav aria-label={locale === "ar" ? "أقسام حسابك" : "Account sections"} className="mb-7 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
       {items[locale].map((item) => (
         <Link key={item.href} href={item.href} aria-current={active === item.href ? "page" : undefined}
           className={`flex min-h-12 items-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold transition-all duration-200 active:scale-[0.99] ${
