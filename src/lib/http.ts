@@ -1,5 +1,8 @@
 import "server-only";
 import { NextResponse } from "next/server";
+import { safeErrorForLog } from "@/lib/log-safety";
+
+export { safeErrorForLog, type LogSafeError } from "@/lib/log-safety";
 
 /**
  * Uniform, information-safe API responses.
@@ -33,7 +36,8 @@ export function jsonError(
 }
 
 export function handleUnexpected(context: string, err: unknown) {
-  // Full detail stays on the server.
-  console.error(`[api:${context}]`, err);
+  // Only a name/code fingerprint stays on the server; never messages, SQL or
+  // bound parameters (they can contain account data).
+  console.error(`[api:${context}]`, safeErrorForLog(err));
   return jsonError("Something went wrong. Please try again.", 500);
 }

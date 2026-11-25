@@ -2,7 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { db, authRateLimits } from "@/lib/db";
-import { trustedClientIp } from "@/lib/security/client-ip";
+import { clientKeyFrom } from "@/lib/security/client-ip";
 
 /**
  * Rate limiting for cart/checkout (S-02/S-12).
@@ -96,13 +96,5 @@ export async function enforceRateLimit(
  * rate-limit key only, never an identity/authentication signal.
  */
 export function clientKey(req: Request): string {
-  const ip = trustedClientIp(req, process.env.TRUST_PROXY_IP_HEADERS === "true");
-  if (ip) return `ip:${ip}`;
-  const fingerprintSource = [
-    req.headers.get("user-agent") ?? "",
-    req.headers.get("accept-language") ?? "",
-    req.headers.get("sec-ch-ua") ?? "",
-  ].join("\0");
-  const digest = createHash("sha256").update(fingerprintSource).digest("hex").slice(0, 32);
-  return `fp:${digest}`;
+  return clientKeyFrom(req, process.env.TRUST_PROXY_IP_HEADERS === "true");
 }

@@ -123,7 +123,15 @@ export async function recordDemoOrder<TQueryResult extends PgQueryResultHKT>(
       const [promo] = await tx.select().from(promoCodes).where(eq(promoCodes.code, code)).for("update").limit(1);
       const now = new Date();
       if (!promo || !promo.isActive || promo.startsAt > now || (promo.expiresAt && promo.expiresAt <= now)) return { status: "invalid-promo" };
-      const redeemerKey = input.userId ? `user:${input.userId}` : createHash("sha256").update(`guest-cart:${input.cartId}`).digest("hex");
+      // Per-redeemer key. Signed-in buyers are keyed by account id; guests are
+      // keyed by their normalized order email, NOT by the cart id — a cart is
+      // discarded simply by clearing a cookie, so a cart-scoped key let one
+      // guest reset `perUserLimit` indefinitely. A bare sha256 hex digest is
+      // 64 chars (exactly the column width) and cannot collide with the
+      // prefixed `user:<uuid>` form.
+      const redeemerKey = input.userId
+        ? `user:${input.userId}`
+        : createHash("sha256").update(`guest-email:${input.shipping.email.trim().toLowerCase()}`).digest("hex");
       promoRedeemerKey = redeemerKey;
       const [{ globalCount }] = await tx.select({ globalCount: sql<number>`count(*)::int` }).from(promoRedemptions).where(eq(promoRedemptions.promoCodeId, promo.id));
       const [{ userCount }] = await tx.select({ userCount: sql<number>`count(*)::int` }).from(promoRedemptions).where(sql`${promoRedemptions.promoCodeId} = ${promo.id} AND ${promoRedemptions.redeemerKey} = ${redeemerKey}`);

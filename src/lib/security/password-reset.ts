@@ -20,6 +20,31 @@ export async function issuePasswordReset(userId: string, email: string, displayN
   await sendPasswordResetEmail({ to: email, displayName, token, locale });
 }
 
+/**
+ * Cheap "is this token worth hashing a password for?" probe.
+ *
+ * Password hashing (scrypt, N=16384/r=8 → ~16 MiB and tens of milliseconds of
+ * CPU per call) must never be spent on a token that cannot exist. Without this
+ * pre-check an unauthenticated flood of random tokens forced one scrypt run per
+ * request, which is an amplification/availability primitive. A real token has
+ * at most one live row per user, so a valid request pays the cost exactly once.
+ */
+export async function isConsumablePasswordReset(token: string): Promise<boolean> {
+  if (!/^[A-Za-z0-9_-]{43}$/.test(token)) return false;
+  const [row] = await db
+    .select({ id: passwordResetTokens.id })
+    .from(passwordResetTokens)
+    .where(
+      and(
+        eq(passwordResetTokens.tokenHash, hashResetToken(token)),
+        isNull(passwordResetTokens.consumedAt),
+        gt(passwordResetTokens.expiresAt, new Date()),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
+}
+
 export async function consumePasswordReset(token: string, nextPasswordHash: string): Promise<string | null> {
   const tokenHash = hashResetToken(token);
   const now = new Date();

@@ -34,7 +34,7 @@ A bilingual (EN/AR) digital-goods storefront built with **Next.js 16 (App Router
 - Atomic cart upserts prevent lost increments and clamp to stock/per-line limits. Demo checkout does not consume inventory or claim payment.
 - Public receipts expose only an unguessable order reference, not customer data, totals, line items or delivery codes.
 - Security headers include `nosniff`, a restrictive `Permissions-Policy`, `Referrer-Policy` and a documented CSP. The current CSP still permits Next.js inline/eval scripts; it is not a nonce-based policy.
-- The small in-memory cart/checkout limiter is best effort for one process. Multi-instance deployments need a shared atomic limiter; authentication also has persistent database buckets.
+- Cart/checkout and every authentication route use atomic PostgreSQL counters that are shared across instances, with an in-memory fallback only for a database blip. Authentication buckets are always applied, even when `TRUST_PROXY_IP_HEADERS` is not configured: per-account buckets always apply, and routes without an email fall back to a coarse per-client header fingerprint at a raised limit (email flows deliberately get no fingerprint bucket, so a guessable fingerprint cannot lock an account out). Configure trusted proxy headers to get real per-IP limits.
 
 Money is stored as **integer cents** end-to-end — never floating-point currency math.
 
