@@ -110,7 +110,8 @@ Local repository checks only. No production database, payment provider, SMTP, or
 | Typecheck | `npm run typecheck` | Exit 0 |
 | Lint | `npm run lint` | Exit 0, no warnings |
 | Full test suite | `npm test` | **124 passed, 0 failed, 6 skipped** (130 total). Six skips are real-PostgreSQL tests; PGlite migration, duplicate-checkout concurrency, owner-only reveal, and encrypted storage/reveal round-trip tests passed. |
-| Production build | `npm run build` | Exit 0; includes `/api/account/orders/[orderId]/reveal` and `/account/orders`. |
+| Production build | `npm run build` | Exit 0 on Next.js 16.4.6; includes `/api/account/orders/[orderId]/reveal` and `/account/orders`. |
+| Production dependency audit | `npm audit --omit=dev` | Exit 0; **0 production vulnerabilities** after the Next.js patch update. |
 | Security header scan | `node scripts/scan-headers.mjs http://localhost:3000` | **ALL HEADER CHECKS PASSED** on the local dev server for `/`, `/login`, `/account`, and `/products`. |
 | Whitespace check | `git diff --check` | Exit 0 |
 
