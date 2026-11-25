@@ -37,12 +37,24 @@ async function loginError(request: NextRequest, error: string) {
   if (!origin) {
     return NextResponse.json(
       { ok: false, error: "AUTH_NOT_CONFIGURED" },
-      { status: 503, headers: { "Cache-Control": "no-store" } },
+      {
+        status: 503,
+        headers: {
+          "Cache-Control": "private, no-store, no-cache, must-revalidate",
+          Vary: "Cookie",
+        },
+      },
     );
   }
   const url = new URL("/login", origin);
   url.searchParams.set("authError", error);
-  return NextResponse.redirect(url, { status: 303 });
+  return NextResponse.redirect(url, {
+    status: 303,
+    headers: {
+      "Cache-Control": "private, no-store, no-cache, must-revalidate",
+      Vary: "Cookie",
+    },
+  });
 }
 
 async function consumeState(state: string) {
@@ -218,7 +230,13 @@ export async function GET(request: NextRequest) {
     const userId = await findOrCreateGoogleUser(identity);
     await createAccountSession(userId);
     const returnTo = safeReturnPath(state.returnTo);
-    return NextResponse.redirect(new URL(returnTo, origin), { status: 303 });
+    return NextResponse.redirect(new URL(returnTo, origin), {
+      status: 303,
+      headers: {
+        "Cache-Control": "private, no-store, no-cache, must-revalidate",
+        Vary: "Cookie",
+      },
+    });
   } catch (error) {
     console.error(
       "[auth:google:callback] sign-in could not be completed",

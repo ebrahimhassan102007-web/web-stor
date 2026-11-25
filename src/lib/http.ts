@@ -10,7 +10,8 @@ import { NextResponse } from "next/server";
 
 export function jsonOk<T>(data: T, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
-  headers.set("Cache-Control", "no-store");
+  headers.set("Cache-Control", "private, no-store, no-cache, must-revalidate");
+  headers.append("Vary", "Cookie");
   return NextResponse.json({ ok: true as const, data }, { ...init, headers });
 }
 
@@ -21,7 +22,13 @@ export function jsonError(
 ) {
   return NextResponse.json(
     { ok: false as const, error: message, ...(details ? { details } : {}) },
-    { status, headers: { "Cache-Control": "no-store" } },
+    {
+      status,
+      headers: {
+        "Cache-Control": "private, no-store, no-cache, must-revalidate",
+        Vary: "Cookie",
+      },
+    },
   );
 }
 

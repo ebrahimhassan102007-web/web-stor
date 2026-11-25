@@ -66,3 +66,20 @@ Invalid environment configuration:
 - Google OAuth / SMTP end-to-end: NOT RUN (no real credentials; never faked).
 - Lighthouse/Core Web Vitals, screen-reader passes, 200%-zoom checks:
   NOT RUN (no browser). See route-matrix status in MASTER tracker.
+
+## Follow-up verification — 2026-11-25 (`arena/bed7992c-web-stor`)
+
+Local repository checks only. No production services were contacted.
+
+| Check | Command | Result |
+|---|---|---|
+| Install | `npm ci --ignore-scripts` | Exit 0; 408 packages installed. npm reports 12 moderate advisories; none high/critical. |
+| Unit/integration suite | `npm test` | **111 pass, 0 fail, 6 skipped**. Skipped tests require `TEST_DATABASE_URL`. Includes new JSON nesting/prototype-key and Unicode normalization tests. |
+| Typecheck | `npm run typecheck` | Exit 0 |
+| Lint | `npm run lint` | Exit 0 |
+| Production build | `npm run build` | Exit 0 on Next.js 16.4.2; route table includes `ƒ Proxy (Middleware)`. |
+| High-severity dependency gate | `npm audit --audit-level=high` | Exit 0. **12 moderate advisories remain** (Next.js, minimatch, esbuild chain); this is not a zero-advisory audit. |
+| Header scan | `node scripts/scan-headers.mjs http://localhost:3000` | ALL HEADER CHECKS PASSED on the local dev server. |
+| API cache probe | `GET /api/auth/session` local | 200; `Cache-Control: private, no-store, no-cache, must-revalidate`; `Vary` includes `Cookie`. |
+| Playwright | `npm run test:e2e` | Attempted; blocked before browser launch because the standalone production web server failed its fail-closed startup checks (no `SESSION_SECRET`, `AUTH_SECRET`, or `DATABASE_URL`). Command timed out while Playwright retried; browser suite result is NOT RUN. |
+| Real PostgreSQL / auth E2E / OAuth | — | NOT RUN; no PostgreSQL credentials, SMTP, or Google credentials supplied. |

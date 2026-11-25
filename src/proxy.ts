@@ -38,14 +38,13 @@ export function proxy(request: NextRequest) {
 
   // Personal/authenticated pages must never be stored by any cache (S-06).
   const path = request.nextUrl.pathname;
-  if (
-    path.startsWith("/account") ||
-    path.startsWith("/admin") ||
-    path.startsWith("/login") ||
-    path.startsWith("/checkout") ||
-    path.startsWith("/cart")
-  ) {
-    response.headers.set("Cache-Control", "no-store");
+  const privatePrefixes = ["/account", "/admin", "/login", "/checkout", "/cart"];
+  if (privatePrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
+    response.headers.set(
+      "Cache-Control",
+      "private, no-store, no-cache, must-revalidate",
+    );
+    response.headers.set("Vary", "Cookie");
   }
   return response;
 }

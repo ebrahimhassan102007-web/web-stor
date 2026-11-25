@@ -1,21 +1,18 @@
 import { z } from "zod";
-import { normalizeVerificationDigits } from "@/lib/security/digits";
+import { normalizeSecurityInput, normalizeVerificationDigits } from "@/lib/security/digits";
 import { isAcceptablePassword } from "@/lib/security/password-policy";
 
 const cleanText = (min: number, max: number) =>
-  z
-    .string()
-    .trim()
-    .min(min)
-    .max(max)
-    .regex(/^[^\u0000-\u001f\u007f]*$/, "Invalid characters");
+  z.string().transform(normalizeSecurityInput).pipe(
+    z.string()
+      .min(min)
+      .max(max)
+      .regex(/^[^\u0000-\u001f\u007f]*$/, "Invalid characters"),
+  );
 
-export const authEmailSchema = z
-  .string()
-  .trim()
-  .toLowerCase()
-  .email()
-  .max(254);
+export const authEmailSchema = z.string().transform(normalizeSecurityInput).pipe(
+  z.string().toLowerCase().email().max(254),
+);
 
 const passwordSchema = z
   .string()
@@ -40,6 +37,7 @@ export const emailVerificationSchema = z.object({
   email: authEmailSchema,
   code: z
     .string()
+    .transform(normalizeSecurityInput)
     .transform(normalizeVerificationDigits)
     .pipe(z.string().regex(/^\d{6}$/)),
 });
