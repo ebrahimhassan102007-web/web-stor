@@ -126,8 +126,9 @@ test(
         "0004_marketplace_identity",
         "0005_password_reset_tokens",
         "0006_totp_two_factor",
-      "0007_encrypted_fulfillment_vault",
-      "0008_wallet_ledger_and_promos",
+        "0007_encrypted_fulfillment_vault",
+        "0008_wallet_ledger_and_promos",
+        "0009_security_threat_shield",
       ]);
 
       const upgradedClient = new Client({ connectionString: legacyUrl });

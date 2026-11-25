@@ -93,6 +93,8 @@ test("the clean PostgreSQL schema includes storefront and authentication tables"
       "promo_codes",
       "promo_redemptions",
       "security_audit_log",
+      "security_bans",
+      "security_threat_events",
       "seller_application_events",
       "seller_profiles",
       "totp_recovery_codes",
