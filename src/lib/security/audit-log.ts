@@ -25,7 +25,10 @@ export type SecurityEvent =
   | "totp_disabled"
   | "totp_recovery_regenerated"
   | "two_factor_login"
-  | "fulfillment_code_revealed";
+  | "fulfillment_code_revealed"
+  | "wallet_topup_accepted"
+  | "wallet_topup_rejected"
+  | "wallet_checkout_paid";
 
 export async function recordSecurityEvent(
   event: SecurityEvent,

@@ -38,12 +38,16 @@ test("a clean embedded PostgreSQL database applies all migrations and additive s
         "password_reset_tokens",
         "pending_two_factor_challenges",
         "products",
+        "promo_codes",
+        "promo_redemptions",
         "security_audit_log",
         "seller_application_events",
         "seller_profiles",
         "totp_recovery_codes",
         "user_totp",
         "users",
+        "wallet_accounts",
+        "wallet_ledger",
       ],
     );
 
@@ -72,4 +76,30 @@ test("a clean embedded PostgreSQL database applies all migrations and additive s
   } finally {
     await client.close();
   }
+});
+
+test("wallet ledger credits are idempotent, balances never go negative, and entries are immutable", async () => {
+  const client = new PGlite();
+  try {
+    await migrate(drizzlePglite(client, { schema }), { migrationsFolder: path.join(process.cwd(), "drizzle") });
+    const inserted = await client.query<{ id: string }>("INSERT INTO users (email, display_name) VALUES ('wallet-test@example.test', 'Wallet test') RETURNING id");
+    const userId = inserted.rows[0]!.id;
+    await client.query("INSERT INTO wallet_accounts (user_id, balance_cents) VALUES ($1, 0)", [userId]);
+    const creditOnce = async () => client.query(
+      `WITH entry AS (
+         INSERT INTO wallet_ledger (user_id, entry_type, direction, amount_cents, currency, idempotency_key, description)
+         VALUES ($1, 'credit_topup', 'credit', 500, 'USD', 'topup:event-one', 'Test credit')
+         ON CONFLICT (idempotency_key) DO NOTHING RETURNING amount_cents
+       )
+       UPDATE wallet_accounts SET balance_cents = balance_cents + entry.amount_cents
+       FROM entry WHERE wallet_accounts.user_id = $1 RETURNING wallet_accounts.balance_cents`, [userId]);
+    assert.equal(((await creditOnce()).rows[0] as { balance_cents: number } | undefined)?.balance_cents, 500);
+    assert.deepEqual((await creditOnce()).rows, [], "duplicate event must not apply a second credit");
+    const insufficient = await client.query("UPDATE wallet_accounts SET balance_cents = balance_cents - 501 WHERE user_id = $1 AND balance_cents >= 501 RETURNING balance_cents", [userId]);
+    assert.deepEqual(insufficient.rows, [], "insufficient debit leaves wallet unchanged");
+    await assert.rejects(client.query("UPDATE wallet_ledger SET description = 'tampered' WHERE idempotency_key = 'topup:event-one'"), /immutable/);
+    await assert.rejects(client.query("UPDATE wallet_accounts SET balance_cents = -1 WHERE user_id = $1", [userId]), /wallet_accounts_balance_cents_check/);
+    const balance = await client.query<{ balance_cents: number }>("SELECT balance_cents FROM wallet_accounts WHERE user_id = $1", [userId]);
+    assert.equal(balance.rows[0]?.balance_cents, 500);
+  } finally { await client.close(); }
 });

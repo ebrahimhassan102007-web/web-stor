@@ -116,3 +116,20 @@ Local repository checks only. No production database, payment provider, SMTP, or
 | Whitespace check | `git diff --check` | Exit 0 |
 
 Focused tests also cover target normalization/rejection, AES-256-GCM tamper detection, integer-cent bounds, account-scoped idempotency digest behavior, direct production demo-order refusal, and the documented zero-balance demo wallet. The demo wallet has no ledger or spendable balance; preview checkout remains explicitly unpaid and does not pretend to perform an insufficient-funds debit. GitHub Actions run `45592512039` passed both PostgreSQL integration and the Playwright header suite (**13 passed**). Local browser execution and production payment/fulfillment remain NOT RUN; successful CI does not imply production service validation.
+
+## Wave 3B verification — 2026-11-25 (`arena/4ece4182-web-stor`)
+
+Local repository checks only. No production database, payment provider, real top-up, or real fulfillment operation was used.
+
+| Check | Command | Result |
+|---|---|---|
+| Install | `npm ci --ignore-scripts` | Exit 0; 408 packages installed. npm reported 11 moderate advisories. |
+| Typecheck | `npm run typecheck` | Exit 0. Rechecked after the last wallet cart cleanup. |
+| Lint | `npm run lint` | Exit 0. Rechecked after the last wallet cart cleanup. |
+| Full test suite | `npm test` | **129 passed, 0 failed, 6 skipped** (135 total). Six PostgreSQL tests require a disposable `TEST_DATABASE_URL`; PGlite migration/ledger invariant tests passed. |
+| Production build | `npm run build` | Exit 0; generated wallet, promo-validation, and wallet-webhook routes. |
+| Header scan | `node scripts/scan-headers.mjs http://localhost:3000` | **ALL HEADER CHECKS PASSED** for `/`, `/login`, `/account`, and `/products`; private account cache policy checked. |
+| Whitespace check | `git diff --check` | Exit 0 after final code edits. |
+| Focused follow-up | typecheck + lint + `tests/wave3a.test.ts`, `tests/schema-migration.test.ts`, `tests/wallet-promo.test.ts` | **14 passed, 0 failed** after the last wallet cart cleanup. |
+
+Coverage includes duplicate checkout idempotency (existing demo integration test), PGlite ledger idempotency/nonnegative balance/immutability, promo arithmetic and redemption limit rules, wallet insufficient-balance rules, and webhook signature/replay-window behavior. Six real-PostgreSQL cases were skipped because no disposable test database was configured. Real webhook sender integration, production secret management/rotation, and real-money payment settlement remain NOT RUN.

@@ -88,3 +88,13 @@ BLOCKED for missing spec) is superseded; see git history.
 - **Implemented:** additive `0007_encrypted_fulfillment_vault` schema and AES-256-GCM inventory envelope; product-specific targets are normalized at cart input and revalidated/snapshotted at checkout. Account order history does not select plaintext delivery codes; reveal is authenticated, owner-scoped, CSRF/rate limited, one-time, no-store, audited, and presented through bilingual reveal/copy UI.
 - **Verification:** local typecheck, lint, full test suite, production build, header scan and `git diff --check` passed; see Wave 3A in `docs/VERIFICATION-LOG.md`. Six PostgreSQL-only tests skipped locally because `TEST_DATABASE_URL` was not provided; the pushed GitHub Actions quality run passed its PostgreSQL integration step and all 13 Playwright header tests. Production payment and fulfillment checks remain environment-dependent and are not represented as completed.
 - **Detailed control record:** `docs/security/S-23.md`.
+
+## Wave 3B — wallet ledger, signed top-ups, wallet checkout, and promos (2026-11-25)
+
+**Branch:** `arena/4ece4182-web-stor` · no production database, payment provider, or real funds used.
+
+- Added additive migration `0008_wallet_ledger_and_promos` and aligned Drizzle schema, runtime migration requirements, and PGlite migration history. Wallet ledger rows are positive integer-cent entries with one-way database immutability guard and unique idempotency keys.
+- Added signed top-up webhook with dedicated production secret, bounded raw-body HMAC-SHA256 verification, timing-safe comparison, five-minute replay window, atomic event idempotency, and machine audit events.
+- Added real authenticated wallet balance and paginated ledger history; wallet checkout now uses wallet row serialization, sufficient-funds guard, paid-order/fulfillment allocation, stock decrement and a debit ledger entry inside one transaction. Demo checkout remains non-production and unpaid.
+- Added normalized promo validation, integer-cent discounts, CSRF/rate limits, checkout-time locked revalidation and atomic redemption; active public codes appear on Offers. The checkout retains existing form selectors and adds bilingual promo/payment controls.
+- **Verification:** see Wave 3B entry in `docs/VERIFICATION-LOG.md`; do not interpret local PGlite tests as production payment/provider validation.

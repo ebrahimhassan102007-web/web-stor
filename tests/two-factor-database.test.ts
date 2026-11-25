@@ -87,6 +87,9 @@ test("email and Google login gate session creation on pending two-factor challen
   });
   for (const file of collectRoutes(apiRoot)) {
     const source = readFileSync(file, "utf8");
-    if (/export async function (POST|PUT|PATCH|DELETE)\(/.test(source)) assert.match(source, /verifySameOrigin\(request|verifySameOrigin\(req/ , `${file} mutation missing origin+csrf enforcement`);
+    if (/export async function (POST|PUT|PATCH|DELETE)\(/.test(source)) {
+      if (file.includes(`${path.sep}webhooks${path.sep}`)) assert.match(source, /verifyWalletWebhookSignature/, `${file} webhook missing signed-request verification`);
+      else assert.match(source, /verifySameOrigin\(request|verifySameOrigin\(req/ , `${file} mutation missing origin+csrf enforcement`);
+    }
   }
 });

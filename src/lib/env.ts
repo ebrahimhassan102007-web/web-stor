@@ -19,6 +19,8 @@ export function validateEnv(env: EnvLike = process.env): string[] {
   };
   secret("SESSION_SECRET", 32);
   secret("AUTH_SECRET", 32);
+  const walletWebhookSecret = env.WALLET_TOPUP_WEBHOOK_SECRET?.trim() ?? "";
+  if (isProd && walletWebhookSecret.length < 32) errors.push("WALLET_TOPUP_WEBHOOK_SECRET must be set to at least 32 characters in production");
   const totpKey = env.TOTP_ENCRYPTION_KEY?.trim() ?? "";
   const totpKeyId = env.TOTP_ENCRYPTION_KEY_ID?.trim() ?? "";
   if (isProd && (!totpKey || !totpKeyId)) errors.push("TOTP_ENCRYPTION_KEY and TOTP_ENCRYPTION_KEY_ID are required in production");

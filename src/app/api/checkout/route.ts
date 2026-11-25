@@ -11,21 +11,19 @@ import { getCurrentAccountUser } from "@/lib/security/account-session";
 import { checkoutSchema } from "@/lib/validation";
 import { getAuthSecret } from "@/lib/security/auth-core";
 import { isClientIdempotencyKey, scopedCheckoutIdempotencyDigest } from "@/lib/marketplace/idempotency";
+import { recordSecurityEvent } from "@/lib/security/audit-log";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Production has no verified payment provider, so it fails closed before
- * reading the request or touching the cart/database. Development records an
- * unpaid demo order without delivering fake codes, decrementing stock, or
- * deleting the cart.
+ * Unpaid demo orders fail closed in production. Authenticated wallet-funded
+ * orders are a separate path that atomically checks funds, allocates encrypted
+ * fulfillment inventory, and records a ledger debit.
  */
 export async function POST(req: NextRequest) {
   try {
-    if (resolveCheckoutMode() === "disabled") {
-      return jsonError(CHECKOUT_DISABLED_ERROR, CHECKOUT_DISABLED_STATUS);
-    }
-
+    const walletIntent = new URL(req.url).searchParams.get("payment") === "wallet";
+    if (resolveCheckoutMode() === "disabled" && !walletIntent) return jsonError(CHECKOUT_DISABLED_ERROR, CHECKOUT_DISABLED_STATUS);
     if (!verifySameOrigin(req)) return jsonError("REQUEST_REJECTED", 403);
     if (!(await enforceRateLimit("checkout", [clientKey(req)], 10, 60_000))) {
       return jsonError("RATE_LIMITED", 429);
@@ -36,6 +34,10 @@ export async function POST(req: NextRequest) {
     const raw: unknown = body.value;
 
     const parsed = checkoutSchema.safeParse(raw);
+    const promoCode = raw && typeof raw === "object" && "promoCode" in raw && typeof (raw as { promoCode?: unknown }).promoCode === "string"
+      ? (raw as { promoCode: string }).promoCode.slice(0, 64)
+      : undefined;
+    const paymentMethod = raw && typeof raw === "object" && (raw as { paymentMethod?: unknown }).paymentMethod === "wallet" ? "wallet" : "demo";
     if (!parsed.success) {
       return jsonError(
         "INVALID_INPUT",
@@ -56,6 +58,8 @@ export async function POST(req: NextRequest) {
     // S-08: ownership comes from the signed-in session, never from the
     // email typed into the form. Guest keys are scoped to their verified cart.
     const accountUser = await getCurrentAccountUser().catch(() => null);
+    if (resolveCheckoutMode() === "disabled" && paymentMethod !== "wallet") return jsonError(CHECKOUT_DISABLED_ERROR, CHECKOUT_DISABLED_STATUS);
+    if (paymentMethod === "wallet" && !accountUser) return jsonError("AUTH_REQUIRED", 401);
     const idempotencyKey = scopedCheckoutIdempotencyDigest(
       accountUser?.id ?? `guest-cart:${cartId}`,
       clientIdempotencyKey,
@@ -65,6 +69,8 @@ export async function POST(req: NextRequest) {
       cartId,
       userId: accountUser?.id ?? null,
       idempotencyKey,
+      promoCode,
+      paymentMethod,
       shipping: parsed.data,
     });
     if (result.status === "empty") return jsonError("CART_EMPTY", 400);
@@ -74,6 +80,9 @@ export async function POST(req: NextRequest) {
       });
     }
     if (result.status === "invalid-target") return jsonError("INVALID_FULFILLMENT_TARGET", 400);
+    if (result.status === "invalid-promo") return jsonError("PROMO_UNAVAILABLE", 400);
+    if (result.status === "insufficient-funds") return jsonError("INSUFFICIENT_WALLET_FUNDS", 409);
+    if (paymentMethod === "wallet" && accountUser && result.status === "recorded") await recordSecurityEvent("wallet_checkout_paid", accountUser.id, "wallet_order_paid");
 
     return jsonOk(
       { orderNumber: result.orderNumber, totalCents: result.totalCents, replayed: result.status === "replayed" },

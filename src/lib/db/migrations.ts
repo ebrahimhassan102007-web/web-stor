@@ -395,6 +395,18 @@ const FULFILLMENT_VAULT_REQUIREMENT: Requirement = {
   ],
 };
 
+const WALLET_PROMO_REQUIREMENT: Requirement = {
+  tables: ["wallet_accounts", "wallet_ledger", "promo_codes", "promo_redemptions"],
+  columns: {
+    wallet_accounts: { user_id: "uuid", balance_cents: "integer", currency: "character varying", created_at: "timestamp with time zone", updated_at: "timestamp with time zone" },
+    wallet_ledger: { id: "integer", user_id: "uuid", entry_type: "character varying", direction: "character varying", amount_cents: "integer", currency: "character varying", order_id: "uuid", idempotency_key: "character varying", description: "character varying", created_at: "timestamp with time zone" },
+    promo_codes: { id: "integer", code: "character varying", discount_type: "character varying", discount_value: "integer", min_subtotal_cents: "integer", max_discount_cents: "integer", starts_at: "timestamp with time zone", expires_at: "timestamp with time zone", max_redemptions: "integer", per_user_limit: "integer", is_active: "boolean", is_public: "boolean" },
+    promo_redemptions: { id: "integer", promo_code_id: "integer", user_id: "uuid", redeemer_key: "character varying", order_id: "uuid", discount_cents: "integer", created_at: "timestamp with time zone" },
+    orders: { promo_code_id: "integer", discount_cents: "integer" },
+  },
+  indexes: ["wallet_ledger_idempotency_idx", "wallet_ledger_user_created_idx", "wallet_ledger_order_idx", "promo_codes_code_idx", "promo_redemptions_order_idx", "promo_redemptions_user_idx", "promo_redemptions_key_idx", "promo_codes_public_active_idx", "orders_promo_code_idx"],
+};
+
 const REQUIREMENTS: Readonly<Record<string, Requirement>> = {
   "0000_init": BASELINE_REQUIREMENT,
   "0001_evora-digital": DIGITAL_REQUIREMENT,
@@ -403,6 +415,7 @@ const REQUIREMENTS: Readonly<Record<string, Requirement>> = {
   "0005_password_reset_tokens": PASSWORD_RESET_REQUIREMENT,
   "0006_totp_two_factor": TWO_FACTOR_REQUIREMENT,
   "0007_encrypted_fulfillment_vault": FULFILLMENT_VAULT_REQUIREMENT,
+  "0008_wallet_ledger_and_promos": WALLET_PROMO_REQUIREMENT,
 };
 
 async function rows<T extends Record<string, unknown>>(

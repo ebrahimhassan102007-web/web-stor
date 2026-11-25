@@ -40,6 +40,11 @@ export default function CheckoutPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [promoInput, setPromoInput] = useState("");
+  const [promoCode, setPromoCode] = useState("");
+  const [promoDiscountCents, setPromoDiscountCents] = useState(0);
+  const [promoMessage, setPromoMessage] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"demo" | "wallet">("demo");
   const checkoutKey = useRef<string | null>(null);
 
   const load = useCallback(async () => {
@@ -57,6 +62,19 @@ export default function CheckoutPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+
+  async function applyPromo() {
+    if (!cart || !promoInput.trim()) return;
+    setPromoMessage("");
+    try {
+      const response = await csrfFetch("/api/promo/validate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: promoInput, subtotalCents: cart.subtotalCents }) });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.ok) { setPromoCode(""); setPromoDiscountCents(0); setPromoMessage(locale === "ar" ? "كود الخصم غير متاح أو غير مستوفٍ للشروط." : "This promo code is unavailable or its conditions are not met."); return; }
+      setPromoCode(result.data.code);
+      setPromoDiscountCents(result.data.discountCents);
+      setPromoMessage(locale === "ar" ? "تم تطبيق كود الخصم." : "Promo code applied.");
+    } catch { setPromoMessage(locale === "ar" ? "تعذر التحقق من الكود." : "Could not validate the code."); }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -79,10 +97,11 @@ export default function CheckoutPage() {
     setSubmitting(true);
     checkoutKey.current ??= window.crypto.randomUUID();
     try {
-      const res = await csrfFetch("/api/checkout", {
+      const checkoutUrl = paymentMethod === "wallet" ? "/api/checkout?payment=wallet" : "/api/checkout";
+      const res = await csrfFetch(checkoutUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Idempotency-Key": checkoutKey.current },
-        body: JSON.stringify(parsed.data),
+        body: JSON.stringify({ ...parsed.data, paymentMethod, ...(promoCode ? { promoCode } : {}) }),
       });
       const body = await res.json().catch(() => null);
       if (res.ok && body?.ok) {
@@ -101,6 +120,10 @@ export default function CheckoutPage() {
       } else if (body?.error === "INSUFFICIENT_STOCK") {
         const name = body?.details?.productName?.[0] ?? "";
         setFormError(fill(t.checkout.errStock, { name }));
+      } else if (body?.error === "INSUFFICIENT_WALLET_FUNDS") {
+        setFormError(locale === "ar" ? "رصيد المحفظة غير كافٍ لإتمام الطلب." : "Your wallet balance is insufficient for this order.");
+      } else if (body?.error === "PROMO_UNAVAILABLE") {
+        setFormError(locale === "ar" ? "تعذر تطبيق كود الخصم عند إتمام الطلب." : "The promo code could not be applied at checkout.");
       } else if (body?.error === "CART_EMPTY") {
         setFormError(t.checkout.nothingText);
       } else {
@@ -195,6 +218,18 @@ export default function CheckoutPage() {
             </p>
           )}
 
+          <div className="mt-5 rounded-xl border border-edge p-4">
+            <label htmlFor="promo-code" className="mb-2 block text-sm font-semibold">{locale === "ar" ? "كود الخصم" : "Promo code"}</label>
+            <div className="flex gap-2"><input id="promo-code" className="input-dark min-w-0 flex-1" maxLength={64} value={promoInput} onChange={(event) => setPromoInput(event.target.value)} /><button type="button" onClick={() => void applyPromo()} className="btn-secondary px-4">{locale === "ar" ? "تطبيق" : "Apply"}</button></div>
+            {promoMessage && <p role="status" className="mt-2 text-sm text-muted">{promoMessage}</p>}
+          </div>
+          <fieldset className="mt-5 rounded-xl border border-edge p-4">
+            <legend className="px-1 text-sm font-semibold">{locale === "ar" ? "طريقة الدفع" : "Payment method"}</legend>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-edge p-3 text-sm"><input type="radio" name="paymentMethod" checked={paymentMethod === "demo"} onChange={() => setPaymentMethod("demo")} />{locale === "ar" ? "معاينة تجريبية" : "Demo preview"}</label>
+              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-edge p-3 text-sm"><input type="radio" name="paymentMethod" checked={paymentMethod === "wallet"} onChange={() => setPaymentMethod("wallet")} />{locale === "ar" ? "رصيد المحفظة" : "Wallet balance"}</label>
+            </div>
+          </fieldset>
           <div className="mt-6 grid gap-5">
             {FIELDS.map((f) => (
               <div key={f.name}>
@@ -295,9 +330,10 @@ export default function CheckoutPage() {
               <dt className="text-muted">{t.cart.delivery}</dt>
               <dd className="text-success font-medium">{t.cart.instantFree}</dd>
             </div>
+            {promoDiscountCents > 0 && <div className="flex justify-between text-success"><dt>{locale === "ar" ? "خصم الكود" : "Promo discount"}</dt><dd className="tabular-nums">−{formatCents(promoDiscountCents, locale)}</dd></div>}
             <div className="flex justify-between border-t border-edge pt-3 text-base font-bold">
               <dt>{t.cart.total}</dt>
-              <dd className="tabular-nums">{formatCents(cart.totalCents, locale)}</dd>
+              <dd className="tabular-nums">{formatCents(Math.max(0, cart.totalCents - promoDiscountCents), locale)}</dd>
             </div>
           </dl>
         </aside>

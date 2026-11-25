@@ -2,7 +2,8 @@ import "server-only";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { db, fulfillmentVault, orderItems, orders } from "@/lib/db";
 import type * as schema from "@/lib/db/schema";
-import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
+import type { ExtractTablesWithRelations } from "drizzle-orm";
+import type { PgDatabase, PgQueryResultHKT, PgTransaction } from "drizzle-orm/pg-core";
 import { decryptAes256Gcm, encryptAes256Gcm, encryptionKeyFromEnv, type AuthenticatedEnvelope } from "@/lib/security/encryption";
 import { revealOrderCodesInTransaction as revealCodes } from "@/lib/security/fulfillment-reveal";
 
@@ -45,8 +46,8 @@ export async function addFulfillmentInventoryCode(
  * Product inventory rows are locked with SKIP LOCKED and assignment is a
  * conditional update, so concurrent fulfillers cannot allocate one code twice.
  */
-export async function allocateFulfillmentCodesInTransaction(
-  tx: Tx,
+export async function allocateFulfillmentCodesInTransaction<TQueryResult extends PgQueryResultHKT>(
+  tx: PgTransaction<TQueryResult, typeof schema, ExtractTablesWithRelations<typeof schema>>,
   orderItemId: number,
   quantity: number,
 ): Promise<void> {
