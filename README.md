@@ -66,7 +66,7 @@ The runtime has **no embedded database and no fallback**. A missing, malformed o
 
    `db:seed` refuses `NODE_ENV=production` and requires `ALLOW_REMOTE_SEED=YES` for a non-loopback target. It does not run migrations.
 
-4. Set independent secrets before deploying:
+4. Set independent secrets before deploying (the full list, by scope, and the Vercel runbook live in `docs/deployment/VERCEL.md`):
 
    - `SESSION_SECRET` — stable 32-byte+ cart-cookie HMAC key (`openssl rand -hex 32`). Required in production.
    - `AUTH_SECRET` — separate stable 32-byte+ key for OTP digests and auth rate-limit keys. Required in production; an ephemeral development key is used when omitted.
