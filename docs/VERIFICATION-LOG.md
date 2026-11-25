@@ -109,10 +109,10 @@ Local repository checks only. No production database, payment provider, SMTP, or
 |---|---|---|
 | Typecheck | `npm run typecheck` | Exit 0 |
 | Lint | `npm run lint` | Exit 0, no warnings |
-| Full test suite | `npm test` | **124 passed, 0 failed, 6 skipped** (130 total). Six skips are real-PostgreSQL tests; PGlite migration, duplicate-checkout concurrency, owner-only reveal, and encrypted storage/reveal round-trip tests passed. |
+| Full test suite | `npm test` | Local: **124 passed, 0 failed, 6 skipped** (130 total; six require `TEST_DATABASE_URL`). The pushed GitHub Actions quality run `45592512039` passed its PostgreSQL integration step and the complete workflow. |
 | Production build | `npm run build` | Exit 0 on Next.js 16.4.6; includes `/api/account/orders/[orderId]/reveal` and `/account/orders`. |
 | Production dependency audit | `npm audit --omit=dev` | Exit 0; **0 production vulnerabilities** after the Next.js patch update. |
 | Security header scan | `node scripts/scan-headers.mjs http://localhost:3000` | **ALL HEADER CHECKS PASSED** on the local dev server for `/`, `/login`, `/account`, and `/products`. |
 | Whitespace check | `git diff --check` | Exit 0 |
 
-Focused tests also cover target normalization/rejection, AES-256-GCM tamper detection, integer-cent bounds, account-scoped idempotency digest behavior, direct production demo-order refusal, and the documented zero-balance demo wallet. The demo wallet has no ledger or spendable balance; preview checkout remains explicitly unpaid and does not pretend to perform an insufficient-funds debit. Six actual PostgreSQL tests, browser flows, payment-provider integration, and production fulfillment remain NOT RUN; successful local tests are not evidence of real payment or production operation.
+Focused tests also cover target normalization/rejection, AES-256-GCM tamper detection, integer-cent bounds, account-scoped idempotency digest behavior, direct production demo-order refusal, and the documented zero-balance demo wallet. The demo wallet has no ledger or spendable balance; preview checkout remains explicitly unpaid and does not pretend to perform an insufficient-funds debit. GitHub Actions run `45592512039` passed both PostgreSQL integration and the Playwright header suite (**13 passed**). Local browser execution and production payment/fulfillment remain NOT RUN; successful CI does not imply production service validation.
