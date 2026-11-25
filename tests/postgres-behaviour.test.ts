@@ -55,7 +55,7 @@ const db: NodePgDatabase<typeof schema> | null = pool
 async function resetDatabase(): Promise<void> {
   assert.ok(pool);
   await pool.query(
-    "TRUNCATE TABLE order_items, orders, cart_items, carts, products, categories RESTART IDENTITY CASCADE",
+    "TRUNCATE TABLE fulfillment_vault, order_items, orders, cart_items, carts, products, categories RESTART IDENTITY CASCADE",
   );
 }
 
