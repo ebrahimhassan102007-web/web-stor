@@ -42,6 +42,8 @@ next-env.d.ts
 
 # Optional local PGlite files used only by isolated tests (never runtime)
 .pglite/
+# Local disposable PostgreSQL data dir (dev/preview only, never commit)
+.pgdata/
 .env
 !.env.example
 
